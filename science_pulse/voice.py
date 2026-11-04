@@ -469,6 +469,30 @@ def _cache_key(text: str, settings: Dict[str, Any]) -> str:
     return hashlib.sha1(payload.encode("utf-8")).hexdigest()[:16]
 
 
+def mix_voice_with_pad(
+    mp3_path: str | Path, pad_wav: str | Path, out_path: str | Path, volume: float = 0.12
+) -> bool:
+    """Двухслойное сведение: речь диктора + гармонический пад (ffmpeg).
+
+    ``[1:a]volume=0.12[p];[0:a][p]amix=inputs=2:duration=first:dropout_transition=2``
+    При любой ошибке возвращает False — вызывающий остаётся с чистым ``speech.mp3``.
+    """
+    if not _which("ffmpeg"):
+        return False
+    command = [
+        "ffmpeg", "-y", "-loglevel", "error",
+        "-i", str(mp3_path), "-i", str(pad_wav),
+        "-filter_complex",
+        f"[1:a]volume={volume}[p];[0:a][p]amix=inputs=2:duration=first:dropout_transition=2",
+        str(out_path),
+    ]
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=180, check=False)
+    except Exception:
+        return False
+    return result.returncode == 0 and Path(out_path).is_file()
+
+
 def synthesize(
     text: str,
     out_dir: str | Path,
@@ -476,6 +500,7 @@ def synthesize(
     config: Config,
     settings: Optional[Dict[str, Any]] = None,
     use_cache: bool = True,
+    post: Any = None,
 ) -> Optional[VoiceArtifact]:
     """Синтезирует речь и возвращает `VoiceArtifact` (или None при неудаче)."""
     settings = settings or voice_settings(config)
@@ -523,9 +548,50 @@ def synthesize(
         except OSError:
             pass
 
+    if not ok and post is not None:
+        # Эшелон 3: офлайн-сонификация (без TTS) → mp3/ogg.
+        fallback_wav = out_dir / f"{post_id}.sonify.wav"
+        try:
+            from .sound import synthesize_scientific_audio_wav
+
+            if synthesize_scientific_audio_wav(post, fallback_wav) and _which("ffmpeg"):
+                convert = subprocess.run(
+                    ["ffmpeg", "-y", "-loglevel", "error", "-i", str(fallback_wav),
+                     "-b:a", "96k", str(mp3_path)],
+                    capture_output=True, text=True, timeout=180, check=False,
+                )
+                ok = convert.returncode == 0 and mp3_path.is_file()
+                if ok:
+                    engine_used, voice_used = "sonification_fallback", "sonification"
+        except Exception as exc:
+            LOGGER.warning("Сонификация не удалась для %s: %s", post_id, exc)
+        finally:
+            try:
+                fallback_wav.unlink()
+            except OSError:
+                pass
+
     if not ok:
         LOGGER.warning("Озвучка не удалась для %s (движок %s)", post_id, engine)
         return None
+
+    # Двухслойное сведение: речь + гармонический пад (при ошибке — чистый mp3).
+    if post is not None and engine_used != "sonification_fallback":
+        pad_wav = out_dir / f"{post_id}.pad.wav"
+        mixed_mp3 = out_dir / f"{post_id}.mixed.mp3"
+        try:
+            from .sound import synthesize_scientific_audio_wav
+
+            if synthesize_scientific_audio_wav(post, pad_wav) and mix_voice_with_pad(mp3_path, pad_wav, mixed_mp3):
+                mp3_path.write_bytes(mixed_mp3.read_bytes())
+        except Exception as exc:
+            LOGGER.debug("Микс с падом пропущен для %s: %s", post_id, exc)
+        finally:
+            for temp in (pad_wav, mixed_mp3):
+                try:
+                    temp.unlink()
+                except OSError:
+                    pass
 
     _to_voice_ogg(mp3_path, ogg_path)
     key_path.write_text(key, encoding="utf-8")
@@ -667,4 +733,4 @@ def voice_for_post(post: Post, config: Config, out_dir: str | Path | None = None
     text = speech_text(post, settings["max_chars"])
     if len(text) < 40:
         return None
-    return synthesize(text, directory, post.id, config, settings)
+    return synthesize(text, directory, post.id, config, settings, post=post)

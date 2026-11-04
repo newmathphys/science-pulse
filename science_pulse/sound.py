@@ -125,3 +125,17 @@ def sonify(post: Any, out_wav: str | Path, seconds: float = DEFAULT_SECONDS) -> 
         "domain": domain,
         "notes_hz": _notes_from_post(post),
     }
+
+
+def synthesize_scientific_audio_wav(post: Any, out_wav: str | Path, seconds: float = DEFAULT_SECONDS) -> bool:
+    """Эшелон 3: офлайн-сонификация поста (без TTS). True, если WAV создан.
+
+    Используется как последний рубеж озвучки: когда `edge-tts` и `piper`
+    недоступны, пост всё равно получает звук — гармоническую сонификацию
+    формулы (`sonify`) на `wave + numpy`.
+    """
+    try:
+        result = sonify(post, out_wav, seconds=seconds)
+    except Exception:
+        return False
+    return bool(result.get("path"))
