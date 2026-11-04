@@ -122,23 +122,42 @@ async function drawGraph() {
   try {
     const response = await fetch('graph.json');
     const data = await response.json();
-    const SCALE = 320;
-    const ranks = data.nodes.map(node => node.pagerank || 0);
-    const maxRank = Math.max(...ranks, 1e-9);
-    const nodes = new vis.DataSet(data.nodes.map(node => ({
-      id: node.id, label: node.title, group: node.domain, title: node.title,
-      value: node.value || 1,
-      x: (node.x || 0) * SCALE, y: (node.y || 0) * SCALE,
-      size: 8 + 26 * Math.sqrt((node.pagerank || 0) / maxRank)
-    })));
+    const SCALE = 430;
+    const ranks = data.nodes.map(node => node.pagerank || 0).sort((a, b) => b - a);
+    const maxRank = Math.max(...(ranks.length ? ranks : [0]), 1e-9);
+    // Подписи только у самых значимых узлов — иначе граф превращается в «кашу».
+    const labelThreshold = ranks.length > 12 ? ranks[4] : (ranks.length ? ranks[ranks.length - 1] : 0);
+    const nodes = new vis.DataSet(data.nodes.map(node => {
+      const rank = node.pagerank || 0;
+      const important = rank >= labelThreshold;
+      return {
+        id: node.id, group: node.domain, title: node.title,
+        label: important ? String(node.title).slice(0, 34) : '',
+        x: (node.x || 0) * SCALE, y: (node.y || 0) * SCALE,
+        size: 7 + 20 * Math.sqrt(rank / maxRank),
+        borderWidth: 0,
+        font: { color: '#cbd5e1', size: 12, strokeWidth: 3, strokeColor: '#07090f' }
+      };
+    }));
     const edges = new vis.DataSet(data.links.map(link => ({ from: link.source, to: link.target, value: link.weight || 1 })));
-    new vis.Network(container, { nodes, edges }, {
-      nodes: { shape: 'dot', font: { color: '#ecf2ff', size: 11 } },
-      edges: { color: { color: '#2b3650', highlight: '#00f5d4' }, smooth: true },
-      groups: { math: { color: '#00f5d4' }, physics: { color: '#ff007f' }, cs: { color: '#fee440' } },
+    const network = new vis.Network(container, { nodes, edges }, {
+      nodes: { shape: 'dot', borderWidth: 0 },
+      edges: { color: { color: '#1e293b', highlight: '#00f5d4', opacity: 0.75 }, smooth: false, width: 0.8 },
+      groups: {
+        math: { color: { background: '#00f5d4', border: '#00f5d4' } },
+        physics: { color: { background: '#ff007f', border: '#ff007f' } },
+        cs: { color: { background: '#fee440', border: '#fee440' } }
+      },
       physics: false,
-      interaction: { hover: true, dragNodes: false, zoomView: true }
+      interaction: { hover: true, tooltipDelay: 60, dragNodes: true, zoomView: true }
     });
+    network.on('click', params => {
+      if (params.nodes.length) {
+        window.location.href = 'post/' + params.nodes[0] + '.html';
+      }
+    });
+    network.on('hoverNode', () => { container.style.cursor = 'pointer'; });
+    network.on('blurNode', () => { container.style.cursor = 'default'; });
   } catch (error) { console.warn('graph', error); }
 }
 drawGraph();
@@ -436,6 +455,9 @@ class SiteBuilder:
                 if top_items
                 else ""
             )
+            + '<p style="color:var(--muted);font-size:13px">Клик по узлу — открыть разбор; наведите курсор, чтобы увидеть название. '
+            'Цвет: <b style="color:#00f5d4">математика</b> · <b style="color:#ff007f">физика</b> · <b style="color:#fee440">информатика</b>. '
+            'Подписи — у самых значимых узлов (PageRank).</p>'
             + '<p><a href="scientists.html">Досье учёных</a> · <a href="constants.html">Словарь констант</a> · '
             '<a href="topics.html">Темы и маршруты</a> · <a href="llms.txt">llms.txt</a> · '
             '<a href="sitemap.xml">sitemap.xml</a> · <a href="search.json">search.json</a> · '

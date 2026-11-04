@@ -6,6 +6,8 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+import numpy as np
+
 from .models import CardArtifact, Post
 from .text import formula_kind, formula_to_unicode
 
@@ -56,6 +58,285 @@ def typst_available() -> bool:
     return importlib.util.find_spec("typst") is not None
 
 
+# ----------------------------------------------------------------------
+# Сюжетные семейства графиков: выбор по СОДЕРЖАНИЮ поста (формула, смысл,
+# visual_type), а не по дисциплине — иначе все физические карточки совпадают.
+# ----------------------------------------------------------------------
+
+_PLOT_RULES: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
+    ("orbit", ("орбит", "orbit", "тягот", "gravit", "планет", "kepler", "кеплер", "n-body", "nbody", "н-тел")),
+    ("decay", ("распад", "decay", "полураспад", "half-life", "затухан", "damping", "охлажд", "cooling")),
+    ("pendulum", ("маятник", "pendulum", "колебан", "oscill")),
+    ("heat", ("тепл", "heat", "диффузи", "diffusion", "энтроп", "entropy", "броун")),
+    ("prob", ("вероятн", "probab", "распределен", "distribution", "гаусс", "gauss", "нормальн", "статистик")),
+    ("wave", ("волн", "wave", "квант", "quant", "шрёдингер", "schrodinger", "интерфер", "фотон", "аттосекунд", "спектр")),
+    ("cells", ("конвей", "conway", "game of life", "клеточн", "automaton", "автомат", "игра «жизнь»")),
+    ("sort", ("сортиров", "sort", "сложност", "complexit", "алгоритм", "algorithm", "big-o", "o(n", "o(log", "хеш")),
+    ("graph", ("граф", "graph", "сеть ", "network", "вершин", "рёбр", "ребер", "маршрут")),
+    ("growth", ("фибоначч", "fibonacci", "последовательн", "sequence", "oeis", "прогресси", "рекуррент")),
+)
+
+
+def _plot_family(post: Post) -> str:
+    """Семейство графика по содержанию поста (формула → ключевые слова → visual_type)."""
+    meta = getattr(post, "meta", {}) or {}
+    haystack = " ".join([
+        str(getattr(post, "title", "")),
+        str(getattr(post, "hook", "")),
+        str(getattr(post, "body", ""))[:400],
+        str(getattr(post, "formula_plain", "")),
+        str(getattr(post, "formula_latex", "")),
+        str(meta.get("visual_type") or ""),
+        str(meta.get("concept") or ""),
+    ]).lower()
+    for family, needles in _PLOT_RULES:
+        if any(needle in haystack for needle in needles):
+            return family
+    return "formula"
+
+
+def _seed_of(post: Post) -> int:
+    return sum(ord(char) for char in (getattr(post, "id", "") or "3b1b"))
+
+
+def _scaled(values, peak: float, span: float = 1.2):
+    array = np.asarray(values, dtype=float)
+    if not peak or not np.isfinite(peak):
+        return array * 0.0
+    return span * array / peak
+
+
+def _draw_formula(ax, post: Post, xs):
+    """График НАСТОЯЩЕЙ формулы поста: f(x), f′(x) и экстремум."""
+    from .plotting import ExpressionError, evaluate_curve
+
+    expression = (getattr(post, "formula_plain", "") or getattr(post, "formula_latex", "") or "").strip()
+    if not expression:
+        raise ExpressionError("нет формулы")
+    curve = evaluate_curve(expression, x_min=-3.1, x_max=3.1, points=600)
+    x = np.asarray(curve["x"], dtype=float)
+    re_y = np.asarray(curve["re_y"], dtype=float)
+    peak = float(np.nanmax(np.abs(re_y))) if re_y.size else 0.0
+    if peak < 1e-6 or not np.isfinite(peak):
+        raise ExpressionError("формула вырождена (константа)")
+    ax.fill_between(x, _scaled(re_y, peak), 0, color=C_BLUE, alpha=0.15, zorder=3)
+    ax.plot(x, _scaled(re_y, peak), color=C_BLUE, lw=3.0, zorder=5)
+    legend = [(C_BLUE, f"f(x) = {curve['plain'][:34]}")]
+    if curve.get("der_y") is not None:
+        der = np.asarray(curve["der_y"], dtype=float)
+        dpeak = float(np.nanmax(np.abs(der))) if der.size else 0.0
+        if dpeak > 1e-9:
+            ax.plot(x, _scaled(der, dpeak), color=C_YELLOW, lw=2.2, linestyle="--", zorder=4)
+            legend.append((C_YELLOW, "f′(x) — скорость изменения"))
+    if curve.get("has_imaginary"):
+        im = np.asarray(curve["im_y"], dtype=float)
+        ipeak = float(np.nanmax(np.abs(im))) if im.size else 0.0
+        if ipeak > 1e-9:
+            ax.plot(x, _scaled(im, ipeak), color=C_RED, lw=2.0, linestyle=":", zorder=4)
+            legend.append((C_RED, "Im f(x)"))
+    poi_x, poi_y = curve.get("poi") or (0.0, 0.0)
+    ax.scatter([float(poi_x)], [_scaled([poi_y], peak)[0]], color=C_GREEN, edgecolor="#000", s=70, zorder=7)
+    legend.append((C_GREEN, "Экстремум"))
+    return legend
+
+
+def _draw_orbit(ax, post: Post, xs):
+    """Орбита Кеплера: траектория, фокус, тело, вектор скорости."""
+    a, b = 2.4, 1.35
+    theta = np.linspace(0, 2 * np.pi, 400)
+    ax.plot(a * np.cos(theta), b * np.sin(theta), color=C_BLUE, lw=2.0, alpha=0.85, zorder=4)
+    focus = float(np.sqrt(a**2 - b**2))
+    ax.scatter([focus], [0], color=C_YELLOW, s=130, zorder=6)
+    index = int(len(theta) * 0.18)
+    body_x, body_y = float(a * np.cos(theta[index])), float(b * np.sin(theta[index]))
+    ax.annotate("", xy=(focus, 0), xytext=(body_x, body_y),
+                arrowprops=dict(arrowstyle="-", color="#64748B", lw=1.1, linestyle="--"), zorder=3)
+    ax.scatter([body_x], [body_y], color=C_GREEN, s=95, edgecolor="#000", zorder=7)
+    ax.annotate("", xy=(body_x - 0.85, body_y + 0.5), xytext=(body_x, body_y),
+                arrowprops=dict(arrowstyle="->", color=C_RED, lw=2.4), zorder=6)
+    return [(C_BLUE, "Траектория"), (C_YELLOW, "Фокус (центр масс)"),
+            (C_GREEN, "Тело"), (C_RED, "Вектор скорости")]
+
+
+def _draw_decay(ax, post: Post, xs):
+    """Экспоненциальный распад с отметками полураспада."""
+    tau = 0.6
+    ys = np.exp(-np.clip(xs, 0.0, None) / tau)
+    ax.fill_between(xs, ys, 0, color=C_BLUE, alpha=0.15, zorder=3)
+    ax.plot(xs, ys, color=C_BLUE, lw=3.0, zorder=5)
+    for k in (1, 2):
+        xk = tau * float(np.log(2)) * k
+        ax.plot([xk, xk], [0, 0.5 ** k], color=C_RED, linestyle=":", lw=1.6, zorder=4)
+        ax.scatter([xk], [0.5 ** k], color=C_YELLOW, s=65, zorder=6)
+    return [(C_BLUE, "N(t) = N₀·e^(−t/τ)"), (C_YELLOW, "Полураспад T½"), (C_RED, "Отметки T½")]
+
+
+def _draw_pendulum(ax, post: Post, xs):
+    """Маятник: затухающие угол θ(t) и скорость ω(t)."""
+    t = np.linspace(0, 12.0, 700)
+    decay = np.exp(-0.16 * t)
+    ax.plot(t - 3.0, 1.35 * decay * np.cos(3.2 * t), color=C_BLUE, lw=2.6, zorder=5)
+    ax.plot(t - 3.0, 1.35 * decay * np.sin(3.2 * t), color=C_YELLOW, lw=1.9, linestyle="--", zorder=4)
+    return [(C_BLUE, "Угол θ(t)"), (C_YELLOW, "Скорость ω(t)"), (C_GREEN, "Затухание ∝ e^(−γt)")]
+
+
+def _draw_heat(ax, post: Post, xs):
+    """Диффузия: гауссианы, расплывающиеся со временем."""
+    legend = []
+    for index, (sigma, color) in enumerate(((0.35, C_RED), (0.7, C_YELLOW), (1.1, C_GREEN))):
+        ys = 1.25 * np.exp(-(xs**2) / (2 * sigma**2))
+        ax.plot(xs, ys, color=color, lw=2.4, alpha=0.92, zorder=5 - index)
+        legend.append((color, f"t{index + 1} · σ={sigma}"))
+    return legend
+
+
+def _draw_prob(ax, post: Post, xs):
+    """Нормальное распределение с полосами ±σ."""
+    ys = 1.35 * np.exp(-(xs**2) / 2.0)
+    ax.fill_between(xs, ys, 0, color=C_BLUE, alpha=0.15, zorder=3)
+    ax.plot(xs, ys, color=C_BLUE, lw=3.0, zorder=5)
+    for sigma, color in ((1.0, C_GREEN), (2.0, C_YELLOW)):
+        mask = np.abs(xs) <= sigma
+        ax.fill_between(xs[mask], ys[mask], 0, color=color, alpha=0.18, zorder=4)
+    ax.axvline(0, color=C_RED, linestyle=":", lw=1.6, zorder=6)
+    return [(C_BLUE, "Плотность вероятности"), (C_GREEN, "±1σ"), (C_YELLOW, "±2σ"), (C_RED, "Среднее μ")]
+
+
+def _draw_wave(ax, post: Post, xs):
+    """Волновой пакет (квантовая механика / поля)."""
+    seed = _seed_of(post)
+    grid_x, grid_y = np.meshgrid(np.linspace(-3.0, 3.0, 15), np.linspace(-1.3, 1.3, 8))
+    ax.quiver(grid_x, grid_y, grid_y, -np.sin(grid_x) - 0.3 * grid_y,
+              color="#334155", alpha=0.55, scale=22, width=0.003, zorder=2)
+    freq = 2.4 + (seed % 3) * 0.5
+    envelope = 1.25 * np.exp(-0.22 * xs**2)
+    wave = envelope * np.cos(freq * xs)
+    ax.plot(xs, envelope, color=C_RED, linestyle="--", lw=1.8, alpha=0.85, zorder=4)
+    ax.plot(xs, -envelope, color=C_RED, linestyle="--", lw=1.8, alpha=0.85, zorder=4)
+    ax.fill_between(xs, wave, 0, color=C_BLUE, alpha=0.18, zorder=3)
+    ax.plot(xs, wave, color=C_BLUE, lw=3.0, zorder=5)
+    return [(C_BLUE, "Волновая функция Ψ(x)"), (C_RED, "Огибающая ±|Ψ|"), (C_YELLOW, "Фазовый градиент ∇Ψ")]
+
+
+def _draw_cells(ax, post: Post, xs):
+    """Клеточный автомат: решётка живых клеток (Game of Life и подобные)."""
+    rng = np.random.default_rng(_seed_of(post) % (2**32))
+    cols, rows = 24, 9
+    alive = rng.random((rows, cols)) < 0.4
+    step_x, step_y = 6.0 / (cols - 1), 2.6 / (rows - 1)
+    for col in range(cols):
+        ax.axvline(-3.0 + col * step_x, color="#141d2e", lw=0.6, zorder=2)
+    for row in range(rows):
+        ax.axhline(-1.3 + row * step_y, color="#141d2e", lw=0.6, zorder=2)
+    gx, gy = [], []
+    for row in range(rows):
+        for col in range(cols):
+            if alive[row, col]:
+                gx.append(-3.0 + col * step_x)
+                gy.append(-1.3 + row * step_y)
+    ax.scatter(gx, gy, marker="s", s=72, color=C_GREEN, zorder=5)
+    return [(C_GREEN, "Живые клетки"), ("#334155", "Решётка")]
+
+
+def _draw_sort(ax, post: Post, xs):
+    """Сложность алгоритмов: O(log N) → O(N log N) → O(N²)."""
+    n = np.linspace(1.0, 40.0, 240)
+    log2_n, n_log_n, n_sq = np.log2(n), n * np.log2(n), n ** 2
+    scale = float(np.log2(1.0 + n_sq[-1]))
+    y_log = -1.35 + 2.7 * np.log2(1.0 + log2_n) / scale
+    y_nlog = -1.35 + 2.7 * np.log2(1.0 + n_log_n) / scale
+    y_nsq = -1.35 + 2.7 * np.log2(1.0 + n_sq) / scale
+    x = -2.7 + (n - n[0]) / (n[-1] - n[0]) * 5.4
+    ax.fill_between(x, y_nlog, 0.0, color=C_GREEN, alpha=0.18, zorder=3)
+    ax.plot(x, y_nsq, color=C_RED, lw=2.6, linestyle="--", zorder=4)
+    ax.plot(x, y_nlog, color=C_GREEN, lw=3.2, zorder=5)
+    ax.plot(x, y_log, color=C_BLUE, lw=2.8, zorder=5)
+    marks = [60, 120, 180, 230]
+    ax.scatter(x[marks], y_nlog[marks], color=C_YELLOW, edgecolor="#000", s=70, zorder=6)
+    return [(C_BLUE, "Бинарный поиск O(log N)"), (C_GREEN, "Оптимум O(N log N)"), (C_RED, "Перебор O(N²)")]
+
+
+def _draw_graph(ax, post: Post, xs):
+    """Небольшая сеть: узлы и связи (детерминированно по id поста)."""
+    rng = np.random.default_rng(_seed_of(post) % (2**32))
+    count = 7
+    angles = np.linspace(0, 2 * np.pi, count, endpoint=False)
+    radius = 0.85 + 0.35 * rng.random(count)
+    px, py = 2.7 * np.cos(angles) * radius, 1.25 * np.sin(angles) * radius
+    for index in range(count):
+        other = (index + 1) % count
+        ax.plot([px[index], px[other]], [py[index], py[other]], color="#334155", lw=1.4, zorder=3)
+    ax.plot([px[0], px[count // 2]], [py[0], py[count // 2]], color="#334155", lw=1.2, zorder=3)
+    ax.scatter(px, py, color=C_BLUE, s=95, zorder=6)
+    ax.scatter([px[0]], [py[0]], color=C_GREEN, s=155, zorder=7)
+    return [(C_BLUE, "Узлы"), (C_GREEN, "Корень"), ("#334155", "Связи")]
+
+
+def _draw_growth(ax, post: Post, xs):
+    """Рост последовательности a(n) с трендом (OEIS / рекуррентности)."""
+    sequence = _extract_sequence(post)
+    if not sequence:
+        raise ValueError("нет последовательности")
+    values = np.array(sequence, dtype=float)
+    use_log = (values.max() - values.min()) > 40 and values.min() >= 0
+    work = np.log10(values + 1.0) if use_log else values
+    low, high = float(work.min()), float(work.max())
+    span = max(high - low, 1e-9)
+    norm = -1.15 + 2.3 * (work - low) / span
+    index = np.arange(len(values))
+    xpos = -2.8 + (index / max(len(values) - 1, 1)) * 5.6
+    ax.vlines(xpos, -1.15, norm, color=C_BLUE, alpha=0.55, lw=1.6, zorder=4)
+    ax.plot(xpos, norm, color=C_BLUE, lw=2.0, alpha=0.85, zorder=5)
+    ax.scatter(xpos, norm, color=C_GREEN, s=42, zorder=6)
+    if len(values) >= 3:
+        slope, intercept = np.polyfit(index, work, 1)
+        trend = slope * index + intercept
+        ax.plot(xpos, -1.15 + 2.3 * (trend - low) / span, color=C_YELLOW, lw=2.4, linestyle="--", zorder=7)
+    ax.set_yticks([])
+    ax.text(-3.25, 1.42, f"a(n), n = 1…{len(values)}" + ("   (лог-шкала)" if use_log else ""),
+            color="#64748B", fontsize=9.5, ha="left", va="top")
+    return [(C_GREEN, "Члены a(n)"), (C_BLUE, "Профиль роста"), (C_YELLOW, "Тренд роста (лог-шкала)")]
+
+
+def _draw_sine(ax, post: Post, xs):
+    """Резерв: профиль f(x) с касательной и площадью."""
+    freq = 1.4 + (_seed_of(post) % 4) * 0.25
+    ys = 1.15 * np.sin(freq * xs + 0.4) * np.exp(-0.15 * xs**2)
+    dys = np.gradient(ys, xs)
+    rx = np.linspace(-2.2, 1.8, 22)
+    ry = 1.15 * np.sin(freq * rx + 0.4) * np.exp(-0.15 * rx**2)
+    ax.bar(rx, ry, width=(rx[1] - rx[0]) * 0.86, color=C_GREEN, alpha=0.25,
+           edgecolor=C_GREEN, linewidth=0.9, zorder=3)
+    ax.plot(xs, ys, color=C_BLUE, lw=3.2, zorder=5)
+    index = 340
+    tangent_x, tangent_y, slope = float(xs[index]), float(ys[index]), float(dys[index])
+    delta = 0.75
+    ax.annotate("", xy=(tangent_x + delta, tangent_y + slope * delta),
+                xytext=(tangent_x - delta * 0.5, tangent_y - slope * delta * 0.5),
+                arrowprops=dict(arrowstyle="->", color=C_YELLOW, lw=2.6), zorder=6)
+    ax.plot([tangent_x, tangent_x], [0, tangent_y], color=C_RED, linestyle=":", lw=1.8, zorder=4)
+    ax.scatter([tangent_x], [tangent_y], color=C_RED, edgecolor="#FFFFFF", s=80, lw=2.0, zorder=7)
+    return [(C_BLUE, "Профиль f(x)"), (C_YELLOW, "Касательный вектор df/dx"), (C_GREEN, "Площадь ∫f(x)dx")]
+
+
+_DRAWERS = {
+    "formula": _draw_formula,
+    "orbit": _draw_orbit,
+    "decay": _draw_decay,
+    "pendulum": _draw_pendulum,
+    "heat": _draw_heat,
+    "prob": _draw_prob,
+    "wave": _draw_wave,
+    "sort": _draw_sort,
+    "graph": _draw_graph,
+    "cells": _draw_cells,
+    "growth": _draw_growth,
+    "sine": _draw_sine,
+}
+
+_DOMAIN_FALLBACK = {"physics": "wave", "cs": "sort", "math": "growth"}
+
+
 def render_3b1b_plot(post: Post, out_png: str | Path) -> Dict[str, Any]:
     """Чертёж в стиле 3Blue1Brown: NumberPlane, оси через центр, цветовые смыслы.
 
@@ -92,80 +373,20 @@ def render_3b1b_plot(post: Post, out_png: str | Path) -> Dict[str, Any]:
 
     xs = np.linspace(-3.1, 3.1, 600)
 
-    if domain == "physics":
-        grid_x, grid_y = np.meshgrid(np.linspace(-3.0, 3.0, 15), np.linspace(-1.3, 1.3, 8))
-        ax.quiver(grid_x, grid_y, grid_y, -np.sin(grid_x) - 0.3 * grid_y,
-                  color="#334155", alpha=0.55, scale=22, width=0.003, zorder=2)
-        freq = 2.4 + (seed % 3) * 0.5
-        envelope = 1.25 * np.exp(-0.22 * xs**2)
-        wave = envelope * np.cos(freq * xs)
-        ax.plot(xs, envelope, color=C_RED, linestyle="--", lw=1.8, alpha=0.85, zorder=4)
-        ax.plot(xs, -envelope, color=C_RED, linestyle="--", lw=1.8, alpha=0.85, zorder=4)
-        ax.fill_between(xs, wave, 0, color=C_BLUE, alpha=0.18, zorder=3)
-        ax.plot(xs, wave, color=C_BLUE, lw=3.0, zorder=5)
-        legend = [(C_BLUE, "Волновая функция Ψ(x)"), (C_RED, "Граница энергии ±|Ψ|"), (C_YELLOW, "Фазовый градиент ∇Ψ")]
-
-    elif domain == "cs":
-        n = np.linspace(1.0, 40.0, 240)
-        log2_n = np.log2(n)
-        n_log_n = n * np.log2(n)
-        n_sq = n ** 2
-        scale = float(np.log2(1.0 + n_sq[-1]))
-        y_log = -1.35 + 2.7 * np.log2(1.0 + log2_n) / scale
-        y_nlog = -1.35 + 2.7 * np.log2(1.0 + n_log_n) / scale
-        y_nsq = -1.35 + 2.7 * np.log2(1.0 + n_sq) / scale
-        x = -2.7 + (n - n[0]) / (n[-1] - n[0]) * 5.4
-        ax.fill_between(x, y_nlog, 0.0, color=C_GREEN, alpha=0.18, zorder=3)
-        ax.plot(x, y_nsq, color=C_RED, lw=2.6, linestyle="--", zorder=4)
-        ax.plot(x, y_nlog, color=C_GREEN, lw=3.2, zorder=5)
-        ax.plot(x, y_log, color=C_BLUE, lw=2.8, zorder=5)
-        marks = [60, 120, 180, 230]
-        ax.scatter(x[marks], y_nlog[marks], color=C_YELLOW, edgecolor="#000", s=70, zorder=6)
-        legend = [(C_BLUE, "Бинарный поиск O(log N)"), (C_GREEN, "Оптимум O(N log N)"), (C_RED, "Перебор O(N²)")]
-
-    else:
-        sequence = _extract_sequence(post)
-        if sequence:
-            values = np.array(sequence, dtype=float)
-            use_log = (values.max() - values.min()) > 40 and values.min() >= 0
-            work = np.log10(values + 1.0) if use_log else values
-            low, high = float(work.min()), float(work.max())
-            span = max(high - low, 1e-9)
-            norm = -1.15 + 2.3 * (work - low) / span
-            index = np.arange(len(values))
-            xpos = -2.8 + (index / max(len(values) - 1, 1)) * 5.6
-            ax.vlines(xpos, -1.15, norm, color=C_BLUE, alpha=0.55, lw=1.6, zorder=4)
-            ax.plot(xpos, norm, color=C_BLUE, lw=2.0, alpha=0.85, zorder=5)
-            ax.scatter(xpos, norm, color=C_GREEN, s=42, zorder=6)
-            if len(values) >= 3:
-                slope, intercept = np.polyfit(index, work, 1)
-                trend = slope * index + intercept
-                ax.plot(xpos, -1.15 + 2.3 * (trend - low) / span, color=C_YELLOW,
-                        lw=2.4, linestyle="--", zorder=7)
-            ax.set_yticks([])
-            ax.text(-3.25, 1.42, f"a(n), n = 1…{len(values)}" + ("   (лог-шкала)" if use_log else ""),
-                    color="#64748B", fontsize=9.5, ha="left", va="top")
-            legend = [(C_GREEN, "Члены a(n)"),
-                      (C_BLUE, "Профиль роста"),
-                      (C_YELLOW, "Тренд роста (лог-шкала)")]
-        else:
-            freq = 1.4 + (seed % 4) * 0.25
-            ys = 1.15 * np.sin(freq * xs + 0.4) * np.exp(-0.15 * xs**2)
-            dys = np.gradient(ys, xs)
-            rx = np.linspace(-2.2, 1.8, 22)
-            ry = 1.15 * np.sin(freq * rx + 0.4) * np.exp(-0.15 * rx**2)
-            ax.bar(rx, ry, width=(rx[1] - rx[0]) * 0.86, color=C_GREEN, alpha=0.25,
-                   edgecolor=C_GREEN, linewidth=0.9, zorder=3)
-            ax.plot(xs, ys, color=C_BLUE, lw=3.2, zorder=5)
-            index = 340
-            tangent_x, tangent_y, slope = float(xs[index]), float(ys[index]), float(dys[index])
-            delta = 0.75
-            ax.annotate("", xy=(tangent_x + delta, tangent_y + slope * delta),
-                        xytext=(tangent_x - delta * 0.5, tangent_y - slope * delta * 0.5),
-                        arrowprops=dict(arrowstyle="->", color=C_YELLOW, lw=2.6), zorder=6)
-            ax.plot([tangent_x, tangent_x], [0, tangent_y], color=C_RED, linestyle=":", lw=1.8, zorder=4)
-            ax.scatter([tangent_x], [tangent_y], color=C_RED, edgecolor="#FFFFFF", s=80, lw=2.0, zorder=7)
-            legend = [(C_BLUE, "Профиль f(x)"), (C_YELLOW, "Касательный вектор df/dx"), (C_GREEN, "Площадь ∫f(x)dx")]
+    # График выбирается по СОДЕРЖАНИЮ поста (формула → смысл → visual_type),
+    # а не по дисциплине: иначе все карточки одной дисциплины совпадают.
+    legend: Optional[List[Tuple[str, str]]] = None
+    for candidate in (_plot_family(post), "formula", _DOMAIN_FALLBACK.get(domain, "growth"), "sine"):
+        drawer = _DRAWERS.get(candidate)
+        if drawer is None:
+            continue
+        try:
+            legend = drawer(ax, post, xs)
+            break
+        except Exception as exc:  # семейство не подошло — пробуем следующее
+            LOGGER.debug("График %s не подошёл для %s: %s", candidate, getattr(post, "id", "?"), exc)
+    if legend is None:
+        legend = _draw_wave(ax, post, xs)
 
     for spine in ax.spines.values():
         spine.set_visible(False)
