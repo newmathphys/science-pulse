@@ -502,8 +502,14 @@ Discord, Mastodon и VK **не проверялись**: в среде нет и
 6. `dist/radio_parts/` больше не создаётся (исправлено в этом аудите), но
    **сам `dist/` собирается заново при каждом деплое** — PDF-книга и `data/`
    в него не пересобираются автоматически.
-7. Уведомления об ошибках: если пайплайн в CI упадёт на публикации, пост
-   уйдёт в `failed`, но отдельного алерта в Telegram нет (только `/doctor`).
+7. Уведомления об ошибках: шаг `Alert operator on failure` в CI **есть** и
+   отправляет сообщение в админ-чат через Telegram API, но работает только при
+   заданных секретах `TG_BOT_TOKEN`/`TG_ADMIN_CHAT_ID`; локально алертов нет
+   (только `/doctor` и `cli doctor` вручную).
+8. Публикация из CI идёт **только по расписанию** (cron `0 6,10,14,18 * * *` =
+   09/13/17/21 МСК): при обычном `push` шаги «Process operator commands» и
+   «Run pipeline» намеренно пропускаются (`if: github.event_name != 'push'`),
+   поэтому push пересобирает сайт, но не публикует посты.
 
 
 
@@ -515,7 +521,7 @@ Discord, Mastodon и VK **не проверялись**: в среде нет и
 | `cli verify` | 🟢 инварианты (7) · Lean · фуззинг · медиа — все зелёные |
 | `cli invariants` | OK, 7 проверок, 0 нарушений |
 | `cli formal` | Lean 4.34 установлен, `formal/Invariants.lean` компилируется без `sorry` |
-| GitHub Actions (API) | **67 запусков**, последние — `completed success` (workflow `Science Pulse` на `main`, Pages deploy на `gh-pages`) |
+| GitHub Actions (API) | **67+ запусков**, последние — `completed success`; workflow `Science Pulse` — 28 запусков, шаги `Unit tests`, `Build site`, `Check invariants`, `Publish site to gh-pages` — все `success` (run 41882205251) |
 | Живой сайт | `index.html` / `radio.html` / `podcast.xml` / `radio_mix.mp4` / `post/*.html` → **HTTP 200**; 30 глав канона с блоками задачи и родословной |
 | Карточки | 9 архетипов в `ARCHETYPES`; **30/30 формул канона рендерятся** (регрессионный тест) |
 | Диск Пуанкаре | `poincare.json`: 30 узлов · 46 рёбер · 30 геодезических маршрутов |
