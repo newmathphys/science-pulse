@@ -197,6 +197,17 @@ class Config:
         return str(self.raw.get("site_title", "Science Pulse"))
 
     @property
+    def miniapp_public(self) -> bool:
+        """Публиковать ли Mini App «Пульт» (``dist/pult.html``) на сайте.
+
+        По умолчанию ``False``: страница показывает операционное состояние
+        (очередь, площадки, источники) и не должна быть доступна посторонним.
+        Включайте осознанно: ``miniapp.public: true`` или ``SP_MINIAPP_PUBLIC=1``.
+        """
+        value = bool((self.raw.get("miniapp") or {}).get("public", False))
+        return _env_bool("SP_MINIAPP_PUBLIC", value)
+
+    @property
     def card(self) -> Dict[str, Any]:
         return dict(self.raw.get("card") or {})
 

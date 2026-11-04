@@ -29,7 +29,7 @@ class SiteTests(unittest.TestCase):
 
     def test_build_files(self):
         dist = self.builder.build()
-        for name in ("index.html", "search.json", "graph.json", "sitemap.xml", "llms.txt", "llms-full.txt", "robots.txt", "pult.html", ".nojekyll"):
+        for name in ("index.html", "search.json", "graph.json", "sitemap.xml", "llms.txt", "llms-full.txt", "robots.txt", ".nojekyll"):
             self.assertTrue((dist / name).exists(), name)
         self.assertTrue((dist / "assets" / "style.css").exists())
 
@@ -62,15 +62,34 @@ class SiteTests(unittest.TestCase):
             self.assertIn("y", node)
             self.assertLess((node["x"] ** 2 + node["y"] ** 2) ** 0.5, 1.0)
 
-    def test_miniapp_page(self):
+    def _public_builder(self):
+        config = Config(raw={"miniapp": {"public": True}}, root=self.root)
+        config.ensure_dirs()
+        return SiteBuilder(config, self.storage)
+
+    def test_miniapp_hidden_by_default(self):
+        """Пульт (pult.html) не публикуется на сайте, пока явно не разрешён."""
         dist = self.builder.build()
+        self.assertFalse((dist / "pult.html").exists())
+        index = (dist / "index.html").read_text(encoding="utf-8")
+        self.assertNotIn("pult.html", index)
+
+    def test_miniapp_stale_page_removed_when_private(self):
+        """Если публикацию отключили, устаревший pult.html удаляется при сборке."""
+        self._public_builder().build()
+        self.assertTrue((self.config.dist_dir / "pult.html").exists())
+        self.builder.build()
+        self.assertFalse((self.config.dist_dir / "pult.html").exists())
+
+    def test_miniapp_page(self):
+        dist = self._public_builder().build()
         pult = (dist / "pult.html").read_text(encoding="utf-8")
         self.assertIn("Пульт Science Pulse", pult)
         self.assertIn("mini-action", pult)
         self.assertIn("data-command=\"run\"", pult)
 
     def test_miniapp_platforms_and_language_toggle(self):
-        dist = self.builder.build()
+        dist = self._public_builder().build()
         pult = (dist / "pult.html").read_text(encoding="utf-8")
         self.assertIn("Площадки / Platforms", pult)
         self.assertIn('data-lang="en"', pult)

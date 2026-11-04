@@ -67,14 +67,15 @@
 ## Что показывает `/about`
 
 - как работает пульт (long polling, список команд);
-- **где Mini App** — `{SP_SITE_BASE_URL}/pult.html` (если база не задана, выводится
-  подсказка собрать сайт: `cli site`);
+- **где Mini App** — `{SP_SITE_BASE_URL}/pult.html`, но страница публикуется
+  только при `miniapp.public: true` (по умолчанию — приватно; если база не
+  задана, выводится подсказка собрать сайт: `cli site`);
 - **где хранится**: `data/science.db` (SQLite, WAL), `data/cards/*.png`,
   `dist/` (сайт), секреты в `.env`/Secrets, edge-реплика в Cloudflare D1.
 
 ## Mini App «Пульт»
 
-Веб-страница `dist/pult.html` (публикуется вместе с сайтом):
+Веб-страница `dist/pult.html` (по умолчанию **не публикуется** — `miniapp.public: false`):
 
 - снимок состояния (очередь, публикации, площадки, источники);
 - кнопки команд (шлют `POST {command}` на `CF_WORKER_URL/telegram-webhook`);
@@ -121,7 +122,7 @@ python -m science_pulse.cli doctor --send   # отправить в админ-�
 |:--|:--|
 | Состояние (посты, публикации, метрики, источники, kv) | `data/science.db` (SQLite, WAL) |
 | Карточки 1080×1080 | `data/cards/*.png` |
-| Сайт (включая `pult.html`, `graph.json`, `search.json`) | `dist/` |
+| Сайт (`graph.json`, `search.json`; `pult.html` — только при `miniapp.public`) | `dist/` |
 | Секреты | `.env` (локально) / GitHub Secrets / Cloudflare Secrets |
 | Edge-реплика (опционально) | Cloudflare D1 (`cli state --push/--sync`) |
 
@@ -138,5 +139,5 @@ python -m science_pulse.cli doctor --send   # отправить в админ-�
 
 ```bash
 python -m unittest tests.test_admin tests.test_platforms_info tests.test_site -v
-python -m science_pulse.cli site && grep -c 'data-lang' dist/pult.html
+SP_MINIAPP_PUBLIC=1 python -m science_pulse.cli site && grep -c 'data-lang' dist/pult.html
 ```

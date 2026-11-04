@@ -76,6 +76,12 @@ hawkes:
 site_base_url: ""
 site_title: "Science Pulse"
 
+# Mini App «Пульт» (dist/pult.html) — операционное состояние проекта.
+# По умолчанию НЕ публикуется на сайте: пульт только ваш (Telegram-бот).
+# Включите осознанно, если страница доступна лишь вам (SP_MINIAPP_PUBLIC=1).
+miniapp:
+  public: false
+
 data_dir: "data"
 dist_dir: "dist"
 

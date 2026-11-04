@@ -183,7 +183,13 @@ class SiteBuilder:
         self._write_scientists(posts, dist)
         self._write_constants(posts, dist)
         self._write_topics(posts, dist)
-        self._write_miniapp(dist)
+        if self.config.miniapp_public:
+            self._write_miniapp(dist)
+        else:
+            # Убираем устаревший pult.html от прошлых сборок (приватность).
+            stale_pult = dist / "pult.html"
+            if stale_pult.exists():
+                stale_pult.unlink()
         self._write_sitemap(posts, dist)
         self._write_llms(posts, dist)
         (dist / "robots.txt").write_text("User-agent: *\nAllow: /\n", encoding="utf-8")
@@ -299,7 +305,9 @@ class SiteBuilder:
             )
             + '<p><a href="scientists.html">Досье учёных</a> · <a href="constants.html">Словарь констант</a> · '
             '<a href="topics.html">Темы и маршруты</a> · <a href="llms.txt">llms.txt</a> · '
-            '<a href="sitemap.xml">sitemap.xml</a> · <a href="search.json">search.json</a> · <a href="pult.html">Пульт</a></p>'
+            '<a href="sitemap.xml">sitemap.xml</a> · <a href="search.json">search.json</a>'
+            + (' · <a href="pult.html">Пульт</a>' if self.config.miniapp_public else '')
+            + '</p>'
             '</div></div>'
         )
         content = f"""

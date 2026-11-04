@@ -436,7 +436,7 @@ PDF-книгу. Удобно, чтобы показать проект цели�
 См. `docs/PLAN.md` и `docs/PROD_CHECKLIST.md`. Алгоритмы «после MVP» уже
 лежат в `science_pulse/sota.py` (Томпсон, Hawkes O(1), FSRS, Диск Пуанкаре)
 и включаются флагами в `config.yaml`. Реализованы PageRank/Пуанкаре-граф
-(`graph.py`), A/B стилей (`abtest.py`), Mini App-пульт (`pult.html`),
+(`graph.py`), A/B стилей (`abtest.py`), Mini App-пульт (`pult.html`, приватный — `miniapp.public`),
 инварианты состояния (`invariants.py`), машинно проверяемые Lean-доказательства
 (`formal/Invariants.lean`) и edge-синхронизация R2/D1 (`edge.py`,
 `state_export.py`) с CRDT-разрешением конфликтов параллельных писателей и

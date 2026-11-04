@@ -119,8 +119,9 @@ Telegram и Discord помечаются `skipped` — их API не отдаё�
 python -m science_pulse.cli site
 ```
 
-Критерий: в `dist/` есть `graph.json` с полями `pagerank`, `x`, `y` и
-`pult.html` (Mini App-пульт). На главной — блок «Топ по PageRank».
+Критерий: в `dist/` есть `graph.json` с полями `pagerank`, `x`, `y`. На главной —
+блок «Топ по PageRank». `pult.html` (Mini App-пульт) появляется только при
+`miniapp.public: true` — по умолчанию страница не публикуется (приватность).
 
 A/B стилей включается в `config.yaml` (`abtest.enabled: true`); вариант
 пишется в `meta` поста, результат виден в `metrics` (`by_style`).
