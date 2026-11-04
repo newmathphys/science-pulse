@@ -4,6 +4,10 @@ on:
   schedule:
     # 09:00, 14:00 и 19:00 Europe/Moscow (06:00, 11:00 и 16:00 UTC)
     - cron: "0 6,11,16 * * *"
+  # Пуш в main: собираем и деплоим сайт на GitHub Pages (без публикации постов).
+  # Первый прогон также включает Pages (enablement: true) — bootstrap сайта.
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       command:
@@ -64,6 +68,7 @@ jobs:
         run: python -m science_pulse.cli init
 
       - name: Process operator commands
+        if: github.event_name != 'push'
         continue-on-error: true
         env:
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
@@ -71,6 +76,7 @@ jobs:
         run: python -m science_pulse.cli admin --once
 
       - name: Run pipeline
+        if: github.event_name != 'push'
         env:
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
           TG_CHANNEL_ID: ${{ secrets.TG_CHANNEL_ID }}
@@ -131,6 +137,9 @@ jobs:
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
+        with:
+          # Bootstrap: если Pages ещё не включён — включить (build_type: workflow).
+          enablement: true
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
