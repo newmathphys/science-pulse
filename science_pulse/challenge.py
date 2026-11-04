@@ -23,6 +23,7 @@ from __future__ import annotations
 import hashlib
 import math
 import re
+from functools import lru_cache
 from typing import Any, Dict, List, Optional, Tuple
 
 from .models import Post
@@ -563,8 +564,46 @@ def _sequence_challenge(post: Post, seed: int) -> Optional[Dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 
+def _challenge_key(post: Post) -> tuple:
+    """Ключ кэша: задача полностью определяется содержимым поста."""
+    meta = getattr(post, "meta", {}) or {}
+    return (
+        str(getattr(post, "id", "")),
+        str(getattr(post, "domain", "")),
+        str(getattr(post, "title", "")),
+        str(getattr(post, "hook", "")),
+        str(getattr(post, "body", "")),
+        str(getattr(post, "formula_latex", "")),
+        str(getattr(post, "formula_plain", "")),
+        str(getattr(post, "code", "")),
+        str(meta.get("section_num") or ""),
+        str(meta.get("sequence") or ""),
+        str(meta.get("formula_vars") or ""),
+    )
+
+
+@lru_cache(maxsize=512)
+def _challenge_cached(key: tuple) -> Dict[str, Any]:
+    """Мемоизация: одна и та же задача не пересчитывается SymPy повторно.
+
+    Функция детерминирована (только формулы и текст поста), поэтому кэш
+    безопасен и снимает нагрузку при сборке 30 глав сайта.
+    """
+    post = Post(
+        id=key[0], domain=key[1], title=key[2], hook=key[3], body=key[4],
+        formula_latex=key[5], formula_plain=key[6], code=key[7],
+        meta={"section_num": key[8], "sequence": key[9], "formula_vars": key[10]},
+    )
+    return _challenge_for(post)
+
+
 def build_challenge(post: Post) -> Dict[str, Any]:
     """Просветительская задача выпуска: вопрос, подсказка и точный ответ."""
+    return dict(_challenge_cached(_challenge_key(post)))
+
+
+def _challenge_for(post: Post) -> Dict[str, Any]:
+    """Собственно генерация (без кэша): перебор стратегий по порядку."""
     seed = _seed(post)
     meta = getattr(post, "meta", {}) or {}
     for strategy in (

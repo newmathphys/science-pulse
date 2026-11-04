@@ -274,7 +274,7 @@ def build_radio_mix(posts: Sequence[Post], data_dir: Path, out_path: Path,
         LOGGER.info("Радио-микс пропущен: нет видео-аудиограмм")
         return None
     out_path = Path(out_path)
-    parts_dir = out_path.parent / "radio_parts"
+    parts_dir = Path(data_dir) / "radio_parts"
     parts_dir.mkdir(parents=True, exist_ok=True)
     pieces: List[Path] = []
     for index, chapter in enumerate(chapters):

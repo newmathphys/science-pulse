@@ -27,6 +27,55 @@ def make_post(post_id="acad1", meta=None, **fields):
     return Post(**values)
 
 
+class CanonFormulaRenderTests(unittest.TestCase):
+    """Регрессия: КАЖДАЯ формула канона обязана рисоваться в mathtext.
+
+    Была реальная поломка: `\\land`, `\\lor`, `\\lnot` в matplotlib mathtext
+    не существуют, и три карточки канона (§ 2.2, § 6.1, § 6.3) выходили без
+    формулы — молча, с warning в логе.
+    """
+
+    def test_all_canon_formulas_render(self):
+        from matplotlib.font_manager import FontProperties
+        from matplotlib.mathtext import MathTextParser
+
+        from science_pulse.cards3b1b import _mathtext_normalize
+        from science_pulse.sources.history_canon import CANON
+
+        parser = MathTextParser("path")
+        font = FontProperties(size=12)
+        broken = []
+        for item in CANON:
+            latex = item.get("formula_latex") or ""
+            if not latex:
+                continue
+            try:
+                parser.parse("$" + _mathtext_normalize(latex) + "$", dpi=72, prop=font)
+            except Exception as exc:  # pragma: no cover - зависит от mathtext
+                broken.append((item["id"], latex[:60], str(exc).splitlines()[-1][:80]))
+        self.assertEqual(broken, [], f"формулы без рендера: {broken}")
+
+    def test_logic_connectives_are_translated(self):
+        from science_pulse.cards3b1b import _mathtext_normalize
+
+        text = _mathtext_normalize(
+            r"a \land b, \; a \lor b, \; \lnot a, \pmod{n}, P \implies Q, R \iff S"
+        )
+        for bad in (r"\land", r"\lor", r"\lnot", r"\pmod", r"\implies", r"\iff"):
+            self.assertNotIn(bad, text)
+        for good in (r"\wedge", r"\vee", r"\neg", "mod", r"\Rightarrow", r"\Leftrightarrow"):
+            self.assertIn(good, text)
+
+    def test_logic_card_formula_renders(self):
+        from matplotlib.font_manager import FontProperties
+        from matplotlib.mathtext import MathTextParser
+
+        from science_pulse.cards3b1b import _mathtext_normalize
+
+        parser = MathTextParser("path")
+        parser.parse("$" + _mathtext_normalize(r"P \implies Q") + "$", dpi=72, prop=FontProperties(size=12))
+
+
 class AcademicCardTests(unittest.TestCase):
     def test_pick_visual_type_meta_override(self):
         for archetype in ARCHETYPES:

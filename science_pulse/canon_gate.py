@@ -179,12 +179,17 @@ class CanonGate:
     # ------------------------------------------------------------------
     # N+1 warm staging
     # ------------------------------------------------------------------
-    def stage_next(self, pipeline: Any) -> Dict[str, Any]:
-        """Готовит следующий `ready`-пост (лонгрид + паспорт + карточка + приёмка)."""
+    def stage_next(self, pipeline: Any, enforce: bool = True, render_card: bool = True) -> Dict[str, Any]:
+        """Готовит следующий `ready`-пост (лонгрид + паспорт + карточка + приёмка).
+
+        `enforce=False` — неразрушающий режим для авто-стейджинга сразу после
+        публикации: готовим данные и помечаем `staged_next_post_id`, но НЕ
+        запускаем отклоняющую приёмку (иначе слабый пост мог бы уйти в карантин
+        без участия оператора).
+        """
         post: Optional[Post] = pipeline.choose_next()
         if post is None:
             return {"ok": False, "error": "нет ready-постов"}
-        from .cards import render_card
         from .enricher import enrich_post_longread
         from .post_proof import build_post_proof
 
@@ -194,15 +199,27 @@ class CanonGate:
         except Exception:
             pass
         card_path = ""
-        try:
-            out = Path(self.config.cards_dir) / f"{post.id}.png"
-            card = render_card(post, out_path=out, engine="auto")
-            card_path = str(card.path) if card else ""
-        except Exception:
-            card_path = ""
+        if render_card:
+            try:
+                from .cards import render_card
+
+                out = Path(self.config.cards_dir) / f"{post.id}.png"
+                card = render_card(post, out_path=out, engine="auto")
+                card_path = str(card.path) if card else ""
+            except Exception:
+                card_path = ""
         if card_path:
             post.card_path = card_path
-        report = self.verify_and_enforce(post, card_path=card_path)
+        if enforce:
+            report = self.verify_and_enforce(post, card_path=card_path)
+        else:
+            report = {
+                "ok": True,
+                "pass1": [],
+                "pass2": [],
+                "enforced": False,
+                "reasons": [] if card_path else ["карточка будет отрендерена при публикации"],
+            }
         try:
             self.storage.kv_set("staged_next_post_id", post.id)
             self.storage.set_post_meta(post.id, "longread_body", str((post.meta or {}).get("longread_body") or ""))

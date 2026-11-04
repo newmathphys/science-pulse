@@ -423,6 +423,23 @@ def _mathtext_normalize(expr: str) -> str:
     text = re.sub(r"\\text\{([^{}]*)\}", r"\\mathrm{\1}", text)
     text = re.sub(r"\\mathbb\s+([A-Za-z])", r"\\mathbb{\1}", text)
     text = re.sub(r"\\mathcal\s+([A-Za-z])", r"\\mathcal{\1}", text)
+    # Логические связки: у mathtext другие имена команд.
+    text = text.replace(r"\land", r"\wedge")
+    text = text.replace(r"\lor", r"\vee")
+    text = text.replace(r"\lnot", r"\neg")
+    # Импликации и эквивалентности.
+    for source, target in (
+        (r"\implies", r"\Rightarrow"),
+        (r"\impliedby", r"\Leftarrow"),
+        (r"\iff", r"\Leftrightarrow"),
+        (r"\Longleftrightarrow", r"\Leftrightarrow"),
+        (r"\longrightarrow", r"\to"),
+        (r"\bigcup", r"\cup"),
+        (r"\bigcap", r"\cap"),
+    ):
+        text = text.replace(source, target)
+    # Модульная арифметика: `\pmod{n}` → `(mod n)`, `\bmod` → `mod`.
+    text = re.sub(r"\\pmod\s*\{([^{}]*)\}", r"\\ (\\mathrm{mod}\\ \1)", text)
     text = text.replace(r"\bmod", r"\ \mathrm{mod}\ ")
     text = re.sub(r"\\quad|\\qquad|\\,|\\;|\\:", r"\\ ", text)
     return text

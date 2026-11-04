@@ -361,6 +361,19 @@ class Pipeline:
             if bandit.get("enabled"):
                 self.sota.reward_domain(post.domain, success=False)
 
+        # N+1 warm staging: сразу после успешной публикации готовим следующий
+        # пост (лонгрид + паспорт + карточка + приёмка), чтобы он вышел «тёплым».
+        if any_ok and bool((self.config.raw.get("staging") or {}).get("auto", False)):
+            try:
+                from .canon_gate import CanonGate
+
+                staged = CanonGate(self.storage, self.config).stage_next(
+                    self, enforce=False, render_card=False
+                )
+                LOGGER.info("N+1 staged: %s (ok=%s)", staged.get("post_id"), staged.get("ok"))
+            except Exception as exc:  # pragma: no cover - защита публикации
+                LOGGER.warning("N+1 staging не удался: %s", exc)
+
         if build_site:
             try:
                 self.build_site()
