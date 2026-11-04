@@ -10,14 +10,14 @@ import yaml
 DEFAULT_DOMAINS = ["math", "physics", "cs"]
 
 DEFAULT_CONFIG: Dict[str, Any] = {
-    "schedule": ["09:00", "18:00"],
+    "schedule": ["09:00", "13:00", "17:00", "21:00"],
     "timezone": "Europe/Moscow",
     "domains": DEFAULT_DOMAINS,
     "max_queue": 80,
     "low_water": 9,
     "harvest_per_source": 2,
     "translate": False,
-    "doctor": {"posts_per_day": 3},
+    "doctor": {"posts_per_day": 4},
     "trending": {"enabled": True, "top": 5, "auto_enqueue_min_likes": 0},
     "abtest": {"enabled": False, "variants": ["classic", "compact"]},
     "edge": {"d1_primary": False},

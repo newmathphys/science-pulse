@@ -283,7 +283,7 @@ seen(hash PK, post_id, created_at)
 - [x] PDF-книга проекта: `science_pulse/book.py` (Typst: титул, `#outline()`,
       главы по дисциплинам, формулы CM, предметный указатель учёных),
       `cli book`, `/book` в пульте.
-- [x] Расписание 3 слота в сутки: 09:00/14:00/19:00 МСК (cron `0 6,11,16 * * *`).
+- [x] Расписание 4 слота в сутки: 09:00/13:00/17:00/21:00 МСК (cron `0 6,10,14,18 * * *`).
 - [x] Озвучка постов: `science_pulse/voice.py` (edge-tts онлайн / piper офлайн,
       голос `ru-RU-SvetlanaNeural`), голосовое OGG/OPUS + аудио-подкаст MP3,
       кэш `data/audio/`, плеер на сайте, `/voice` в пульте — см. `docs/VOICE.md`.

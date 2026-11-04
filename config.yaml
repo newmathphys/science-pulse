@@ -1,7 +1,7 @@
 # Science Pulse — рабочая конфигурация.
 # Секреты сюда не пишем: они берутся из .env или GitHub Secrets.
 
-schedule: ["09:00", "14:00", "19:00"]
+schedule: ["09:00", "13:00", "17:00", "21:00"]
 timezone: "Europe/Moscow"
 domains: ["math", "physics", "cs"]
 max_queue: 80
@@ -12,7 +12,7 @@ translate: false
 
 # Светофор автономности (/doctor): ожидаемый темп публикаций.
 doctor:
-  posts_per_day: 3
+  posts_per_day: 4
 
 # Радар мировых новостей (/trending): Hacker News + GitHub + Reddit.
 # auto_enqueue_min_likes: при harvest самому добавлять хиты с таким числом лайков (0 = выкл).

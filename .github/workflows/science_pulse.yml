@@ -2,8 +2,8 @@ name: Science Pulse
 
 on:
   schedule:
-    # 09:00, 14:00 и 19:00 Europe/Moscow (06:00, 11:00 и 16:00 UTC)
-    - cron: "0 6,11,16 * * *"
+    # 09:00, 13:00, 17:00 и 21:00 Europe/Moscow (06:00, 10:00, 14:00 и 18:00 UTC)
+    - cron: "0 6,10,14,18 * * *"
   # Пуш в main: собираем сайт и публикуем его в ветку gh-pages (без публикации постов).
   push:
     branches: [main]

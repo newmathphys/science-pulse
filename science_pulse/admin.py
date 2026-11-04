@@ -645,7 +645,7 @@ class TelegramAdmin:
         ready = int(status.get("ready") or 0)
         by_domain = status.get("by_domain") or {}
         cfg = dict(self.config.raw.get("doctor") or {})
-        per_day = float(cfg.get("posts_per_day", 3) or 3)
+        per_day = float(cfg.get("posts_per_day", 4) or 4)
         days = (ready / per_day) if per_day else 0.0
 
         posts = self.storage.list_posts(status="ready", limit=500)

@@ -377,12 +377,12 @@ class SiteBuilder:
 </body>
 </html>"""
 
-    @staticmethod
-    def _stats_html(posts_count: int) -> str:
+    def _stats_html(self, posts_count: int) -> str:
+        per_day = len(self.config.schedule) or 3
         return (
             f"<span>постов: {posts_count}</span>"
-            "<span>3 дисциплины</span>"
-            "<span>3 публикации в сутки</span>"
+            f"<span>{len(self.config.domains)} дисциплины</span>"
+            f"<span>{per_day} публикации в сутки</span>"
             "<span>0 LLM</span>"
         )
 

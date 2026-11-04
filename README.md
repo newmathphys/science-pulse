@@ -1,8 +1,8 @@
 # Science Pulse
 
 Детерминированная фабрика научного контента по мотивам документа
-`2-2026-10-31.md`: математика, физика и информатика — 3 публикации в сутки
-(09:00, 14:00 и 19:00 МСК) в Telegram, Threads и другие сети, с карточками 1080×1080, формулами,
+`2-2026-10-31.md`: математика, физика и информатика — 4 публикации в сутки
+(09:00, 13:00, 17:00 и 21:00 МСК) в Telegram, Threads и другие сети, с карточками 1080×1080, формулами,
 графиками и растущим сайтом.
 
 **Главный принцип: в контенте нет LLM.** Текст берётся из открытых
@@ -76,7 +76,7 @@ python -m science_pulse.cli edge        # синхронизация R2/D1 (Clou
 python -m science_pulse.cli state       # снимок: --export / --pull / --push / --sync
 python -m science_pulse.cli admin       # Telegram-пульт (long polling)
 python -m science_pulse.cli admin --once  # один проход опроса команд (для CI/cron)
-python -m science_pulse.cli daemon      # 09:00, 14:00 и 19:00 по config.yaml
+python -m science_pulse.cli daemon      # 09:00, 13:00, 17:00 и 21:00 по config.yaml
 python -m science_pulse.cli book       # 📕 PDF-книга проекта (Typst)
 python -m science_pulse.cli voice      # 🔊 озвучка постов (edge-tts / piper)
 python -m science_pulse.cli publish --video  # 🎬 озвученное микро-видео
