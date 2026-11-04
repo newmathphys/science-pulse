@@ -257,6 +257,10 @@ def cmd_recard(args: argparse.Namespace) -> int:
 
     Полезно после обновления движка карточек: уже вышедшие посты получают
     новый визуал без смены message_id (подпись сохраняется).
+
+    С ``--dry-run`` карточки только рендерятся в ``data/cards/`` и не
+    отправляются в Telegram — поэтому токены в этом режиме не нужны
+    (используется, например, в CI, чтобы у сайта были картинки).
     """
     import io
 
@@ -267,7 +271,7 @@ def cmd_recard(args: argparse.Namespace) -> int:
 
     pipeline = _pipeline(args)
     storage, config = pipeline.storage, pipeline.config
-    if not (config.telegram_token and config.telegram_channel):
+    if not args.dry_run and not (config.telegram_token and config.telegram_channel):
         print("Нет TG_BOT_TOKEN/TG_CHANNEL_ID — обновление карточек невозможно", file=sys.stderr)
         return 1
 

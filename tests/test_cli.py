@@ -39,5 +39,41 @@ class CliParserTests(unittest.TestCase):
         self.assertEqual(args.set, ["min_letters", "240"])
 
 
+class RecardDryRunTests(unittest.TestCase):
+    """`recard --dry-run` рендерит карточки без токенов Telegram (картинки для сайта/CI)."""
+
+    def test_recard_dry_run_without_tokens(self):
+        import argparse
+        import tempfile
+        from pathlib import Path
+
+        from science_pulse.cli import cmd_recard
+        from science_pulse.config import Config
+        from science_pulse.models import PublishResult
+        from science_pulse.sources.offline import OfflineBunkerSource
+        from science_pulse.storage import Storage
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config = Config(raw={}, root=root)
+            config.ensure_dirs()
+            storage = Storage(config.db_path)
+            post = OfflineBunkerSource(config).synthesize(0)
+            storage.add_post(post)
+            storage.record_publication(
+                post.id,
+                PublishResult(platform="telegram", ok=True, external_id="1", url="https://t.me/x/1"),
+            )
+            storage.mark_published(post.id)
+            self.assertFalse(config.telegram_token)  # токенов нет — dry-run обязан работать
+
+            args = argparse.Namespace(
+                config=None, root=str(root), limit=10, post_id=None, dry_run=True, engine="pillow"
+            )
+            code = cmd_recard(args)
+            self.assertEqual(code, 0)
+            self.assertTrue((Path(config.cards_dir) / f"{post.id}.png").is_file())
+
+
 if __name__ == "__main__":
     unittest.main()

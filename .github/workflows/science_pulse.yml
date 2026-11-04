@@ -94,6 +94,10 @@ jobs:
           COMMAND="${{ github.event.inputs.command || 'run' }}"
           python -m science_pulse.cli "$COMMAND"
 
+      - name: Render cards (картинки для сайта)
+        continue-on-error: true
+        run: python -m science_pulse.cli recard --dry-run
+
       - name: Build site
         run: python -m science_pulse.cli site
 
