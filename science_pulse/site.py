@@ -15,88 +15,102 @@ from .text import keywords, truncate
 
 CSS = """
 :root {
-  --bg: #07090f;
-  --panel: #101622;
-  --panel-2: #161d2b;
-  --text: #ecf2ff;
-  --muted: #8a94a6;
-  --accent: #00f5d4;
-  --pink: #ff007f;
-  --yellow: #fee440;
-  --border: #222834;
+  --paper: #FAF8F4;
+  --paper-2: #FFFFFF;
+  --paper-3: #F3F0EA;
+  --ink: #111827;
+  --ink-2: #4B5563;
+  --rule: #D6D1C7;
+  --math: #1E3A8A;
+  --cs: #065F46;
+  --physics: #9F1239;
+  --serif: Georgia, 'Charter', 'Source Serif 4', 'Times New Roman', serif;
+  --mono: 'JetBrains Mono', Menlo, ui-monospace, monospace;
 }
 * { box-sizing: border-box; }
 body {
-  margin: 0; background: radial-gradient(circle at 20% 0%, #101a2c 0%, var(--bg) 45%);
-  color: var(--text); font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  line-height: 1.55;
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--serif); line-height: 1.66; font-size: 17px;
 }
-a { color: var(--accent); text-decoration: none; }
-a:hover { text-decoration: underline; }
-.wrap { width: min(1180px, calc(100% - 32px)); margin: 0 auto; }
-header { padding: 28px 0 18px; border-bottom: 1px solid var(--border); }
-.brand { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-.brand h1 { margin: 0; font-size: clamp(24px, 4vw, 40px); letter-spacing: -0.02em; }
-.brand span { color: var(--accent); font-family: ui-monospace, monospace; font-size: 12px; }
-.stats { display: flex; gap: 18px; flex-wrap: wrap; color: var(--muted); font-size: 14px; margin-top: 10px; }
+a { color: var(--math); text-decoration: none; border-bottom: 1px solid rgba(30,58,138,.28); }
+a:hover { border-bottom-color: var(--math); }
+.mono { font-family: var(--mono); }
+.wrap { width: min(1120px, calc(100% - 40px)); margin: 0 auto; }
+header { padding: 30px 0 0; }
+.brand { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.brand h1 { margin: 0; font-size: clamp(24px, 3.6vw, 38px); letter-spacing: -0.01em; font-weight: 700; }
+.brand span { color: var(--ink-2); font-family: var(--mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; }
+.stats { display: flex; gap: 20px; flex-wrap: wrap; color: var(--ink-2); font-size: 13px; margin-top: 8px; font-family: var(--mono); }
+nav.tabs { display: flex; gap: 24px; flex-wrap: wrap; padding: 16px 0; margin-top: 14px; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); font-size: 15px; }
+nav.tabs a { border: 0; color: var(--ink-2); }
+nav.tabs a:hover, nav.tabs a.active { color: var(--ink); font-weight: 700; }
+.passport { display: flex; gap: 26px; flex-wrap: wrap; margin: 22px 0 8px; padding: 16px 20px; background: var(--paper-3); border: 1px solid var(--rule); border-radius: 4px; font-family: var(--mono); font-size: 13px; color: var(--ink-2); }
+.passport b { color: var(--ink); }
 .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 20px 0; }
-input[type=search] {
-  flex: 1 1 260px; background: var(--panel); border: 1px solid var(--border);
-  color: var(--text); border-radius: 12px; padding: 12px 14px; font-size: 15px;
-}
-button.filter {
-  background: var(--panel); border: 1px solid var(--border); color: var(--muted);
-  padding: 10px 14px; border-radius: 999px; cursor: pointer; font-size: 14px;
-}
-button.filter.active { color: #071018; background: var(--accent); border-color: var(--accent); font-weight: 700; }
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; padding-bottom: 40px; }
-.card {
-  background: linear-gradient(160deg, var(--panel), #0b1019); border: 1px solid var(--border);
-  border-radius: 18px; overflow: hidden; display: flex; flex-direction: column;
-  transition: transform .18s ease, border-color .18s ease;
-}
-.card:hover { transform: translateY(-3px); border-color: #34405a; }
-.card img { width: 100%; aspect-ratio: 1/1; object-fit: cover; background: #0b1019; }
+input[type=search] { flex: 1 1 260px; background: var(--paper-2); border: 1px solid var(--rule); color: var(--ink); border-radius: 4px; padding: 11px 14px; font-size: 15px; font-family: var(--serif); }
+button.filter { background: var(--paper-2); border: 1px solid var(--rule); color: var(--ink-2); padding: 9px 14px; border-radius: 999px; cursor: pointer; font-size: 14px; font-family: var(--serif); }
+button.filter.active { background: var(--ink); border-color: var(--ink); color: var(--paper); font-weight: 700; }
+.step { margin: 34px 0; }
+.step-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; border-bottom: 2px solid var(--ink); padding-bottom: 8px; }
+.step-head .roman { font-family: var(--mono); font-size: 12px; letter-spacing: .14em; color: var(--ink-2); }
+.step-head h2 { margin: 0; font-size: clamp(18px, 2.4vw, 24px); }
+.step-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(272px, 1fr)); gap: 18px; margin-top: 18px; }
+.node { background: var(--paper-2); border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; display: flex; flex-direction: column; }
+.node.published { border-color: var(--ink); }
+.node.staged { border-color: var(--math); border-style: dashed; }
+.node.locked { background: var(--paper-3); border-style: dashed; }
+.node img { width: 100%; aspect-ratio: 1/1; object-fit: cover; border-bottom: 1px solid var(--rule); }
+.node .nbody { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.node .sec { font-family: var(--mono); font-size: 12px; color: var(--ink-2); letter-spacing: .06em; }
+.node h3 { margin: 0; font-size: 17px; line-height: 1.35; }
+.node .sci { color: var(--ink-2); font-size: 14px; }
+.node .era { color: var(--ink-2); font-size: 13px; font-style: italic; }
+.node .fx { background: var(--paper-3); border-left: 3px solid var(--rule); padding: 6px 10px; font-size: 14px; overflow-x: auto; }
+.stamp { display: inline-block; font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; padding: 3px 8px; border-radius: 3px; }
+.stamp.ok { background: var(--cs); color: #fff; }
+.stamp.next { background: var(--math); color: #fff; }
+.stamp.lock { background: transparent; color: var(--ink-2); border: 1px solid var(--rule); }
+.badge { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--math); }
+.badge.cs { color: var(--cs); }
+.badge.physics { color: var(--physics); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 18px; padding-bottom: 40px; }
+.card { background: var(--paper-2); border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; display: flex; flex-direction: column; }
+.card img { width: 100%; aspect-ratio: 1/1; object-fit: cover; }
 .card .body { padding: 14px 16px 18px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
 .card h2 { font-size: 18px; line-height: 1.3; margin: 0; }
-.card p { margin: 0; color: var(--muted); font-size: 14px; }
-.badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
-.badge.physics { color: var(--pink); }
-.badge.cs { color: var(--yellow); }
-.meta { color: var(--muted); font-size: 12px; margin-top: auto; }
-article { padding: 32px 0 60px; }
-article h1 { font-size: clamp(26px, 5vw, 46px); line-height: 1.15; margin: 8px 0 14px; }
-.lead { color: var(--muted); font-size: 18px; }
-.formula {
-  background: var(--panel); border: 1px solid var(--accent); border-radius: 14px;
-  padding: 18px; margin: 22px 0; overflow-x: auto;
-}
-pre {
-  background: #0b1019; border: 1px solid var(--border); border-radius: 14px;
-  padding: 16px; overflow-x: auto; color: #d7e2ff; font-size: 13px;
-}
-.article-card { width: min(560px, 100%); border-radius: 18px; border: 1px solid var(--border); }
-.article-body { font-size: 17px; max-width: 820px; }
+.card p { margin: 0; color: var(--ink-2); font-size: 14px; }
+.meta { color: var(--ink-2); font-size: 12px; margin-top: auto; font-family: var(--mono); }
+article { padding: 30px 0 60px; }
+article h1 { font-size: clamp(24px, 4vw, 40px); line-height: 1.2; margin: 8px 0 14px; }
+.lead { color: var(--ink-2); font-size: 18px; }
+.formula { background: var(--paper-3); border: 1px solid var(--rule); border-left: 4px solid var(--ink); border-radius: 4px; padding: 16px 18px; margin: 22px 0; overflow-x: auto; }
+pre { background: var(--paper-3); border: 1px solid var(--rule); border-radius: 4px; padding: 16px; overflow-x: auto; color: var(--ink); font-size: 13px; font-family: var(--mono); }
+.article-card { width: min(560px, 100%); border: 1px solid var(--rule); border-radius: 4px; }
+.article-body { font-size: 17px; max-width: 760px; }
 .article-body p { margin: 0 0 14px; }
 .tags { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0 24px; }
-.tags span { border: 1px solid var(--border); color: var(--muted); border-radius: 999px; padding: 4px 10px; font-size: 12px; }
-footer { border-top: 1px solid var(--border); color: var(--muted); padding: 22px 0 40px; font-size: 13px; }
-#graph { width: 100%; height: 460px; border: 1px solid var(--border); border-radius: 18px; background: #0b1019; }
-.two { display: grid; grid-template-columns: 1.1fr .9fr; gap: 20px; align-items: start; }
+.tags span { border: 1px solid var(--rule); color: var(--ink-2); border-radius: 999px; padding: 3px 10px; font-size: 12px; font-family: var(--mono); }
+.sandbox { background: var(--paper-2); border: 1px solid var(--rule); border-radius: 4px; padding: 18px; margin: 26px 0; }
+.sandbox canvas { width: 100%; background: var(--paper-3); border: 1px solid var(--rule); border-radius: 4px; }
+.sandbox .ctl { display: flex; gap: 18px; flex-wrap: wrap; align-items: center; margin-top: 12px; font-family: var(--mono); font-size: 13px; }
+.sandbox input[type=range] { width: 170px; }
+.sandbox input[type=number] { width: 90px; border: 1px solid var(--rule); padding: 5px 8px; font-family: var(--mono); }
+.sandbox output { font-weight: 700; color: var(--ink); }
+details.flash { background: var(--paper-2); border: 1px solid var(--rule); border-radius: 4px; padding: 12px 16px; margin: 10px 0; }
+details.flash summary { cursor: pointer; font-weight: 700; }
+footer { border-top: 1px solid var(--rule); color: var(--ink-2); padding: 22px 0 40px; font-size: 13px; }
+.two { display: grid; grid-template-columns: 1.1fr .9fr; gap: 22px; align-items: start; }
 @media (max-width: 820px) { .two { grid-template-columns: 1fr; } }
-.empty { color: var(--muted); padding: 40px 0; }
+.empty { color: var(--ink-2); padding: 40px 0; }
 .mini-actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 18px 0; }
-.mini-action {
-  background: var(--panel); border: 1px solid var(--accent); color: var(--accent);
-  border-radius: 12px; padding: 12px 16px; cursor: pointer; font-size: 15px; font-weight: 600;
-}
-.mini-action:disabled { opacity: .5; cursor: not-allowed; border-color: var(--border); color: var(--muted); }
-.mini-log { font-family: ui-monospace, monospace; color: var(--muted); font-size: 13px; white-space: pre-wrap; }
-.panel-box { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; margin: 14px 0; }
+.mini-action { background: var(--paper-2); border: 1px solid var(--ink); color: var(--ink); border-radius: 4px; padding: 10px 16px; cursor: pointer; font-size: 15px; font-weight: 600; font-family: var(--serif); }
+.mini-action:disabled { opacity: .5; cursor: not-allowed; border-color: var(--rule); color: var(--ink-2); }
+.mini-log { font-family: var(--mono); color: var(--ink-2); font-size: 13px; white-space: pre-wrap; }
+.panel-box { background: var(--paper-3); border: 1px solid var(--rule); border-radius: 4px; padding: 16px 18px; margin: 14px 0; }
 """
 
 INDEX_JS = """
-const cards = Array.from(document.querySelectorAll('.card'));
+const cards = Array.from(document.querySelectorAll('.card, .node'));
 const search = document.getElementById('search');
 const filters = Array.from(document.querySelectorAll('button.filter'));
 let active = 'all';
@@ -108,59 +122,19 @@ function apply() {
     const ok = (active === 'all' || domain === active) && (!q || haystack.includes(q));
     card.style.display = ok ? '' : 'none';
   });
+  document.querySelectorAll('.step').forEach(section => {
+    const shown = Array.from(section.querySelectorAll('.card, .node'))
+      .some(el => el.style.display !== 'none');
+    section.style.display = shown ? '' : 'none';
+  });
 }
-search.addEventListener('input', apply);
+if (search) search.addEventListener('input', apply);
 filters.forEach(button => button.addEventListener('click', () => {
   filters.forEach(item => item.classList.remove('active'));
   button.classList.add('active');
   active = button.dataset.domain;
   apply();
 }));
-async function drawGraph() {
-  const container = document.getElementById('graph');
-  if (!container || !window.vis) return;
-  try {
-    const response = await fetch('graph.json');
-    const data = await response.json();
-    const SCALE = 430;
-    const ranks = data.nodes.map(node => node.pagerank || 0).sort((a, b) => b - a);
-    const maxRank = Math.max(...(ranks.length ? ranks : [0]), 1e-9);
-    // Подписи только у самых значимых узлов — иначе граф превращается в «кашу».
-    const labelThreshold = ranks.length > 12 ? ranks[4] : (ranks.length ? ranks[ranks.length - 1] : 0);
-    const nodes = new vis.DataSet(data.nodes.map(node => {
-      const rank = node.pagerank || 0;
-      const important = rank >= labelThreshold;
-      return {
-        id: node.id, group: node.domain, title: node.title,
-        label: important ? String(node.title).slice(0, 34) : '',
-        x: (node.x || 0) * SCALE, y: (node.y || 0) * SCALE,
-        size: 7 + 20 * Math.sqrt(rank / maxRank),
-        borderWidth: 0,
-        font: { color: '#cbd5e1', size: 12, strokeWidth: 3, strokeColor: '#07090f' }
-      };
-    }));
-    const edges = new vis.DataSet(data.links.map(link => ({ from: link.source, to: link.target, value: link.weight || 1 })));
-    const network = new vis.Network(container, { nodes, edges }, {
-      nodes: { shape: 'dot', borderWidth: 0 },
-      edges: { color: { color: '#1e293b', highlight: '#00f5d4', opacity: 0.75 }, smooth: false, width: 0.8 },
-      groups: {
-        math: { color: { background: '#00f5d4', border: '#00f5d4' } },
-        physics: { color: { background: '#ff007f', border: '#ff007f' } },
-        cs: { color: { background: '#fee440', border: '#fee440' } }
-      },
-      physics: false,
-      interaction: { hover: true, tooltipDelay: 60, dragNodes: true, zoomView: true }
-    });
-    network.on('click', params => {
-      if (params.nodes.length) {
-        window.location.href = 'post/' + params.nodes[0] + '.html';
-      }
-    });
-    network.on('hoverNode', () => { container.style.cursor = 'pointer'; });
-    network.on('blurNode', () => { container.style.cursor = 'default'; });
-  } catch (error) { console.warn('graph', error); }
-}
-drawGraph();
 """
 
 
@@ -378,7 +352,7 @@ class SiteBuilder:
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{_e(title)} · {site_title}</title>
 <meta name="description" content="Детерминированная научная лента: математика, физика, информатика.">
-<meta name="theme-color" content="#07090f">
+<meta name="theme-color" content="#FAF8F4">
 <link rel="manifest" href="{prefix}manifest.webmanifest">
 <link rel="icon" type="image/png" href="{prefix}icon-192.png">
 <link rel="apple-touch-icon" href="{prefix}icon-192.png">
@@ -393,7 +367,7 @@ class SiteBuilder:
 <body>
 <div class="wrap">
 <header>
-  <div class="brand"><h1><a href="{prefix}index.html" style="color:inherit">{site_title}</a></h1><span>deterministic science feed</span></div>
+  <div class="brand"><h1><a href="{prefix}index.html" style="color:inherit">{site_title}</a></h1><span>системный атлас точных наук</span></div>
   <div class="stats">{self._stats_html(posts_count=self.storage.count("published"))}</div>
 </header>
 {content}
@@ -412,70 +386,117 @@ class SiteBuilder:
             "<span>0 LLM</span>"
         )
 
+    def _node_card(self, item: Dict[str, Any], post: Optional[Post], staged: str, dist: Path) -> str:
+        """Карточка узла канона в матрице ступеней: §, учёный, эпоха, формула, статус."""
+        from .sources.foundation import section_of
+
+        section = section_of(item["id"])
+        domain = item["domain"]
+        is_published = post is not None and post.status == "published"
+        if is_published:
+            state, stamp = "published", '<span class="stamp ok">✓ Открыто</span>'
+        elif item["id"] == staged:
+            state, stamp = "staged", '<span class="stamp next">⏳ Следующий выпуск</span>'
+        else:
+            state, stamp = "locked", '<span class="stamp lock">🔒 В программе курса</span>'
+        image = ""
+        if post is not None:
+            rel = f"cards/{post.id}.png"
+            if (dist / rel).exists():
+                image = f'<img src="{rel}" alt="{_e(item["title"])}" loading="lazy">'
+        formula = item.get("formula_latex") or item.get("formula_plain") or ""
+        fx = f'<div class="fx">${_e(formula)}$</div>' if formula else ""
+        haystack = " ".join(
+            [str(item.get("title", "")), str(item.get("hook", "")), str(item.get("scientist", "")),
+             str(item.get("body", "")), str(formula), str(DOMAIN_LABELS.get(domain, domain))]
+        )
+        tag = "a" if is_published else "div"
+        href = f' href="post/{post.id}.html"' if is_published else ""
+        return (
+            f'<{tag} class="node {state}" data-domain="{_e(domain)}" data-search="{_e(haystack)}"{href}>'
+            f"{image}"
+            '<div class="nbody">'
+            f'<span class="sec">§ {section} · {_e(DOMAIN_LABELS.get(domain, domain))}</span>'
+            f"{stamp}"
+            f'<h3>{_e(item["title"])}</h3>'
+            f'<span class="sci">{_e(item.get("scientist", ""))}</span>'
+            f'<span class="era">{_e(item.get("era", ""))}</span>'
+            f"{fx}"
+            "</div>"
+            f"</{tag}>"
+        )
+
     def _write_index(self, posts: List[Post], dist: Path) -> None:
-        cards: List[str] = []
-        for post in posts:
-            image = f"cards/{post.id}.png"
-            image_html = f'<img src="{image}" alt="{_e(post.title)}" loading="lazy">' if (dist / image).exists() else ""
-            tags = " ".join(str(tag) for tag in (post.meta.get("tags") or []))
-            haystack = " ".join(
-                [post.title, post.hook, post.body, post.formula_plain, post.formula_latex, tags, post.source_name]
+        from .sources.foundation import STEP_TITLES, section_of, step_of
+        from .sources.history_canon import CANON
+
+        all_posts = self.storage.list_posts(limit=1000)
+        by_canon: Dict[str, Post] = {}
+        for post in all_posts:
+            canon_id = (post.meta or {}).get("foundation_id")
+            if canon_id:
+                by_canon[canon_id] = post
+        published = [cid for cid, post in by_canon.items() if post.status == "published"]
+        staged = ""
+        for item in sorted(by_canon.values(), key=lambda p: (p.meta or {}).get("section_num", "")):
+            if item.status == "ready":
+                staged = (item.meta or {}).get("foundation_id", "")
+                break
+
+        roman = {1: "I", 2: "II", 3: "III", 4: "IV", 5: "V", 6: "VI", 7: "VII", 8: "VIII", 9: "IX", 10: "X"}
+        steps = sorted({step_of(item["id"]) for item in CANON})
+        rows: List[str] = []
+        for step in steps:
+            nodes = sorted([item for item in CANON if step_of(item["id"]) == step], key=section_of)
+            cards = "".join(self._node_card(item, by_canon.get(item["id"]), staged, dist) for item in nodes)
+            rows.append(
+                '<section class="step">'
+                f'<div class="step-head"><span class="roman">СТУПЕНЬ {roman.get(step, step)}</span>'
+                f'<h2>{_e(STEP_TITLES.get(step, "Дополнительно"))}</h2></div>'
+                f'<div class="step-row">{cards}</div></section>'
             )
-            cards.append(
-                f"""<a class="card" data-domain="{_e(post.domain)}" data-search="{_e(haystack)}" href="post/{post.id}.html">
-{image_html}
-<div class="body">
-  <span class="badge {_e(post.domain)}">{post.emoji} {_e(DOMAIN_LABELS.get(post.domain, post.domain))}</span>
-  <h2>{_e(post.title)}</h2>
-  <p>{_e(truncate(post.hook or post.body, 150))}</p>
-  <span class="meta">{_e(post.source_name)}</span>
-</div>
-</a>"""
-            )
+
         filters = ['<button class="filter active" data-domain="all">Все</button>']
         for domain, label in DOMAIN_LABELS.items():
             filters.append(f'<button class="filter" data-domain="{domain}">{label}</button>')
-        _nodes, _links, rank, _layout = self._graph_data(posts)
-        by_id = {post.id: post for post in posts}
-        top_ids = top_by_pagerank([post.id for post in posts], rank, 5)
-        top_items = "".join(
-            f'<li><a href="post/{pid}.html">{_e(by_id[pid].title)}</a> '
-            f'<span style="color:var(--muted)">· {rank.get(pid, 0.0) * 1000:.1f}‰</span></li>'
-            for pid in top_ids
-            if pid in by_id
-        )
-        graph_html = (
-            '<div class="two"><div id="graph"></div><div>'
-            '<h2 style="margin-top:0">Граф знаний</h2>'
-            '<p style="color:var(--muted)">Каждый пост — узел. Связи строятся по общим научным понятиям; '
-            'чем выше PageRank, тем крупнее узел и ближе к центру диска Пуанкаре. Граф обновляется при каждой публикации.</p>'
-            + (
-                f'<h3 style="margin:0 0 6px">Топ по PageRank</h3>'
-                f'<ol style="margin:0 0 12px;padding-left:20px">{top_items}</ol>'
-                if top_items
-                else ""
+
+        extra = [post for post in posts if not (post.meta or {}).get("foundation_id")]
+        extra_html = ""
+        if extra:
+            extra_cards = "".join(
+                f'<a class="card" data-domain="{_e(post.domain)}" data-search="{_e(" ".join([post.title, post.hook, post.body[:400], post.formula_plain, post.formula_latex, post.source_name]))}" '
+                f'href="post/{post.id}.html"><div class="body">'
+                f'<span class="badge {_e(post.domain)}">{post.emoji} {_e(DOMAIN_LABELS.get(post.domain, post.domain))}</span>'
+                f"<h2>{_e(post.title)}</h2><span class=\"meta\">{_e(post.source_name)}</span></div></a>"
+                for post in extra[:12]
             )
-            + '<p style="color:var(--muted);font-size:13px">Клик по узлу — открыть разбор; наведите курсор, чтобы увидеть название. '
-            'Цвет: <b style="color:#00f5d4">математика</b> · <b style="color:#ff007f">физика</b> · <b style="color:#fee440">информатика</b>. '
-            'Подписи — у самых значимых узлов (PageRank).</p>'
-            + '<p><a href="scientists.html">Досье учёных</a> · <a href="constants.html">Словарь констант</a> · '
-            '<a href="topics.html">Темы и маршруты</a> · <a href="llms.txt">llms.txt</a> · '
-            '<a href="sitemap.xml">sitemap.xml</a> · <a href="search.json">search.json</a> · '
-            '<a href="flashcards.html">Флешкарты</a> · '
-            '<a href="bibtex.bib">bibtex.bib</a>'
-            + (' · <a href="pult.html">Пульт</a>' if self.config.miniapp_public else '')
-            + '</p>'
-            '</div></div>'
+            extra_html = f'<section class="step"><div class="step-head"><span class="roman">ПРОЧЕЕ</span><h2>Дополнительные разборы</h2></div><div class="step-row">{extra_cards}</div></section>'
+
+        passport = (
+            '<div class="passport">'
+            f'<span>Открыто фундаментальных узлов: <b>{len(published)} / {len(CANON)}</b></span>'
+            f'<span>Ступеней: <b>{len(steps)}</b></span>'
+            f'<span>Следующий выпуск: <b>§ {section_of(staged) or "—"}</b></span>'
+            f'<span>В очереди: <b>{self.storage.count("ready")}</b></span>'
+            "</div>"
         )
         content = f"""
+{passport}
+<nav class="tabs">
+  <a class="active" href="index.html">I. Дерево Фундамента</a>
+  <a href="scientists.html">II. Учёные и эпохи</a>
+  <a href="constants.html">III. Эталоны СИ (CODATA)</a>
+  <a href="flashcards.html">IV. Тренажёр памяти</a>
+  <a href="llms.txt">V. Машиночитаемый слой</a>
+</nav>
 <div class="toolbar">
-  <input id="search" type="search" placeholder="Поиск по формулам, теоремам, авторам…">
+  <input id="search" type="search" placeholder="Поиск по формулам, теоремам, учёным…">
   {''.join(filters)}
 </div>
-{graph_html}
-<h2>Последние разборы</h2>
-<div class="grid">{''.join(cards) if cards else '<p class="empty">Пока нет опубликованных постов. Запустите <code>python -m science_pulse.cli publish --dry-run</code>.</p>'}</div>
-<script src="https://cdn.jsdelivr.net/npm/vis-network@9.1.9/dist/vis-network.min.js"></script>
+{''.join(rows)}
+{extra_html}
+<p class="meta">Канон: {len(CANON)} узлов · {len(steps)} ступеней · обновляется при каждой публикации.
+· <a href="sitemap.xml">sitemap.xml</a> · <a href="search.json">search.json</a> · <a href="bibtex.bib">bibtex.bib</a></p>
 <script>{INDEX_JS}</script>
 """
         (dist / "index.html").write_text(self._page(self.config.site_title, content, depth=0), encoding="utf-8")
@@ -550,7 +571,7 @@ class SiteBuilder:
   {code_html}
   <div class="tags">{tags}</div>
   {source_html}
-  <p style="color:var(--muted)">Источник: {_e(post.source_name)} · {_e(post.tier)} · качество {post.quality:.2f}</p>
+  <p style="color:var(--ink-2)">Источник: {_e(post.source_name)} · {_e(post.tier)} · качество {post.quality:.2f}</p>
   {prereq_html}
   {f'<h2>Используется в новых темах</h2><ul>{used_in_html}</ul>' if used_in_html else ''}
   {f'<h2>Связанные разборы</h2><ul>{related_html}</ul>' if related_html else ''}

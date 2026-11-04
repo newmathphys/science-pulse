@@ -33,13 +33,21 @@ class SiteTests(unittest.TestCase):
             self.assertTrue((dist / name).exists(), name)
         self.assertTrue((dist / "assets" / "style.css").exists())
 
+    def test_index_is_curriculum_matrix(self):
+        """Главная — карта ступеней канона (без vis-network и «прыгающих кружков»)."""
+        dist = self.builder.build()
+        index = (dist / "index.html").read_text(encoding="utf-8")
+        self.assertIn("СТУПЕНЬ", index)
+        self.assertIn("passport", index)
+        self.assertIn("class=\"node locked\"", index)
+        self.assertNotIn("vis-network", index)
+        self.assertIn("search.json", index)
+
     def test_index_contains_posts(self):
         dist = self.builder.build()
         index = (dist / "index.html").read_text(encoding="utf-8")
         posts = self.storage.list_posts(status="published")
         self.assertIn(posts[0].title, index)
-        self.assertIn("Граф знаний", index)
-        self.assertIn("PageRank", index)
         self.assertIn("search.json", index)
 
     def test_post_page_and_search(self):

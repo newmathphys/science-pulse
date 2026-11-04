@@ -145,8 +145,9 @@
 
 - `site.py` — `dist/index.html`, `dist/post/<id>.html`, `search.json`,
   `graph.json`, `sitemap.xml`, `llms.txt`, `assets/style.css`.
-- KaTeX с CDN, карточки, фильтры по дисциплинам, поиск, граф связей
-  (vis-network), ссылки на первоисточники.
+- Книжный светлый стиль (бумага `#FAF8F4`, тушь `#111827`, Georgia/Source Serif),
+  **Карта Ступеней канона** на главной (`§ 1.1 … § N.k`, статусы узлов),
+  флешкарты, BibTeX, PWA, поиск по формулам; KaTeX с CDN, ссылки на первоисточники.
 
 ### 3.7. Инфраструктура
 
