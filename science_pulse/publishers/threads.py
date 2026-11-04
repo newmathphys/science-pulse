@@ -16,6 +16,7 @@ from .base import (
     audiogram_url,
     build_short_text,
     context_rules,
+    formula_frame,
     result_skipped,
 )
 
@@ -43,6 +44,12 @@ class ThreadsPublisher(Publisher):
         chain_parts = max(1, rules.limit(self.name, "max_chain_parts", 2))
 
         text = build_short_text(post, limit=limit, site_url=context.site_url, include_link=False)
+        mode = rules.audio_mode(self.name)
+        # В режиме TEXT формулу оборачиваем в мобильную рамку (LaTeX не рендерится).
+        if mode in ("text", "link") and mode != "mp4":
+            frame = formula_frame(post)
+            if frame and len(frame) + 2 <= limit:
+                text = f"{frame}\n\n{truncate(text, max(40, limit - len(frame) - 2))}"
         chunks = split_text(text, max(80, limit - 10))
         if not chunks:
             return PublishResult(platform=self.name, ok=False, error="пустой текст")

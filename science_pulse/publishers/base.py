@@ -192,6 +192,31 @@ def build_caption(post: Post, limit: int = 1024, html: bool = True, site_url: st
     return truncate("\n\n".join(parts), limit)
 
 
+def formula_frame(post: Any, width: int = 30) -> str:
+    """ASCII-рамка «мобильная формула» для площадок без поддержки LaTeX.
+
+    В режиме `TEXT` (Threads, Bluesky, VK) формула должна читаться на телефоне
+    без рендера — оборачиваем её в моноширинную рамку:
+
+    ```
+    ┌─── 📐 ФОРМУЛА ───
+    │ a² + b² = c²
+    └──────────────────
+    ```
+    """
+    formula = clean_latex_for_telegram(
+        getattr(post, "formula_plain", "") or getattr(post, "formula_latex", "") or ""
+    ).strip()
+    if not formula:
+        return ""
+    body = " ".join(formula.split())
+    if len(body) > width:
+        body = truncate(body, width)
+    top = "┌─── 📐 ФОРМУЛА " + "─" * max(0, width - 15)
+    bottom = "└" + "─" * max(0, width - 1)
+    return "\n".join((top, f"│ {body}", bottom))
+
+
 def build_short_text(post: Post, limit: int = 500, site_url: str = "", include_link: bool = True) -> str:
     formula = clean_latex_for_telegram(post.formula_latex or post.formula_plain)
     parts = [f"{post.emoji} {clean_latex_for_telegram(post.title)}"]

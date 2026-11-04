@@ -22,6 +22,7 @@ from typing import Any, Dict, List, Optional
 
 from .config import Config
 from .invariants import InvariantChecker
+from .models import Post
 from .radio import radio_status
 from .sota import epoch_slot_index, kadanov_block, preferred_domain
 from .storage import Storage
@@ -118,7 +119,8 @@ class SciencePulseKernel:
             "next_section": next_section,
         }
 
-    def phase_canon(self, expand: bool = True, expand_count: Optional[int] = None) -> Dict[str, Any]:
+    def phase_canon(self, expand: bool = True, expand_count: Optional[int] = None,
+                    deep: bool = False, deep_depth: int = 1) -> Dict[str, Any]:
         """Гарантирует канон в базе и добирает темы университетского курса."""
         from .sources.foundation import FoundationSource, ordered_nodes
 
@@ -140,7 +142,10 @@ class SciencePulseKernel:
         expansion: Dict[str, Any] = {"syllabus_added": 0}
         if expand:
             expansion = self.expand_syllabus(count=expand_count)
-        return {**self.canon_coverage(), "ensured": ensured, **expansion}
+        deep_report: Dict[str, Any] = {"deep_added": 0}
+        if deep:
+            deep_report = self.expand_deep(count=expand_count or 10, depth=deep_depth)
+        return {**self.canon_coverage(), "ensured": ensured, **expansion, **deep_report}
 
     def expand_syllabus(self, count: Optional[int] = None) -> Dict[str, Any]:
         """Бесконечный насос: добавляет следующие темы `§ 11.1 … § 55.3` в очередь."""
@@ -168,6 +173,79 @@ class SciencePulseKernel:
             "ready": self.storage.count("ready"),
             "cursor": cursor + len(posts),
         }
+
+    def expand_deep(self, count: int = 10, depth: int = 1) -> Dict[str, Any]:
+        """Рекурсивный обход «источников источников» (подкатегории Википедии).
+
+        Работает только при наличии сети: без HTTP-клиента честно возвращает
+        `reason="нет сети"` и ничего не выдумывает. Найденные темы становятся
+        обычными постами очереди — их достраивает наш контур (лонгрид, паспорт,
+        задача, карточка).
+        """
+        getter = self.http_getter()
+        if getter is None:
+            return {"deep_added": 0, "reason": "нет HTTP-клиента (офлайн-режим)"}
+        from .sources.curriculum_crawler import RecursiveMetaCrawler
+
+        try:
+            crawler = RecursiveMetaCrawler(http_get=getter)
+            candidates = crawler.discover(depth=depth)
+        except Exception as exc:  # pragma: no cover - сеть
+            return {"deep_added": 0, "reason": f"обход не удался: {exc}"}
+        if not candidates:
+            return {"deep_added": 0, "reason": "категории не вернули новых тем"}
+        cursor = self.storage.kv_int("deep_cursor", 0)
+        window = candidates[cursor: cursor + max(1, int(count))]
+        added = 0
+        for offset, item in enumerate(window):
+            try:
+                post = self._deep_post(item, cursor + offset)
+            except Exception as exc:  # pragma: no cover - защита
+                LOGGER.info("Глубокая тема пропущена: %s", exc)
+                continue
+            if self.storage.add_post(post):
+                added += 1
+        self.storage.kv_set("deep_cursor", cursor + len(window))
+        return {
+            "deep_added": added,
+            "deep_cursor": cursor + len(window),
+            "deep_seen": len(candidates),
+            "depth": depth,
+        }
+
+    def _deep_post(self, item: Dict[str, Any], index: int) -> Post:
+        """Пост из темы, найденной рекурсивным обходом категорий."""
+        from urllib.parse import quote
+
+        from .curriculum import annotate
+        from .models import make_id
+
+        title = str(item.get("title") or "").strip() or f"Тема {index}"
+        domain = str(item.get("domain") or "math")
+        post = Post(
+            id=make_id("deep", f"{title}#{index}"),
+            domain=domain if domain in ("math", "physics", "cs") else "math",
+            title=title,
+            hook=f"Что такое «{title}» и где это работает в XXI веке?",
+            body=(
+                "Тема найдена рекурсивным обходом научных категорий (мета-каталоги "
+                "Википедии). Выпуск собирает наше ядро: формулировка, разбор величин, "
+                "численная проверка и задача для читателя."
+            ),
+            source_name="Рекурсивный обход категорий",
+            source_url=f"https://ru.wikipedia.org/wiki/{quote(title)}",
+            tier="online",
+            quality=0.55,
+        )
+        post.meta.update({
+            "deep_origin": str(item.get("origin") or "wiki-category"),
+            "deep_depth": item.get("depth"),
+        })
+        try:
+            annotate(post)
+        except Exception:  # pragma: no cover - защита
+            pass
+        return post
 
     # ------------------------------------------------------------------
     # Фаза 2: кинетика выбора и вычислительное доказательство
@@ -325,10 +403,15 @@ class SciencePulseKernel:
         voice: bool = False,
         rebuild_site: bool = True,
         formal: bool = False,
+        deep: bool = False,
+        deep_depth: int = 1,
     ) -> Dict[str, Any]:
         """Полный 6-фазный цикл ядра (каждая фаза изолирована от падения)."""
         report: Dict[str, Any] = {}
-        report["canon"] = self._safe(self.phase_canon, expand=expand, expand_count=expand_count)
+        report["canon"] = self._safe(
+            self.phase_canon, expand=expand, expand_count=expand_count,
+            deep=deep, deep_depth=deep_depth,
+        )
         report["selection"] = self._safe(self.phase_selection)
         chosen = report["selection"].get("chosen")
         post = None

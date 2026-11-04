@@ -374,6 +374,15 @@ class Pipeline:
             except Exception as exc:  # pragma: no cover - защита публикации
                 LOGGER.warning("N+1 staging не удался: %s", exc)
 
+        # Нативная викторина канала: задача выпуска уходит опросом в реплай.
+        if any_ok and bool((self.config.raw.get("telegram") or {}).get("quiz_poll", False)):
+            try:
+                quiz_result = self.send_quiz_poll(post, results)
+                if quiz_result:
+                    LOGGER.info("Викторина отправлена: %s", quiz_result.get("message_id"))
+            except Exception as exc:  # pragma: no cover - защита публикации
+                LOGGER.warning("Викторина не отправлена: %s", exc)
+
         if build_site:
             try:
                 self.build_site()
@@ -389,6 +398,25 @@ class Pipeline:
             "card": card,
             "results": [result.as_dict() for result in results],
         }
+
+    def send_quiz_poll(
+        self, post: Post, results: Optional[List[Any]] = None
+    ) -> Optional[Dict[str, Any]]:
+        """Отправляет нативную викторину (`sendPoll`) по задаче выпуска.
+
+        Возвращает результат Telegram или `None`, если викторина недоступна
+        (нет токена, нет числа в ответе, площадка отклонила запрос).
+        """
+        publisher = getattr(self.publishers, "publishers", {}).get("telegram")
+        if publisher is None or not publisher.available():
+            return None
+        reply_to: Optional[Any] = None
+        for result in results or []:
+            if getattr(result, "platform", "") == "telegram":
+                reply_to = (getattr(result, "meta", None) or {}).get("message_id")
+                if reply_to:
+                    break
+        return publisher.send_poll(post, reply_to=reply_to)
 
     def run(
         self,

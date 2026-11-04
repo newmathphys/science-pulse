@@ -95,6 +95,8 @@ python -m science_pulse.cli clean-start --yes # чистый старт: сбр�
 python -m science_pulse.cli kernel      # 🧠 паспорт ядра: канон, курс, очередь, радио, инварианты
 python -m science_pulse.cli kernel --tick  # полный 6-фазный цикл ядра (--publish --voice --formal)
 python -m science_pulse.cli expand --count 30  # ♾️ добрать темы университетского курса в очередь
+python -m science_pulse.cli expand --deep --depth 2  # 🌐 плюс обход мета-каталогов Википедии
+python -m science_pulse.cli quiz        # 🧠 викторина по задаче выпуска (--send отправит в канал)
 python -m science_pulse.cli radio       # 📻 радио 24/7: страница + подкаст + сводка эфира
 python -m science_pulse.cli radio --mix # сквозной радио-микс (ffmpeg) + файл таймкодов
 python -m science_pulse.cli radio --rtmp rtmps://dc4.rtmp.t.me/s/KEY --run  # прямой эфир
@@ -426,6 +428,10 @@ PDF-книгу. Удобно, чтобы показать проект цели�
 * глава на сайте (слой `z = 3`): раскрывающийся блок
   «🧠 Просветительская задача для самопроверки» с подсказкой и ответом;
 * радио и подкаст: пятый блок лекции Светланы — «Задача слушателю: …»;
+* Telegram: **нативная викторина** `sendPoll` в реплай к посту (при
+  `telegram.quiz_poll: true` и числовом ответе) — читатель отвечает в один тап;
+* Threads/VK/Bluesky (режим `TEXT`): формула уходит в мобильной рамке
+  `┌─── 📐 ФОРМУЛА ─── │ … └───`;
 * `post.meta["challenge"]` и вычислительный паспорт хранят задачу целиком.
 
 Стратегии детерминированы и **проверяются вычислением** (не «на глаз»):

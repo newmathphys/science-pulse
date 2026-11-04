@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import json
 import logging
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -235,6 +236,50 @@ class TelegramPublisher(Publisher):
                 meta={"fallback": "text", "photo_error": error},
             )
         return PublishResult(platform=self.name, ok=False, error=error)
+
+    def send_poll(
+        self,
+        post: Post,
+        challenge: Optional[Dict[str, Any]] = None,
+        reply_to: Optional[int] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Нативная викторина канала (`sendPoll`) по просветительской задаче.
+
+        Вопрос — задача выпуска, варианты — правильный ответ и три числовых
+        дистрактора (см. `challenge.quiz_options`). Если в ответе нет числа
+        (качественная задача), викторина не отправляется: выдумывать варианты
+        мы не будем.
+        """
+        if not self.available():
+            return None
+        from ..challenge import build_challenge, quiz_options
+
+        quiz = quiz_options(challenge or build_challenge(post))
+        if not quiz:
+            return None
+        data: Dict[str, Any] = {
+            "chat_id": self.channel,
+            "question": truncate(str(quiz["question"]), 290),
+            "options": json.dumps(quiz["options"], ensure_ascii=False),
+            "type": "quiz",
+            "correct_option_id": str(quiz["correct_index"]),
+            "is_anonymous": "true",
+            "explanation": truncate(str(quiz.get("explanation") or ""), 190),
+        }
+        if reply_to:
+            data["reply_to_message_id"] = str(reply_to)
+        if self.thread_id:
+            data["message_thread_id"] = str(self.thread_id)
+        try:
+            response = requests.post(self._api("sendPoll"), data=data, timeout=20)
+            payload = response.json()
+        except Exception as exc:  # pragma: no cover - сеть
+            LOGGER.warning("Telegram sendPoll: %s", exc)
+            return None
+        if not payload.get("ok"):
+            LOGGER.warning("Telegram sendPoll: %s", str(payload)[:200])
+            return None
+        return payload.get("result") or {}
 
     def send_message(self, text: str, reply_to: Optional[int] = None) -> Optional[Dict[str, Any]]:
         if not self.available():

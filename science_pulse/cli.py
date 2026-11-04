@@ -248,6 +248,8 @@ def cmd_kernel(args: argparse.Namespace) -> int:
             voice=args.voice,
             rebuild_site=not args.no_site,
             formal=args.formal,
+            deep=getattr(args, "deep", False),
+            deep_depth=getattr(args, "depth", 1),
         )
         if args.json:
             print(json.dumps(report, ensure_ascii=False, indent=2))
@@ -267,19 +269,67 @@ def cmd_kernel(args: argparse.Namespace) -> int:
 
 
 def cmd_expand(args: argparse.Namespace) -> int:
-    """Бесконечный насос: добрать следующие темы университетского курса."""
+    """Бесконечный насос: добрать темы курса (и, при --deep, мета-каталогов)."""
     from .kernel import SciencePulseKernel
 
     pipeline = _pipeline(args)
     kernel = SciencePulseKernel(pipeline.config, pipeline.storage, pipeline)
     result = kernel.expand_syllabus(count=args.count)
+    deep: Dict[str, Any] = {}
+    if getattr(args, "deep", False):
+        deep = kernel.expand_deep(count=args.count, depth=getattr(args, "depth", 1))
     if args.json:
-        print(json.dumps(result, ensure_ascii=False, indent=2))
+        print(json.dumps({**result, **deep}, ensure_ascii=False, indent=2))
         return 0
     print(
         f"Добавлено тем курса: {result['syllabus_added']} · "
         f"в очереди ready: {result['ready']} · курсор: {result['cursor']}"
     )
+    if deep:
+        if deep.get("reason"):
+            print(f"Глубокий обход: {deep['reason']}")
+        else:
+            print(
+                f"Глубокий обход (глубина {deep.get('depth')}): добавлено {deep.get('deep_added')} "
+                f"из {deep.get('deep_seen')} найденных тем · курсор {deep.get('deep_cursor')}"
+            )
+    _checkpoint(pipeline)
+    return 0
+
+
+def cmd_quiz(args: argparse.Namespace) -> int:
+    """Нативная викторина: показать (или отправить) задачу-опрос следующего поста."""
+    from .challenge import build_challenge, quiz_options
+
+    pipeline = _pipeline(args)
+    post = pipeline.choose_next(getattr(args, "domain", None))
+    if post is None:
+        print("Очередь пуста: нечего спрашивать.", file=sys.stderr)
+        return 1
+    challenge = build_challenge(post)
+    quiz = quiz_options(challenge)
+    if args.json:
+        print(json.dumps({"post": post.id, "challenge": challenge, "quiz": quiz},
+                         ensure_ascii=False, indent=2))
+        return 0
+    if not quiz:
+        print(f"§ {(post.meta or {}).get('section_num', '')}: у задачи нет числового ответа — "
+              "викторина не строится (варианты не выдумываем).")
+        print(f"Вопрос: {challenge.get('question')}")
+        return 0
+    print(f"🧠 {post.title}")
+    print(f"Вопрос: {quiz['question']}")
+    for index, option in enumerate(quiz["options"]):
+        mark = "✅" if index == quiz["correct_index"] else "  "
+        print(f"  {mark} {option}")
+    if args.send:
+        result = pipeline.send_quiz_poll(post)
+        if result:
+            print(f"Викторина отправлена: message_id={result.get('message_id')}")
+        else:
+            print("Не отправлено: нет Telegram-токена/канала или викторина недоступна.",
+                  file=sys.stderr)
+            return 1
     _checkpoint(pipeline)
     return 0
 
@@ -1247,13 +1297,23 @@ def build_parser() -> argparse.ArgumentParser:
     kernel.add_argument("--publish", action="store_true", help="публиковать и готовить N+1")
     kernel.add_argument("--voice", action="store_true", help="озвучивать лекцию")
     kernel.add_argument("--formal", action="store_true", help="проверить Lean-доказательства")
+    kernel.add_argument("--deep", action="store_true", help="рекурсивный обход категорий (нужна сеть)")
+    kernel.add_argument("--depth", type=int, default=1, help="глубина обхода подкатегорий")
     kernel.add_argument("--json", action="store_true", help="машиночитаемый отчёт")
     kernel.set_defaults(func=cmd_kernel)
 
     expand = subparsers.add_parser("expand", help="добрать темы университетского курса в очередь")
     expand.add_argument("--count", type=int, default=6, help="сколько тем добавить")
+    expand.add_argument("--deep", action="store_true", help="плюс обход мета-каталогов (нужна сеть)")
+    expand.add_argument("--depth", type=int, default=1, help="глубина обхода подкатегорий")
     expand.add_argument("--json", action="store_true", help="машиночитаемый отчёт")
     expand.set_defaults(func=cmd_expand)
+
+    quiz = subparsers.add_parser("quiz", help="нативная викторина по задаче следующего выпуска")
+    quiz.add_argument("--domain", default=None, help="дисциплина (math/physics/cs)")
+    quiz.add_argument("--send", action="store_true", help="отправить опрос в канал (нужен токен)")
+    quiz.add_argument("--json", action="store_true", help="машиночитаемый отчёт")
+    quiz.set_defaults(func=cmd_quiz)
 
     return parser
 

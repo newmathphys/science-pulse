@@ -666,6 +666,82 @@ def challenge_reveal(challenge: Dict[str, Any]) -> str:
     return " ".join(part for part in parts if part).strip()
 
 
+def quiz_options(challenge: Dict[str, Any], seed: Optional[int] = None) -> Optional[Dict[str, Any]]:
+    """Варианты ответа для нативной викторины (`Telegram sendPoll`).
+
+    Собирается только если в ответе есть число: правильный вариант + три
+    правдоподобных числовых дистрактора. Для качественных («concept») задач
+    вариантов нет — викторина просто не отправляется, а не выдумывает ответы.
+    """
+    challenge = challenge or {}
+    question = str(challenge.get("question") or "").strip()
+    answer = str(challenge.get("answer") or "").strip()
+    if not question or not answer:
+        return None
+    matches = list(NUMBERS_RE.finditer(answer))
+    if not matches:
+        return None
+    # Варианты строим из первого предложения ответа: «F ослабнет в 9 раз» →
+    # «F ослабнет в 4 раз», «F ослабнет в 9 раз», «F ослабнет в 11 раз»…
+    template = answer.split(".")[0].strip() or answer
+    template_matches = list(NUMBERS_RE.finditer(template))
+    if not template_matches:
+        return None
+    match = template_matches[-1]
+    token = match.group(0)
+    prefix, suffix = template[: match.start()], template[match.end():]
+    if len(prefix) > 70:
+        prefix, suffix = "", ""
+    value = float(token.replace(",", "."))
+    if value == 0:
+        return None
+    decimals = len(token.split(".")[-1].split(",")[-1]) if ("." in token or "," in token) else 0
+    is_int = decimals == 0 and float(value).is_integer()
+
+    def render(number: float) -> str:
+        text = str(int(round(number))) if is_int else f"{number:.{decimals}f}"
+        option = f"{prefix}{text}{suffix}".strip()
+        if len(option) <= 100:
+            return option
+        option = f"{prefix}{text}".strip()
+        if len(option) <= 100:
+            return option
+        return text
+
+    raw_candidates = [
+        value * 2, value / 2, value + 2, value * 3, value - 2, value * 4,
+    ]
+    distractors: List[Tuple[float, str]] = []
+    for candidate in raw_candidates:
+        if candidate <= 0:
+            continue
+        text = render(candidate)
+        if text != render(value) and all(text != item[1] for item in distractors):
+            distractors.append((candidate, text))
+        if len(distractors) == 3:
+            break
+    if len(distractors) < 3:
+        return None
+    distractors.sort(key=lambda item: item[0])
+    options = [text for _number, text in distractors]
+    base_seed = seed if seed is not None else _seed_from_text(str(challenge.get("post_id") or question))
+    position = base_seed % 4
+    options.insert(position, render(value))
+    if len(options) != 4 or len(set(options)) != 4:
+        return None
+    return {
+        "question": question,
+        "options": options,
+        "correct_index": position,
+        "explanation": str(challenge.get("answer") or ""),
+    }
+
+
+def _seed_from_text(text: str) -> int:
+    """Детерминированное зерно из строки (для викторины)."""
+    return int(hashlib.sha1(text.encode("utf-8")).hexdigest()[:8], 16)
+
+
 def challenge_summary(challenge: Dict[str, Any]) -> str:
     """Короткая сводка для `cli`/пульта: тип задачи и точный ответ."""
     challenge = challenge or {}

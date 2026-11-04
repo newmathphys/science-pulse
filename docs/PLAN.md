@@ -459,19 +459,26 @@ Discord, Mastodon и VK **не проверялись**: в среде нет и
 
 ### 10.1. Код есть, но в рантайме не подключён
 
+> **Обновление после аудита:** три пункта из этого списка уже закрыты —
+> см. 10.1.1.
+
 | Что | Состояние | Детали |
 |:--|:--|:--|
-| `RecursiveMetaCrawler.discover()` (рекурсивный обход подкатегорий Википедии) | **не вызывается нигде** | реализован в `sources/curriculum_crawler.py`, покрыт тестами на инъектируемых ответах, но ни ядро, ни пайплайн его не зовут. Темы берутся только из локальной матрицы `syllabus_tree` |
 | `hawkes_matrix`, `effective_stability` (S_eff), `review_interval_days` (FSRS) | **не используются** | формулы и тесты есть в `sota.py`; пайплайн зовёт только `check_hawkes_ready`/`record_hawkes_fire`, и то лишь при `hawkes.enabled: true` (в `config.yaml` — `false`) |
 | Бандит Томпсона `select_domain_thompson` | **выключен** | вызывается только при `selection: thompson`; в конфиге `round_robin` |
 | A/B стилей карточки | **выключен** | `abtest.enabled: false` |
 | Cloudflare `edge` (R2/D1) | **не работает** | нет `CF_WORKER_URL`/`INGEST_SECRET`, `edge.d1_primary: false`; команда `cli edge` только отработает вхолостую |
-| N+1 warm staging | **автоматический (включён)** | `stage_next(enforce=False, render_card=False)` вызывается из `publish_next` при `staging.auto: true` (в `config.yaml` включено): готовит лонгрид, паспорт и `kv["staged_next_post_id"]` неразрушающе; полная приёмка с карточкой — по `cli staged` / `/staged` / `kernel --publish` |
-| Нативные викторины Telegram (`sendPoll`) | **только в пульте** | `sendPoll` есть в `admin.py` (админ-чат), в `publishers/telegram.py` его нет → в канал опросы не уходят |
-| Мобильная рамка `┌─── 📐 ФОРМУЛА ───` для Threads | **не реализована** | в `publishers/threads.py` есть только `media_type: TEXT` |
 | RTMP-эфир (Telegram Live / YouTube Live) | **не запускался** | `rtmp_argv()` формирует корректную команду, но ключа нет → `cli radio --rtmp … --run` не выполнялся |
 | Омниканальная аналитика | **данных нет** | `metrics_summary()` пуст: нет токенов площадок; код сбора проверен только на фейковом HTTP |
 | Публикация в Threads / Bluesky / Discord / Mastodon / VK | **не проверена на живых аккаунтах** | код есть, тесты на фейковом HTTP есть, реальных постов нет (кроме Telegram) |
+
+### 10.1.1. Закрыто в этом аудите
+
+| Что | Как закрыто |
+|:--|:--|
+| `RecursiveMetaCrawler` («источники источников») | подключён к фазе 1 ядра: `kernel.expand_deep(count, depth)` + `cli expand --deep --depth N` + `cli kernel --tick --deep`. Живой прогон: обход нашёл **821 тему** в категориях, в очередь добавлены новые посты с `meta.deep_origin` и `complexity_tier` |
+| Нативные викторины Telegram (`sendPoll`) | `challenge.quiz_options()` строит 4 варианта (правильный + три числовых дистрактора ≤100 знаков), `TelegramPublisher.send_poll()` отправляет `type=quiz` в реплай к посту, пайплайн делает это сам при `telegram.quiz_poll: true`; отдельная команда `cli quiz [--send]` |
+| Мобильная рамка формулы для Threads | `base.formula_frame()` рисует `┌─── 📐 ФОРМУЛА ─── / │ … / └───…` и подставляется в режиме `TEXT` (LaTeX на телефоне не рендерится) |
 
 ### 10.2. Что работает локально и что нет (проверено запуском)
 
@@ -539,7 +546,7 @@ Discord, Mastodon и VK **не проверялись**: в среде нет и
 
 | Проверка | Результат |
 |:--|:--|
-| `unittest discover` | **433 теста OK** (skipped=1) |
+| `unittest discover` | **445 тестов OK** (skipped=1) |
 | `cli verify` | 🟢 инварианты (7) · Lean · фуззинг · медиа — все зелёные |
 | `cli invariants` | OK, 7 проверок, 0 нарушений |
 | `cli formal` | Lean 4.34 установлен, `formal/Invariants.lean` компилируется без `sorry` |
@@ -557,7 +564,7 @@ Discord, Mastodon и VK **не проверялись**: в среде нет и
    `\implies`. Добавлены переводы в `cards3b1b._mathtext_normalize` и
    регрессионный тест «все 30 формул канона обязаны рендериться» (быстрый
    `MathTextParser`, без создания фигур).
-2. **CI не запускал ни одного теста**: 433 теста существовали, но в
+2. **CI не запускал ни одного теста**: 445 тестов существовали, но в
    `.github/workflows/science_pulse.yml` не было шага тестирования — теперь
    шаг `Unit tests` стоит сразу после установки зависимостей (проверено: run
    41882205251, шаг 5 `Unit tests` → `success`).
@@ -589,11 +596,11 @@ Discord, Mastodon и VK **не проверялись**: в среде нет и
 
 ### 10.6. Что делать дальше (приоритет)
 
-1. Добавить GitHub Secrets (`TG_*`) → включить реальный автопилот по расписанию.
-2. Подключить `RecursiveMetaCrawler.discover()` к фазе 1 ядра (сейчас темы
-   курса не выходят за пределы 135 записанных).
-3. Включить `hawkes.enabled: true` и `selection: thompson` — формулы S_eff и
+1. Добавить GitHub Secrets (`TG_*`) → включить реальный автопилот по расписанию
+   (тогда же заработают викторины `quiz_poll` и алерт оператору).
+2. Включить `hawkes.enabled: true` и `selection: thompson` — формулы S_eff и
    A₃ₓ₃ уже написаны и протестированы.
-4. Вызвать `stage_next` внутри `publish_next` → N+1 станет автоматическим.
-5. Установить `typst` и `edge-tts` (или доверить это CI) → книга и озвучка.
-6. Проверить Threads/Bluesky/Discord/Mastodon/VK на тестовых аккаунтах.
+3. Проверить Threads/Bluesky/Discord/Mastodon/VK на тестовых аккаунтах.
+4. Решить судьбу Cloudflare-контура: дать ключи `CF_WORKER_URL`/`INGEST_SECRET`
+   или убрать `cli edge` из документации.
+5. Собирать `radio_mix.mp4` и PDF-книгу в CI (сейчас это локальные артефакты).

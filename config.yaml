@@ -175,6 +175,9 @@ telegram:
   admin_chat_id: ""
   message_thread_id: ""
   parse_mode: "HTML"
+  # Нативная викторина в канале после публикации: задача выпуска уходит
+  # опросом (sendPoll) в реплай к посту. Если в ответе нет числа — не отправляется.
+  quiz_poll: true
 
 threads:
   user_id: ""
