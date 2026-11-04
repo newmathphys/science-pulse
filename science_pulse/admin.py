@@ -49,6 +49,7 @@ HELP = """🎛 <b>Science Pulse — пульт</b>
 /preflight — 🛫 предполётная проверка следующего поста
 /verify — 🧪 инварианты + Lean + фаззинг
 /quiz [math|physics|cs] — 🧠 викторина из постов (нативный опрос Telegram)
+/staged — 🧊 подготовленный N+1 пост (warm staging)
 /foundation — 🏛 ступени фундамента: с каких постов начинаем
 /limits — 📐 правила площадок (и /limits set площадка параметр значение)
 /site — адрес сайта
@@ -292,10 +293,37 @@ class TelegramAdmin:
                 return self._foundation_text(args)
             if command == "/quiz":
                 return self._quiz_next(args)
+            if command == "/staged":
+                return self._staged_text()
             return HELP
         except Exception as exc:
             LOGGER.exception("Ошибка команды %s", command)
             return f"Ошибка: {html.escape(str(exc))}"
+
+    def _staged_text(self) -> str:
+        """/staged — подготовленный N+1 пост (warm staging приёмочной комиссии)."""
+        storage = self.pipeline.storage
+        post_id = storage.kv_get("staged_next_post_id", "")
+        post = storage.get_post(post_id) if post_id else None
+        if post is None:
+            from .canon_gate import CanonGate
+
+            report = CanonGate(storage, self.config).stage_next(self.pipeline)
+            if report.get("error"):
+                return f"🧊 Стейджинг: {html.escape(str(report['error']))}"
+            post = storage.get_post(str(report.get("post_id") or ""))
+        if post is None:
+            return "🧊 Нет подготовленного поста."
+        meta = post.meta or {}
+        lines = [
+            "🧊 <b>N+1 staging</b>",
+            f"§ {html.escape(str(meta.get('section_num', '')))} · <b>{html.escape(post.title)}</b> [{post.domain}]",
+            f"статус: <i>{html.escape(post.status)}</i>",
+        ]
+        reasons = meta.get("reject_reasons") or []
+        if reasons:
+            lines.append("причины: " + "; ".join(html.escape(str(reason)) for reason in reasons))
+        return "\n".join(lines)
 
     def _quiz_next(self, args: Optional[List[str]] = None) -> str:
         """/quiz — викторина из постов: вопрос + варианты (нативный опрос Telegram).

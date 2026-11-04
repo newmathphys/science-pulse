@@ -838,6 +838,33 @@ def cmd_clean_start(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_staged(args: argparse.Namespace) -> int:
+    """Показывает подготовленный N+1 пост (warm staging приёмочной комиссии)."""
+    pipeline = _pipeline(args)
+    storage, config = pipeline.storage, pipeline.config
+    post_id = storage.kv_get("staged_next_post_id", "")
+    post = storage.get_post(post_id) if post_id else None
+    if post is None or args.next:
+        from .canon_gate import CanonGate
+
+        report = CanonGate(storage, config).stage_next(pipeline)
+        if report.get("error"):
+            print(f"Стейджинг не удался: {report['error']}", file=sys.stderr)
+            return 1
+        post = storage.get_post(str(report.get("post_id") or ""))
+    if post is None:
+        print("Нет подготовленного поста", file=sys.stderr)
+        return 1
+    meta = post.meta or {}
+    print(f"§ {meta.get('section_num', '')} · {post.title} [{post.domain}] · {post.status}")
+    print(f"Карточка: {post.card_path or meta.get('card_path') or '—'}")
+    reasons = meta.get("reject_reasons") or []
+    if reasons:
+        print("Причины отказа: " + "; ".join(str(reason) for reason in reasons))
+    _checkpoint(pipeline)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="science_pulse",
@@ -1050,6 +1077,10 @@ def build_parser() -> argparse.ArgumentParser:
     clean = subparsers.add_parser("clean-start", help="чистый старт: сброс + VACUUM + пересборка сайта")
     clean.add_argument("--yes", action="store_true")
     clean.set_defaults(func=cmd_clean_start)
+
+    staged = subparsers.add_parser("staged", help="подготовленный N+1 пост (warm staging)")
+    staged.add_argument("--next", action="store_true", help="подготовить заново")
+    staged.set_defaults(func=cmd_staged)
 
     return parser
 

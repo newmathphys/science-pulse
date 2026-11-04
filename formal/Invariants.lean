@@ -172,4 +172,11 @@ theorem reject_monotone (g : Gate) : gateStep (gateStep g) = gateStep g := by
 theorem rejected_stays_rejected (g : Gate) : gateStep g = .rejected := by
   cases g <;> rfl
 
+/-- Ворота канона: публикация разрешена только принятому посту. -/
+def canonPublish (g : Gate) : Bool := g = .accepted
+
+/-- Опубликован ⟹ прошёл ворота канона (приёмочную комиссию). -/
+theorem published_requires_canon_gate (g : Gate) (h : canonPublish g = true) : g = .accepted := by
+  simpa [canonPublish] using h
+
 end SciencePulse
