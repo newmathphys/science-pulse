@@ -106,6 +106,18 @@ def build_rich_telegram_caption(post: Post, limit: int = 1024, site_url: str = "
     elif code:
         first_lines = "\n".join(code.splitlines()[:5])
         footer_parts.append(f"💻 <b>Фрагмент:</b>\n<pre>{escape_html(truncate(first_lines, 240))}</pre>")
+    # Вычислительный паспорт: точный расчёт (CODATA / значения формулы).
+    proof = meta.get("proof") if isinstance(meta.get("proof"), dict) else None
+    if not proof or not proof.get("computed_example"):
+        try:
+            from ..post_proof import build_post_proof
+
+            proof = build_post_proof(post)
+        except Exception:
+            proof = proof or {}
+    example = str((proof or {}).get("computed_example") or "").strip()
+    if example:
+        footer_parts.append(f"🔢 {escape_html(truncate(example, 220))}")
     if post.source_url:
         footer_parts.append(f"🏛 <a href=\"{escape_html(post.source_url)}\">Источник: {escape_html(truncate(source, 60))}</a>")
     prereq_links = meta.get("prereq_links") or []

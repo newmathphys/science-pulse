@@ -569,6 +569,29 @@ class SiteBuilder:
 """
         (dist / "index.html").write_text(self._page(self.config.site_title, content, depth=0), encoding="utf-8")
 
+    def _proof_html(self, post: Post) -> str:
+        """Блок «Вычислительный паспорт»: CODATA-расчёт, проверка кода, merkle-печать."""
+        proof = (post.meta or {}).get("proof")
+        if not isinstance(proof, dict):
+            try:
+                from .post_proof import build_post_proof
+
+                proof = build_post_proof(post)
+            except Exception:
+                proof = {}
+        if not proof:
+            return ""
+        rows: List[str] = []
+        if proof.get("computed_example"):
+            rows.append(f'<li><b>Точный расчёт:</b> <code>{_e(str(proof["computed_example"]))}</code></li>')
+        code_proof = proof.get("code_proof") or {}
+        if code_proof:
+            mark = "✓" if code_proof.get("ok") else "✗"
+            rows.append(f'<li><b>Код:</b> {mark} {_e(str(code_proof.get("summary", "")))}</li>')
+        if proof.get("merkle_hash"):
+            rows.append(f'<li><b>Печать (merkle v1):</b> <code>{_e(str(proof["merkle_hash"])[:32])}…</code></li>')
+        return "<h2>Вычислительный паспорт</h2><ul>" + "".join(rows) + "</ul>" if rows else ""
+
     def _sandbox_html(self, post: Post) -> str:
         """Интерактивная лаборатория на Canvas: ползунки A/k и расчёт y(x).
 
@@ -655,6 +678,7 @@ class SiteBuilder:
             prereq_html = "<h2>Опирается на фундамент</h2><ul>" + "".join(
                 f'<li><a href="{_e(str(url))}" rel="noopener">{_e(str(name))}</a></li>' for name, url in links
             ) + "</ul>"
+        proof_html = self._proof_html(post)
         sandbox_html = self._sandbox_html(post)
         content = f"""
 <article>
@@ -670,6 +694,7 @@ class SiteBuilder:
   <div class="article-body">{self._paragraphs(post.body)}</div>
   {code_html}
   <div class="tags">{tags}</div>
+  {proof_html}
   {source_html}
   <p style="color:var(--ink-2)">Источник: {_e(post.source_name)} · {_e(post.tier)} · качество {post.quality:.2f}</p>
   {prereq_html}
