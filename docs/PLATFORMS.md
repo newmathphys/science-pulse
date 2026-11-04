@@ -13,7 +13,7 @@
 
 | Площадка | Текст (лимит → что режем) | Картинка | Метрики | Статус проверки |
 |:--|:--|:--|:--|:--|
-| **Telegram** | caption 1024 / сообщение 4096 | из RAM (multipart) | ✗ Bot API не отдаёт просмотры | ✅ проверено на живом канале |
+| **Telegram** | caption 1024 / сообщение 4096 | из RAM (multipart) | ✓ просмотры через веб-виджет `t.me/<канал>/<id>?embed=1` | ✅ проверено на живом канале |
 | **Threads** | 500 → режем 495, нарезка по 490, ≤3 поста | только по публичному URL | ✓ insights | ⏳ нет токенов |
 | **Bluesky** | 300 → режем 298 | из RAM (blob upload) | ✓ getPostThread | ⏳ нет токенов |
 | **Discord** | 2000 / embed 4096 → режем 3900 | из RAM (attachment) | ✗ нет API статистики | ⏳ нет токенов |
@@ -46,9 +46,11 @@ URL картинки для Threads и сайта.
 - **`file_id`:** из ответа `sendPhoto` берётся `photo[-1].file_id`. Он
   сохраняется в `posts.card_file_id` и в `meta["card_file_id"]`. Это ключ для
   прокси Cloudflare (`/tg-cdn/{file_id}.png`) и для картинки Threads.
-- **Метрики:** Bot API **не отдаёт** просмотры и реакции. Просмотры канала
-  доступны только через MTProto/статистику, которых у бота нет, поэтому
-  Telegram в сборщике метрик помечается `skipped`.
+- **Метрики:** Bot API просмотры не отдаёт, но **омниканальный сборщик читает
+  публичный веб-виджет** `https://t.me/<канал>/<id>?embed=1` и парсит
+  `<span class="tgme_widget_message_views">` (`1.2K → 1200`, `3.5M → 3500000`);
+  при сетевой ошибке мягко возвращается `views=0`. Реакции приходят апдейтом
+  `message_reaction_count` (long polling пульта) и суммируются в `likes`.
 
 Нюансы:
 
@@ -206,7 +208,7 @@ URL картинки для Threads и сайта.
 | Bluesky | `getPostThread` | views, likes, replies |
 | VK | `wall.getById` | views, likes, replies |
 | Threads | `GET /{id}/insights` | views, likes, replies |
-| Telegram | — | Bot API не отдаёт просмотры → `skipped` |
+| Telegram | `t.me/<канал>/<id>?embed=1` | views из виджета; likes из `message_reaction_count` |
 | Discord | — | webhook не отдаёт статистику → `skipped` |
 
 ```bash
@@ -240,7 +242,7 @@ python -m science_pulse.cli metrics --json
 
 | Ловушка | Площадка | Как закрыто |
 |:--|:--|:--|
-| Нет просмотров через Bot API | Telegram | Сборщик метрик помечает `skipped` |
+| Нет просмотров через Bot API | Telegram | Чтение публичного веб-виджета `t.me/...?embed=1`; реакции — через `message_reaction_count` |
 | Картинка только по URL | Threads | Прокси Worker'а по `file_id` или карточка с сайта |
 | Токен живёт ~60 дней | Threads | Продление `refresh_access_token` (вручную/кроном) |
 | Текст нельзя редактировать | Threads | Только удалить и опубликовать заново |

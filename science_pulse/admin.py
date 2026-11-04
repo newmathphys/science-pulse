@@ -120,7 +120,7 @@ class TelegramAdmin:
             {
                 "offset": self.offset,
                 "timeout": timeout,
-                "allowed_updates": '["message","edited_message","callback_query"]',
+                "allowed_updates": '["message","edited_message","callback_query","message_reaction_count","poll_answer"]',
             },
             timeout=timeout + 10,
         )
@@ -137,6 +137,9 @@ class TelegramAdmin:
         return len(updates)
 
     def handle_update(self, update: Dict[str, Any]) -> Optional[str]:
+        if "message_reaction_count" in update:
+            self._record_reactions(update["message_reaction_count"])
+            return None
         if "callback_query" in update:
             callback = update["callback_query"]
             self.api_call(
@@ -164,6 +167,29 @@ class TelegramAdmin:
         if response:
             self.send(response)
         return response
+
+    def _record_reactions(self, payload: Dict[str, Any]) -> None:
+        """Суммирует реакции поста и обновляет `likes` в метриках Telegram."""
+        message_id = str(payload.get("message_id") or "")
+        if not message_id:
+            return
+        total = 0
+        for reaction in payload.get("reactions") or []:
+            try:
+                total += int(reaction.get("total_count") or 0)
+            except (TypeError, ValueError):
+                continue
+        for row in self.storage.metrics_targets(limit=200, platforms=["telegram"]):
+            if str(row.get("external_id")) != message_id:
+                continue
+            views = max(
+                (int(item.get("views") or 0) for item in self.storage.metrics_for(row["post_id"])
+                 if item.get("platform") == "telegram"),
+                default=0,
+            )
+            self.storage.add_metrics(row["post_id"], "telegram", views=views, likes=total, replies=0)
+            LOGGER.info("Реакции поста %s: %s", message_id, total)
+            break
 
     def handle_command(self, command: str, args: List[str]) -> str:
         try:
@@ -411,6 +437,15 @@ class TelegramAdmin:
         ]
         for domain, count in (status.get("by_domain") or {}).items():
             lines.append(f"• {domain}: {count}")
+        by_platform = (self.storage.metrics_summary() or {}).get("by_platform") or []
+        if by_platform:
+            lines.append("")
+            lines.append("👁 views | ❤️ likes | 💬 replies")
+            for item in by_platform:
+                lines.append(
+                    f"• <b>{html.escape(str(item.get('platform', '')))}</b>: "
+                    f"{int(item.get('views') or 0)} | {int(item.get('likes') or 0)} | {int(item.get('replies') or 0)}"
+                )
         return "\n".join(lines)
 
     def _metrics_text(self) -> str:

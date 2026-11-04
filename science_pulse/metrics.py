@@ -19,9 +19,31 @@ VK_API = "https://api.vk.com/method"
 VK_VERSION = "5.199"
 
 # Площадки с публичным API статистики, который мы умеем читать.
-SUPPORTED_PLATFORMS = ("mastodon", "bluesky", "vk", "threads")
-# Telegram Bot API и Discord webhook статистику просмотров/реакций не отдают.
-UNSUPPORTED_PLATFORMS = ("telegram", "discord")
+# Telegram читается через публичный веб-виджет t.me (embed=1).
+SUPPORTED_PLATFORMS = ("mastodon", "bluesky", "vk", "threads", "telegram")
+# Discord webhook статистику просмотров/реакций не отдаёт.
+UNSUPPORTED_PLATFORMS = ("discord",)
+
+
+def parse_compact_number(text: str) -> int:
+    """«1.2K» → 1200, «3.5M» → 3500000, «1 234» → 1234."""
+    cleaned = str(text or "").strip().replace("\u00a0", "").replace(" ", "").replace(",", ".")
+    match = re.match(r"^([0-9]+(?:\.[0-9]+)?)([KkMm]?)$", cleaned)
+    if not match:
+        return 0
+    value = float(match.group(1))
+    suffix = match.group(2).lower()
+    if suffix == "k":
+        value *= 1_000
+    elif suffix == "m":
+        value *= 1_000_000
+    return int(round(value))
+
+
+def parse_tg_views(html: str) -> int:
+    """Просмотры из виджета t.me: ``tgme_widget_message_views``."""
+    match = re.search(r'tgme_widget_message_views[^>]*>([^<]+)<', html or "")
+    return parse_compact_number(match.group(1)) if match else 0
 
 
 @dataclass
@@ -119,6 +141,7 @@ class MetricsCollector:
             "bluesky": self._collect_bluesky,
             "vk": self._collect_vk,
             "threads": self._collect_threads,
+            "telegram": self._collect_telegram,
         }.get(platform)
         if handler is None:
             return MetricsSample(
@@ -132,6 +155,30 @@ class MetricsCollector:
         except Exception as exc:  # защитный контур: одна площадка не рушит сбор
             LOGGER.warning("Метрики %s (%s): %s", platform, post_id, exc)
             return MetricsSample(post_id=post_id, platform=platform, status="error", error=str(exc)[:200])
+
+    def _collect_telegram(self, row: Dict[str, Any]) -> MetricsSample:
+        """Просмотры Telegram через публичный виджет ``t.me/<channel>/<id>?embed=1``.
+
+        Токен бота наружу не уходит: читается только публичная страница поста.
+        При сетевой ошибке мягко возвращается ``views=0``.
+        """
+        post_id = str(row["post_id"])
+        external_id = str(row.get("external_id") or "").strip()
+        channel = (self.config.telegram_channel or "").strip()
+        username = channel if channel.startswith("@") else ""
+        if not (external_id and username):
+            return MetricsSample(
+                post_id=post_id, platform="telegram", status="skipped",
+                error="нужен @username канала и external_id сообщения",
+            )
+        url = f"https://t.me/{username.lstrip('@')}/{external_id}?embed=1"
+        try:
+            response = self._get(url, timeout=10)
+            text = response.text if hasattr(response, "text") else str(response)
+        except Exception as exc:
+            return MetricsSample(post_id=post_id, platform="telegram", views=0,
+                                 status="ok", error=f"сеть: {str(exc)[:120]}")
+        return MetricsSample(post_id=post_id, platform="telegram", views=parse_tg_views(text))
 
     def _collect_mastodon(self, row: Dict[str, Any]) -> MetricsSample:
         post_id = str(row["post_id"])
