@@ -4,7 +4,7 @@ import json
 import math
 import random
 import time
-from typing import Dict, Tuple
+from typing import Any, Dict, List, Sequence, Tuple
 
 
 class SOTAKVExtensions:
@@ -118,3 +118,82 @@ class SOTAKVExtensions:
         radius = 0.92 * (1.0 - (norm_rank**0.5))
         theta = base_theta + index * 2.39996
         return round(radius * math.cos(theta), 4), round(radius * math.sin(theta), 4)
+
+    # ------------------------------------------------------------------
+    # 5. Хоукс: матрица взаимного возбуждения дисциплин A₃ₓ₃
+    # ------------------------------------------------------------------
+    @staticmethod
+    def hawkes_matrix(alpha0: float = 0.418) -> List[List[float]]:
+        """Блочная матрица возбуждения дисциплин (math, physics, cs) · α₀.
+
+        Асимметрия дедукции: математика сильнее возбуждает физику (0.612),
+        чем физика математику (0.436) — открытие анализа порождает механику,
+        а не наоборот.
+        """
+        raw = [
+            [1.000, 0.436, 0.436],
+            [0.612, 1.000, 0.284],
+            [0.578, 0.315, 1.000],
+        ]
+        return [[round(alpha0 * value, 6) for value in row] for row in raw]
+
+    @staticmethod
+    def spectral_radius(matrix: Sequence[Sequence[float]]) -> float:
+        """Спектральный радиус (максимум |λ|) степенной итерацией."""
+        size = len(matrix)
+        if size == 0:
+            return 0.0
+        vector = [1.0 / size] * size
+        norm = 0.0
+        for _ in range(200):
+            product = [sum(matrix[row][col] * vector[col] for col in range(size)) for row in range(size)]
+            norm = max(abs(item) for item in product) or 1.0
+            vector = [item / norm for item in product]
+        return round(norm, 6)
+
+    @classmethod
+    def hawkes_subcritical(cls, beta: float = 1.0) -> bool:
+        """Устойчивость публикационного контура: ρ(A)/β < 1 (нет спам-шторма)."""
+        return cls.spectral_radius(cls.hawkes_matrix()) / max(beta, 1e-9) < 1.0
+
+    # ------------------------------------------------------------------
+    # 6. Память: термодинамическая поправка FSRS от кривизны графа
+    # ------------------------------------------------------------------
+    @staticmethod
+    def effective_stability(s_base_days: float, parent_distances: Sequence[float]) -> float:
+        """S_eff = S_base · (1 + Σ 1/(1 + d_ℍ)) — связность усиливает след."""
+        gain = sum(1.0 / (1.0 + max(0.0, float(distance))) for distance in parent_distances)
+        return round(s_base_days * (1.0 + gain), 4)
+
+    @staticmethod
+    def review_interval_days(stability_days: float, target: float = 0.90) -> float:
+        """Оптимальный квант повторения: Δt = S · ln(1/target)."""
+        target = min(max(float(target), 1e-6), 0.999999)
+        return round(stability_days * math.log(1.0 / target), 4)
+
+
+# --- Спиновые блоки Каданова: специализация 4 суточных слотов -----------------
+
+KADANOV_BLOCKS: Tuple[Dict[str, Any], ...] = (
+    {"slot": "09:00", "domain": "math", "cognitive_temp": 0.35, "layer": 2,
+     "title": "Утренний конденсационный импульс"},
+    {"slot": "13:00", "domain": "cs", "cognitive_temp": 0.65, "layer": 3,
+     "title": "Дневной кинетический дрейф"},
+    {"slot": "17:00", "domain": "physics", "cognitive_temp": 0.80, "layer": 1,
+     "title": "Вечерний резонанс полей"},
+    {"slot": "21:00", "domain": "", "cognitive_temp": 0.45, "layer": 4,
+     "title": "Ночная макроскопическая релаксация"},
+)
+
+
+def kadanov_block(slot: str) -> Dict[str, Any]:
+    """Спиновый блок Каданова для слота ``HH:MM`` (по умолчанию — синтез)."""
+    for block in KADANOV_BLOCKS:
+        if block["slot"] == slot:
+            return dict(block)
+    return dict(KADANOV_BLOCKS[-1])
+
+
+def preferred_domain(slot: str) -> str:
+    """Дисциплина, приоритетная для слота ('' — междисциплинарный синтез)."""
+    return str(kadanov_block(slot).get("domain") or "")
