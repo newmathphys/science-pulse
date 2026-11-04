@@ -197,3 +197,22 @@ def kadanov_block(slot: str) -> Dict[str, Any]:
 def preferred_domain(slot: str) -> str:
     """Дисциплина, приоритетная для слота ('' — междисциплинарный синтез)."""
     return str(kadanov_block(slot).get("domain") or "")
+
+
+# --- Детерминированный хронометр эпохи ---------------------------------------
+
+EPOCH_START_UTC = "2026-01-01T00:00:00+00:00"
+SLOT_SECONDS = 6 * 3600
+
+
+def epoch_slot_index(now: float | None = None) -> int:
+    """Номер слота от начала эпохи проекта: ``(now − epoch) // 6 ч``.
+
+    Позволяет восстановить позицию в расписании даже без базы: скрипт,
+    запущенный «в чистом поле», точно знает, какой по счёту слот идёт сейчас.
+    """
+    import datetime as _dt
+
+    start = _dt.datetime.fromisoformat(EPOCH_START_UTC).timestamp()
+    current = time.time() if now is None else float(now)
+    return max(0, int((current - start) // SLOT_SECONDS))

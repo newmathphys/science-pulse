@@ -45,5 +45,17 @@ class KadanovTests(unittest.TestCase):
         self.assertEqual(kadanov_block("03:00")["layer"], 4)
 
 
+class EpochClockTests(unittest.TestCase):
+    def test_slot_index_is_monotone(self):
+        from science_pulse.sota import EPOCH_START_UTC, SLOT_SECONDS, epoch_slot_index
+        import datetime as dt
+
+        start = dt.datetime.fromisoformat(EPOCH_START_UTC).timestamp()
+        self.assertEqual(epoch_slot_index(start), 0)
+        self.assertEqual(epoch_slot_index(start + SLOT_SECONDS), 1)
+        self.assertEqual(epoch_slot_index(start + SLOT_SECONDS * 5 + 10), 5)
+        self.assertEqual(epoch_slot_index(start - 10_000), 0)
+
+
 if __name__ == "__main__":
     unittest.main()
