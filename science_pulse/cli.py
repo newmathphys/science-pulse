@@ -865,6 +865,54 @@ def cmd_staged(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_backup(args: argparse.Namespace) -> int:
+    """Отправляет снимок базы ``science.db`` документом в админ-чат Telegram."""
+    import requests
+
+    pipeline = _pipeline(args)
+    config = pipeline.config
+    path = Path(config.db_path)
+    if not path.is_file():
+        print("База не найдена", file=sys.stderr)
+        return 1
+    if not (config.telegram_token and config.telegram_admin_chat):
+        print("Нет TG_BOT_TOKEN/TG_ADMIN_CHAT_ID", file=sys.stderr)
+        return 1
+    pipeline.storage.checkpoint()
+    with path.open("rb") as handle:
+        response = requests.post(
+            f"https://api.telegram.org/bot{config.telegram_token}/sendDocument",
+            data={
+                "chat_id": config.telegram_admin_chat,
+                "caption": f"🗄 Бэкап science.db · {path.stat().st_size} байт",
+            },
+            files={"document": (path.name, handle, "application/octet-stream")},
+            timeout=60,
+        )
+    payload = response.json()
+    if not payload.get("ok"):
+        print(f"Telegram: {payload.get('description')}", file=sys.stderr)
+        return 1
+    print(f"Бэкап отправлен: message_id {payload['result']['message_id']}")
+    return 0
+
+
+def cmd_recover(args: argparse.Namespace) -> int:
+    """Восстанавливает состояние из публичной ленты канала (`t.me/s/<канал>`)."""
+    from .recovery import recover_from_public_channel
+
+    pipeline = _pipeline(args)
+    report = recover_from_public_channel(pipeline.storage, pipeline.config, limit=args.limit)
+    if not report.get("ok"):
+        print(f"Восстановление не удалось: {report.get('error')}", file=sys.stderr)
+        return 1
+    print(f"Восстановлено узлов: {report['recovered']} из ленты @{report['channel']}")
+    for item in report.get("items", [])[:10]:
+        print(f"  § {item['section']} → message_id {item['message_id']}")
+    _checkpoint(pipeline)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="science_pulse",
@@ -1081,6 +1129,13 @@ def build_parser() -> argparse.ArgumentParser:
     staged = subparsers.add_parser("staged", help="подготовленный N+1 пост (warm staging)")
     staged.add_argument("--next", action="store_true", help="подготовить заново")
     staged.set_defaults(func=cmd_staged)
+
+    backup = subparsers.add_parser("backup", help="отправить снимок science.db в админ-чат Telegram")
+    backup.set_defaults(func=cmd_backup)
+
+    recover = subparsers.add_parser("recover-from-channel", help="восстановить состояние из ленты t.me/s/<канал>")
+    recover.add_argument("--limit", type=int, default=100)
+    recover.set_defaults(func=cmd_recover)
 
     return parser
 

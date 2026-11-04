@@ -149,6 +149,8 @@ class SiteTests(unittest.TestCase):
         self.assertIn('id="param-a"', page)
         self.assertIn('id="param-b"', page)
         self.assertIn("getContext('2d')", page)
+        self.assertIn('id="sandbox-audio"', page)
+        self.assertIn("AudioContext", page)
 
     def test_poincare_atlas(self):
         """Главная содержит интерактивный диск Пуанкаре и данные маршрутов."""

@@ -50,6 +50,7 @@ HELP = """🎛 <b>Science Pulse — пульт</b>
 /verify — 🧪 инварианты + Lean + фаззинг
 /quiz [math|physics|cs] — 🧠 викторина из постов (нативный опрос Telegram)
 /staged — 🧊 подготовленный N+1 пост (warm staging)
+/backup — 🗄 снимок базы science.db документом в этот чат
 /foundation — 🏛 ступени фундамента: с каких постов начинаем
 /limits — 📐 правила площадок (и /limits set площадка параметр значение)
 /site — адрес сайта
@@ -321,10 +322,37 @@ class TelegramAdmin:
                 return self._quiz_next(args)
             if command == "/staged":
                 return self._staged_text()
+            if command == "/backup":
+                return self._backup_text()
             return HELP
         except Exception as exc:
             LOGGER.exception("Ошибка команды %s", command)
             return f"Ошибка: {html.escape(str(exc))}"
+
+    def _backup_text(self) -> str:
+        """/backup — отправляет снимок ``science.db`` документом в админ-чат."""
+        import requests
+
+        path = Path(self.config.db_path)
+        if not path.is_file():
+            return "🗄 База не найдена."
+        if not (self.token and self.chat_id):
+            return "🗄 Нет токена/чата для бэкапа."
+        self.storage.checkpoint()
+        try:
+            with path.open("rb") as handle:
+                response = requests.post(
+                    self._api("sendDocument"),
+                    data={"chat_id": self.chat_id, "caption": f"🗄 Бэкап science.db · {path.stat().st_size} байт"},
+                    files={"document": (path.name, handle, "application/octet-stream")},
+                    timeout=60,
+                )
+            payload = response.json()
+        except Exception as exc:
+            return f"🗄 Ошибка бэкапа: {html.escape(str(exc))[:120]}"
+        if not payload.get("ok"):
+            return f"🗄 Telegram: {html.escape(str(payload.get('description'))[:120])}"
+        return "🗄 Бэкап базы отправлен в этот чат."
 
     def _staged_text(self) -> str:
         """/staged — подготовленный N+1 пост (warm staging приёмочной комиссии)."""

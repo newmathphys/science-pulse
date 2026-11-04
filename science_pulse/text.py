@@ -433,6 +433,38 @@ def is_near_duplicate(hash_a: int, hash_b: int, threshold: int = 6) -> bool:
     return hamming(hash_a, hash_b) <= threshold
 
 
+# Уровни высоты столбика в левой колонке символа Брайля (точки 7,3,2,1).
+BRAILLE_LEVELS = (0x00, 0x40, 0x44, 0x46, 0x47)
+
+
+def braille_sparkline(values: Iterable[float], width: int = 16) -> str:
+    """Мини-осциллограмма текстом: значения → строка символов Брайля.
+
+    Каждый символ ``U+2800 + уровень`` кодирует столбик высоты 0..4 точками
+    левой колонки (как в ``btop``/``htop``). Если значений больше ``width``,
+    они усредняются по корзинам; пустой вход → пустая строка.
+    """
+    data = [float(value) for value in (values or [])]
+    if not data or width <= 0:
+        return ""
+    if len(data) > width:
+        step = len(data) / width
+        buckets: List[float] = []
+        for index in range(width):
+            start = int(index * step)
+            end = max(start + 1, int((index + 1) * step))
+            chunk = data[start:end]
+            buckets.append(sum(chunk) / len(chunk) if chunk else 0.0)
+        data = buckets
+    low, high = min(data), max(data)
+    span = (high - low) or 1.0
+    chars: List[str] = []
+    for value in data:
+        level = int(round((value - low) / span * 4))
+        chars.append(chr(0x2800 + BRAILLE_LEVELS[max(0, min(4, level))]))
+    return "".join(chars)
+
+
 def split_text(text: str, limit: int = 500) -> List[str]:
     """Режет текст по границам предложений/слов, не разрывая формулы."""
     if limit < 40:

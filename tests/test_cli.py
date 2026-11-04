@@ -12,7 +12,7 @@ class CliParserTests(unittest.TestCase):
             "standards", "quarantine", "reject", "preflight", "verify", "foundation",
             "limits", "admin", "daemon", "sources", "add", "checkpoint", "metrics",
             "invariants", "edge", "formal", "state", "retranslate", "drop", "recard", "reset",
-            "post", "clean-start", "staged",
+            "post", "clean-start", "staged", "backup", "recover-from-channel",
         }
         actions = [
             action for action in parser._actions

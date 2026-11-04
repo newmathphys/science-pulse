@@ -413,6 +413,31 @@ SANDBOX_JS = """
   }
   [aEl, bEl, xEl].forEach(el => { if (el) el.addEventListener('input', draw); });
   draw();
+
+  // 🔊 Клиентский синтезатор (WebAudio API): озвучивает текущую кривую f(x)
+  // прямо в браузере, без скачивания файлов.
+  const audioBtn = document.getElementById('sandbox-audio');
+  let audioCtx = null, tone = null;
+  function stopTone() {
+    if (tone) { try { tone.stop(); } catch (error) {} tone = null; }
+  }
+  function playTone() {
+    const Ctor = window.AudioContext || window.webkitAudioContext;
+    if (!Ctor) return;
+    audioCtx = audioCtx || new Ctor();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const A = parseFloat(aEl.value) || 1, k = parseFloat(bEl.value) || 1;
+    stopTone();
+    tone = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    tone.type = domain === 'physics' ? 'sine' : (domain === 'cs' ? 'square' : 'triangle');
+    tone.frequency.value = Math.max(60, Math.min(1400, 220 * A * k));
+    gain.gain.value = 0.07;
+    tone.connect(gain); gain.connect(audioCtx.destination);
+    tone.start();
+    setTimeout(stopTone, 1200);
+  }
+  if (audioBtn) audioBtn.addEventListener('click', playTone);
 })();
 """
 
@@ -772,6 +797,32 @@ class SiteBuilder:
             return ""
         return f'<h2>Полный разбор</h2><div class="article-body">{self._paragraphs(text)}</div>'
 
+    def _sparkline_html(self, post: Post) -> str:
+        """Текстовая мини-осциллограмма профиля (Брайль): f(x), иначе сонификация."""
+        from .text import braille_sparkline
+
+        expression = (post.formula_plain or post.formula_latex or "").strip()
+        label = "Профиль f(x)"
+        values: List[float] = []
+        if expression:
+            try:
+                from .plotting import evaluate_curve
+
+                curve = evaluate_curve(expression, x_min=-3.1, x_max=3.1, points=200, include_derivative=False)
+                values = [float(value) for value in curve["re_y"]]
+            except Exception:
+                values = []
+        if not values:
+            try:
+                from .sound import _notes_from_post
+
+                values = [float(note) for note in _notes_from_post(post)]
+                label = "Профиль сонификации"
+            except Exception:
+                return ""
+        spark = braille_sparkline(values, width=24)
+        return f'<p class="mono">📈 {label}: {spark}</p>' if spark else ""
+
     def _proof_html(self, post: Post) -> str:
         """Блок «Вычислительный паспорт»: CODATA-расчёт, проверка кода, merkle-печать."""
         proof = (post.meta or {}).get("proof")
@@ -884,6 +935,7 @@ class SiteBuilder:
             '<label>k (частота) <input id="param-b" type="range" min="0.5" max="4.0" step="0.1" value="1.0"> <span id="val-b">1.0</span></label>'
             '<label>x <input id="sandbox-x" type="number" value="1.0" step="0.1"></label>'
             '<span>y(x) = <output id="sandbox-y">—</output></span>'
+            '<button id="sandbox-audio" class="mini-action" type="button">🔊 Услышать частоту формулы</button>'
             "</div>"
             f"<script>{script}</script>"
             "</section>"
@@ -970,6 +1022,7 @@ class SiteBuilder:
       <p class="lead">{_e(post.hook)}</p>
       {image_html}
       {formula_html}
+      {self._sparkline_html(post)}
       {sandbox_html}
       {audio_html}
       {audiogram_html}
