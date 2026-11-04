@@ -96,6 +96,14 @@ pre { background: var(--paper-3); border: 1px solid var(--rule); border-radius: 
 .sandbox input[type=range] { width: 170px; }
 .sandbox input[type=number] { width: 90px; border: 1px solid var(--rule); padding: 5px 8px; font-family: var(--mono); }
 .sandbox output { font-weight: 700; color: var(--ink); }
+.journal { display: grid; grid-template-columns: 230px minmax(0, 1fr) 220px; gap: 28px; align-items: start; margin-top: 18px; }
+.journal .side { font-size: 14px; }
+.journal .side h2 { font-size: 13px; margin: 0 0 8px; font-family: var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
+.journal .side ul { list-style: none; padding: 0; margin: 0 0 18px; }
+.journal .side li { margin: 0 0 6px; color: var(--ink-2); }
+.journal .side li b { color: var(--ink); }
+.journal .main { min-width: 0; }
+@media (max-width: 980px) { .journal { grid-template-columns: 1fr; } }
 details.flash { background: var(--paper-2); border: 1px solid var(--rule); border-radius: 4px; padding: 12px 16px; margin: 10px 0; }
 details.flash summary { cursor: pointer; font-weight: 700; }
 footer { border-top: 1px solid var(--rule); color: var(--ink-2); padding: 22px 0 40px; font-size: 13px; }
@@ -701,27 +709,44 @@ class SiteBuilder:
         proof_html = self._proof_html(post)
         longread_html = self._longread_html(post)
         sandbox_html = self._sandbox_html(post)
+        meta_pass = post.meta or {}
+        section = str(meta_pass.get("section_num") or "").strip()
+        passport_items = []
+        if section:
+            passport_items.append(f"<li><b>§ {_e(section)}</b></li>")
+        if meta_pass.get("scientist"):
+            passport_items.append(f"<li>{_e(str(meta_pass['scientist']))}</li>")
+        if meta_pass.get("era"):
+            passport_items.append(f"<li><i>{_e(str(meta_pass['era']))}</i></li>")
+        passport_items.append(f"<li>{_e(DOMAIN_LABELS.get(post.domain, post.domain))}</li>")
+        passport_html = "<h2>Паспорт параграфа</h2><ul>" + "".join(passport_items) + "</ul>" + prereq_html
         content = f"""
 <article>
   <a href="../index.html">← ко всем разборам</a>
-  <div class="badge {_e(post.domain)}">{post.emoji} {_e(DOMAIN_LABELS.get(post.domain, post.domain))}</div>
-  <h1>{_e(post.title)}</h1>
-  <p class="lead">{_e(post.hook)}</p>
-  {image_html}
-  {formula_html}
-  {sandbox_html}
-  {audio_html}
-  {audiogram_html}
-  {longread_html}
-  <div class="article-body">{self._paragraphs(post.body)}</div>
-  {code_html}
-  <div class="tags">{tags}</div>
-  {proof_html}
-  {source_html}
-  <p style="color:var(--ink-2)">Источник: {_e(post.source_name)} · {_e(post.tier)} · качество {post.quality:.2f}</p>
-  {prereq_html}
-  {f'<h2>Используется в новых темах</h2><ul>{used_in_html}</ul>' if used_in_html else ''}
-  {f'<h2>Связанные разборы</h2><ul>{related_html}</ul>' if related_html else ''}
+  <div class="journal">
+    <aside class="side">{passport_html}</aside>
+    <div class="main">
+      <div class="badge {_e(post.domain)}">{post.emoji} {_e(DOMAIN_LABELS.get(post.domain, post.domain))}</div>
+      <h1>{_e(post.title)}</h1>
+      <p class="lead">{_e(post.hook)}</p>
+      {image_html}
+      {formula_html}
+      {sandbox_html}
+      {audio_html}
+      {audiogram_html}
+      {longread_html}
+      <div class="article-body">{self._paragraphs(post.body)}</div>
+      {code_html}
+    </div>
+    <aside class="side">
+      {proof_html}
+      <div class="tags">{tags}</div>
+      {source_html}
+      <p style="color:var(--ink-2)">Источник: {_e(post.source_name)} · {_e(post.tier)} · качество {post.quality:.2f}</p>
+      {f'<h2>Используется в новых темах</h2><ul>{used_in_html}</ul>' if used_in_html else ''}
+      {f'<h2>Связанные разборы</h2><ul>{related_html}</ul>' if related_html else ''}
+    </aside>
+  </div>
 </article>
 """
         (posts_dir / f"{post.id}.html").write_text(self._page(post.title, content, depth=1), encoding="utf-8")
