@@ -45,6 +45,8 @@ ARCHETYPES = (
     "diptych_insar",
     "cheatsheet_table",
     "timeline_evolution",
+    "logic_proof",
+    "number_sequence",
 )
 SIMULATIONS = ("insar", "ndvi", "geodesics", "tunneling", "lorenz", "lj")
 
@@ -545,7 +547,17 @@ def pick_visual_type(post: Post) -> str:
         return "cheatsheet_table"
     text = f"{getattr(post, 'title', '')} {getattr(post, 'body', '')} {getattr(post, 'hook', '')}".lower()
     code = getattr(post, "code", "") or ""
-    has_formula = bool((getattr(post, "formula_latex", "") or getattr(post, "formula_plain", "")).strip())
+    formula_text = (
+        f"{getattr(post, 'formula_latex', '')} {getattr(post, 'formula_plain', '')}".lower()
+    )
+    has_formula = bool(formula_text.strip())
+    # 6-й архетип: логика, аксиомы, теоремы (логические символы и нет переменной x).
+    logic_symbols = ("∀", "∃", "¬", "∧", "∨", "⇒", "\\forall", "\\exists", "\\neg", "\\implies", "provable")
+    if any(symbol.lower() in formula_text for symbol in logic_symbols) and not re.search(r"\bx\b", formula_text):
+        return "logic_proof"
+    # 7-й архетип: числовые ряды (OEIS, простые числа, Фибоначчи).
+    if str(getattr(post, "source_name", "")).lower().startswith("oeis") or _sequence_values(post, minimum=6):
+        return "number_sequence"
     # Алгоритмический пост с кодом — книжный листинг «Алгоритм 1.», даже если есть формула
     # (сложность O(...) показывается отдельной строкой под листингом).
     if code and ("алгоритм" in text or "algorithm" in text or ("def " in code and not has_formula)):
@@ -637,6 +649,171 @@ def _paste_fitted(canvas: Image.Image, img_path: Path, y: int, center_x: int, ma
     return y + img.height
 
 
+def _sequence_values(post: Post, minimum: int = 6) -> List[int]:
+    """Достаёт числовую последовательность (≥ ``minimum`` чисел через запятую)."""
+    pattern = re.compile(r"-?\d+(?:\s*,\s*-?\d+){%d,}" % (minimum - 1))
+    for text in (getattr(post, "hook", ""), getattr(post, "body", ""), getattr(post, "formula_plain", "")):
+        match = pattern.search(text or "")
+        if not match:
+            continue
+        try:
+            values = [int(part.strip()) for part in match.group(0).split(",") if part.strip()]
+        except ValueError:
+            continue
+        if len(values) >= minimum:
+            return values[:12]
+    return []
+
+
+def _in_finder(row: int, col: int, size: int) -> bool:
+    return (
+        (row < 7 and col < 7)
+        or (row < 7 and col >= size - 7)
+        or (row >= size - 7 and col < 7)
+    )
+
+
+def _stamp_finder(matrix: List[List[bool]], top: int, left: int, size: int) -> None:
+    for r in range(7):
+        for c in range(7):
+            rr, cc = top + r, left + c
+            if 0 <= rr < size and 0 <= cc < size:
+                edge = r in (0, 6) or c in (0, 6)
+                center = 2 <= r <= 4 and 2 <= c <= 4
+                matrix[rr][cc] = edge or center
+
+
+def _qr_matrix(text: str, size: int = 21) -> List[List[bool]]:
+    """Детерминированная битовая матрица из sha256 (fallback без пакета `qrcode`)."""
+    import hashlib
+
+    matrix = [[False] * size for _ in range(size)]
+    for row in range(size):
+        for col in range(size):
+            if _in_finder(row, col, size):
+                continue
+            digest = hashlib.sha256(f"{text}|{row}|{col}".encode("utf-8")).digest()
+            matrix[row][col] = bool(digest[0] & 1)
+    for top, left in ((0, 0), (0, size - 7), (size - 7, 0)):
+        _stamp_finder(matrix, top, left, size)
+    return matrix
+
+
+def qr_image(text: str, px: int = 68) -> Optional[Image.Image]:
+    """QR-код ссылки: пакет `qrcode`, иначе детерминированная матрица 21×21."""
+    if not text:
+        return None
+    try:
+        import qrcode  # type: ignore
+
+        code = qrcode.QRCode(border=0, box_size=4)
+        code.add_data(text)
+        code.make(fit=True)
+        return code.make_image(fill_color="#111827", back_color="#FAF8F4").convert("RGB").resize(
+            (px, px), Image.Resampling.NEAREST
+        )
+    except Exception:
+        pass
+    size = 21
+    module = max(1, px // size)
+    real = module * size
+    image = Image.new("RGB", (real, real), PAPER)
+    draw = ImageDraw.Draw(image)
+    matrix = _qr_matrix(text, size)
+    for row in range(size):
+        for col in range(size):
+            if matrix[row][col]:
+                draw.rectangle(
+                    [col * module, row * module, (col + 1) * module - 1, (row + 1) * module - 1],
+                    fill=INK,
+                )
+    return image.resize((px, px), Image.Resampling.NEAREST) if real != px else image
+
+
+def _draw_logic_proof(
+    image: Image.Image, draw: ImageDraw.ImageDraw, post: Post, y: int, margin: int, width: int, scale: int
+) -> int:
+    """3 академических блока (посылка → формальный переход → следствие) + таблица истинности."""
+    body = (getattr(post, "body", "") or "").strip()
+    first_sentence = re.split(r"(?<=[.!?])\s+", body)[0] if body else ""
+    formula = (getattr(post, "formula_plain", "") or getattr(post, "formula_latex", "") or "").strip()
+    blocks = [
+        ("I. АКСИОМА / ИСХОДНАЯ ПОСЫЛКА", getattr(post, "hook", "") or ""),
+        ("II. ФОРМАЛЬНЫЙ ПЕРЕХОД", formula or "⊢ P ⇒ Q"),
+        ("III. ДОКАЗАННОЕ СЛЕДСТВИЕ", first_sentence or "Q доказано"),
+    ]
+    table_w = 232 * scale
+    box_w = width - table_w - 24 * scale
+    box_h = 84 * scale
+    start_y = y
+    for index, (head, text) in enumerate(blocks):
+        top = y
+        draw.rectangle([margin, top, margin + box_w, top + box_h], fill=PANEL, outline=INK, width=scale)
+        draw.rectangle([margin, top, margin + 6 * scale, top + box_h], fill=ACCENT)
+        draw.text((margin + 18 * scale, top + 8 * scale), head, fill=ACCENT,
+                  font=_serif_font(15 * scale, bold=True, mono=True))
+        font, lines = _fit(draw, text[:220], box_w - 36 * scale, 20 * scale, 14 * scale, 2)
+        ty = top + 32 * scale
+        for line in lines[:2]:
+            draw.text((margin + 18 * scale, ty), line, fill=INK, font=font)
+            ty += int(getattr(font, "size", 20 * scale) * 1.25)
+        y = top + box_h
+        if index < len(blocks) - 1:
+            cx = margin + box_w // 2
+            draw.polygon([(cx, y + 5 * scale), (cx - 8 * scale, y + 19 * scale), (cx + 8 * scale, y + 19 * scale)], fill=INK)
+            y += 30 * scale
+    tx = margin + box_w + 24 * scale
+    draw.text((tx, start_y), "ТАБЛИЦА ИСТИННОСТИ", fill=MUTED, font=_serif_font(13 * scale, bold=True, mono=True))
+    rows = [("A", "B", "A ⇒ B"), ("0", "0", "1"), ("0", "1", "1"), ("1", "0", "1"), ("1", "1", "1")]
+    row_h = 30 * scale
+    ty = start_y + 24 * scale
+    for index, row in enumerate(rows):
+        draw.rectangle([tx, ty, tx + table_w, ty + row_h], fill=PANEL if index % 2 == 0 else PAPER,
+                       outline=RULE, width=scale)
+        for col, cell in enumerate(row):
+            draw.text((tx + 12 * scale + col * (table_w // 3), ty + 6 * scale), cell, fill=INK,
+                      font=_serif_font(16 * scale, mono=index > 0))
+        ty += row_h
+    return max(y, ty) + 10 * scale
+
+
+def _draw_number_sequence(
+    image: Image.Image, draw: ImageDraw.ImageDraw, post: Post, y: int, margin: int, width: int, scale: int
+) -> int:
+    """Ряд ячеек a₁…aₙ с разностями Δ и дискретный stem-plot."""
+    values = (_sequence_values(post, minimum=4) or [1, 1, 2, 3, 5, 8, 13, 21])[:8]
+    cells = len(values)
+    gap = 10 * scale
+    cell_w = (width - gap * (cells - 1)) // cells
+    cell_h = 64 * scale
+    for index, value in enumerate(values):
+        left = margin + index * (cell_w + gap)
+        draw.rectangle([left, y, left + cell_w, y + cell_h], fill=PANEL, outline=INK, width=scale)
+        draw.text((left + 10 * scale, y + 7 * scale), f"a{index + 1}", fill=MUTED,
+                  font=_serif_font(13 * scale, mono=True))
+        draw.text((left + 10 * scale, y + 26 * scale), str(value), fill=INK,
+                  font=_serif_font(24 * scale, bold=True, mono=True))
+        if index < cells - 1:
+            draw.text((left + cell_w + gap // 4, y + 22 * scale), "→", fill=ACCENT,
+                      font=_serif_font(18 * scale, bold=True))
+            draw.text((left + cell_w + 2 * scale, y + cell_h + 6 * scale),
+                      f"Δ={values[index + 1] - value:+d}", fill=ACCENT, font=_serif_font(12 * scale, mono=True))
+    y += cell_h + 34 * scale
+    plot_h = 170 * scale
+    base = y + plot_h
+    draw.line([margin, base, margin + width, base], fill=RULE, width=scale)
+    peak = max((abs(value) for value in values), default=1) or 1
+    step = width // max(len(values) - 1, 1)
+    for index, value in enumerate(values):
+        px = margin + index * step
+        ph = int(plot_h * (abs(value) / peak))
+        draw.line([px, base, px, base - ph], fill=ACCENT, width=2 * scale)
+        draw.ellipse([px - 5 * scale, base - ph - 5 * scale, px + 5 * scale, base - ph + 5 * scale], fill=INK)
+        draw.text((px - 14 * scale, base - ph - 26 * scale), str(value), fill=INK,
+                  font=_serif_font(14 * scale, mono=True))
+    return base + 18 * scale
+
+
 def render_academic_card(post: Post, out_path: str | Path, size: int = 1080) -> Optional[CardArtifact]:
     """Книжная карточка академической серии (бумага, тушь, DejaVu Serif, CM-формулы).
 
@@ -666,6 +843,10 @@ def render_academic_card(post: Post, out_path: str | Path, size: int = 1080) -> 
         # ── Шапка книжной серии ─────────────────────────────────────────
         badge = f"SCIENCE PULSE · КНИЖНАЯ СЕРИЯ · {DOMAIN_LABELS.get(post.domain, post.domain.upper())}"
         draw.text((margin, y_cursor), badge, fill=ACCENT, font=_serif_font(19 * scale, bold=True, mono=True))
+        section = str((getattr(post, "meta", {}) or {}).get("section_num") or "").strip()
+        if section:
+            draw.text((margin + width - 150 * scale, y_cursor), f"§ {section}", fill=INK,
+                      font=_serif_font(20 * scale, bold=True, mono=True))
         y_cursor += 32 * scale
         draw.line((margin, y_cursor, margin + width, y_cursor), fill=RULE, width=scale)
         y_cursor += 16 * scale
@@ -719,6 +900,10 @@ def render_academic_card(post: Post, out_path: str | Path, size: int = 1080) -> 
             y_cursor = _draw_table(image, draw, post, y_cursor, margin, width, scale)
         elif visual == "code_booktabs":
             y_cursor = _draw_code_listing(image, draw, post, y_cursor, margin, width, scale)
+        elif visual == "logic_proof":
+            y_cursor = _draw_logic_proof(image, draw, post, y_cursor, margin, width, scale)
+        elif visual == "number_sequence":
+            y_cursor = _draw_number_sequence(image, draw, post, y_cursor, margin, width, scale)
         else:  # standard_plot
             _chart_standard(post, chart_wide)
             y_cursor = _paste_fitted(image, chart_wide, y_cursor, center_x, width, 360 * scale) + 16 * scale
@@ -740,6 +925,19 @@ def render_academic_card(post: Post, out_path: str | Path, size: int = 1080) -> 
             draw.line((margin, y_cursor, margin + width, y_cursor), fill=RULE, width=scale)
             y_cursor += 16 * scale
 
+        # ── Экспликация «где: …» под формулой ───────────────────────────
+        where = str(meta.get("formula_vars") or "").strip()
+        if not where:
+            used = [str(symbol) for symbol in (meta.get("constants_used") or [])]
+            if used:
+                where = "где: " + ", ".join(used[:5])
+        if where:
+            where_font, where_lines = _fit(draw, where, width, 18 * scale, 13 * scale, 2, italic=True)
+            for line in where_lines[:2]:
+                draw.text((margin, y_cursor), line, fill=MUTED, font=where_font)
+                y_cursor += int(getattr(where_font, "size", 18 * scale) * 1.3)
+            y_cursor += 8 * scale
+
         # ── Тройная связь времени: где работает сегодня ─────────────────
         application = str(meta.get("modern_application") or "").strip()
         if application:
@@ -756,6 +954,14 @@ def render_academic_card(post: Post, out_path: str | Path, size: int = 1080) -> 
         draw.text((margin, footer_y + 14 * scale), source, fill=MUTED, font=_serif_font(16 * scale, mono=True))
         draw.text((margin + width - 430 * scale, footer_y + 14 * scale),
                   "детерминированный рендер · без LLM", fill=MUTED, font=_serif_font(16 * scale, mono=True))
+        # ── QR-код ссылки на разбор (правый нижний угол) ────────────────
+        import os
+
+        site_url = (os.getenv("SP_SITE_BASE_URL") or str(meta.get("site_url") or "")).rstrip("/")
+        link = f"{site_url}/post/{post.id}.html" if site_url else f"post/{post.id}.html"
+        qr = qr_image(link, 68 * scale)
+        if qr is not None:
+            image.paste(qr, (margin + width - 72 * scale, footer_y - 84 * scale))
 
         final = image.resize((size, size), Image.Resampling.LANCZOS)
         final.save(out_path, format="PNG", optimize=True)

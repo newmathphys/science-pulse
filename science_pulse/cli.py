@@ -5,7 +5,7 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from . import __version__
 from .config import load_config
@@ -326,12 +326,21 @@ def cmd_recard(args: argparse.Namespace) -> int:
         print("Нет TG_BOT_TOKEN/TG_CHANNEL_ID — обновление карточек невозможно", file=sys.stderr)
         return 1
 
-    targets = storage.metrics_targets(limit=args.limit, platforms=["telegram"])
+    # Перерисовываем карточки ВСЕХ опубликованных постов (независимо от площадки);
+    # если у поста есть telegram-сообщение — обновляем и его.
+    targets: List[Dict[str, Any]] = []
+    for published in storage.list_posts(status="published", limit=args.limit):
+        external_id = ""
+        for row in storage.publications_for(published.id):
+            if row.get("platform") == "telegram" and row.get("external_id"):
+                external_id = str(row["external_id"])
+                break
+        targets.append({"post_id": published.id, "external_id": external_id, "platform": "telegram"})
     if args.post_id:
         wanted = set(args.post_id)
         targets = [item for item in targets if item["post_id"] in wanted]
     if not targets:
-        print("Опубликованных постов Telegram не найдено")
+        print("Опубликованных постов не найдено")
         return 1
 
     api = f"https://api.telegram.org/bot{config.telegram_token}"

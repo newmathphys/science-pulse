@@ -507,6 +507,8 @@ def render_card(
             engine in ("academic", "book")
             or bool(getattr(post, "meta", {}).get("visual_type"))
             or bool(getattr(post, "meta", {}).get("simulation"))
+            # Фундамент Науки — книжная серия (благородная бумага, тушь, §).
+            or getattr(post, "tier", "") == "foundation"
         )
         if want_academic:
             try:

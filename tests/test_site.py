@@ -138,6 +138,18 @@ class SiteTests(unittest.TestCase):
         self.assertTrue(any(item.get("formula") for item in search))
 
 
+    def test_post_page_has_interactive_sandbox(self):
+        """На странице поста — интерактивная лаборатория (Canvas + ползунки)."""
+        dist = self.builder.build()
+        post = self.storage.list_posts(status="published")[0]
+        page = (dist / "post" / f"{post.id}.html").read_text(encoding="utf-8")
+        self.assertIn('id="sandbox-canvas"', page)
+        self.assertIn('id="sandbox-x"', page)
+        self.assertIn('id="sandbox-y"', page)
+        self.assertIn('id="param-a"', page)
+        self.assertIn('id="param-b"', page)
+        self.assertIn("getContext('2d')", page)
+
     def test_flashcards_page(self):
         dist = self.builder.build()
         page = (dist / "flashcards.html").read_text(encoding="utf-8")

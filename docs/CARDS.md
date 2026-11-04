@@ -130,3 +130,32 @@ python -m unittest tests.test_cards3b1b -v      # plot + studio (skip без typ
 - Формула рендерится matplotlib mathtext (`stixsans`), а не TeX-движком Typst:
   поддержано большинство конструкций LaTeX; экзотика (`\begin{cases}` и т.п.)
   уйдёт в Unicode-фоллбэк.
+
+## Книжные архетипы (академическая серия)
+
+Движок `cards_academic.py` выбирает архетип по `meta["visual_type"]` или эвристике
+(`pick_visual_type`). Всего семь: `standard_plot`, `code_booktabs`, `diptych_insar`,
+`cheatsheet_table`, `timeline_evolution`, **`logic_proof`**, **`number_sequence`**.
+
+- **`logic_proof`** (логика, аксиомы, теоремы): выбирается, если в формуле есть
+  логические символы (`∀ ∃ ¬ ∧ ∨ ⇒ \forall \exists \neg \implies Provable`) и нет
+  переменной `x`. Рисует три блока со стрелками (посылка → формальный переход →
+  следствие) и мини-таблицу истинности `A | B | A ⇒ B`.
+- **`number_sequence`** (OEIS, простые, Фибоначчи): выбирается для `source_name`,
+  начинающегося на `oeis`, или при цепочке ≥6 чисел через запятую. Рисует ряд
+  ячеек `a₁ → a₂ → …` с разностями `Δ` и дискретный **stem-plot**.
+
+### Экспликация «где: …», §-номер и QR-код
+
+- Под формулой выводится строка **«где: …»** из `meta["formula_vars"]`, иначе из
+  `meta["constants_used"]`.
+- В шапке — параграф **`§ <section_num>`** (из `foundation.section_of`).
+- В правом нижнем углу — **QR-код 68×68** на ссылку `{site_base_url}/post/<id>.html`:
+  пакет `qrcode`, а без него — детерминированная матрица 21×21 из `sha256(url)`
+  с тремя Finder Pattern по углам (`_qr_matrix`).
+- Фундамент Науки (`tier == "foundation"`) всегда рендерится книжным движком
+  (`cards.render_card` → `render_academic_card`).
+
+Проверка: `tests/test_cards_academic.py` (`test_logic_proof_archetype`,
+`test_number_sequence_archetype`, `test_card_has_where_vars_and_qr`).
+

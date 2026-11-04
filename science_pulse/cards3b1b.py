@@ -63,17 +63,17 @@ def typst_available() -> bool:
 # visual_type), а не по дисциплине — иначе все физические карточки совпадают.
 # ----------------------------------------------------------------------
 
-_PLOT_RULES: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
-    ("orbit", ("орбит", "orbit", "тягот", "gravit", "планет", "kepler", "кеплер", "n-body", "nbody", "н-тел")),
-    ("decay", ("распад", "decay", "полураспад", "half-life", "затухан", "damping", "охлажд", "cooling")),
-    ("pendulum", ("маятник", "pendulum", "колебан", "oscill")),
-    ("heat", ("тепл", "heat", "диффузи", "diffusion", "энтроп", "entropy", "броун")),
-    ("prob", ("вероятн", "probab", "распределен", "distribution", "гаусс", "gauss", "нормальн", "статистик")),
-    ("wave", ("волн", "wave", "квант", "quant", "шрёдингер", "schrodinger", "интерфер", "фотон", "аттосекунд", "спектр")),
-    ("cells", ("конвей", "conway", "game of life", "клеточн", "automaton", "автомат", "игра «жизнь»")),
-    ("sort", ("сортиров", "sort", "сложност", "complexit", "алгоритм", "algorithm", "big-o", "o(n", "o(log", "хеш")),
-    ("graph", ("граф", "graph", "сеть ", "network", "вершин", "рёбр", "ребер", "маршрут")),
-    ("growth", ("фибоначч", "fibonacci", "последовательн", "sequence", "oeis", "прогресси", "рекуррент")),
+_PLOT_RULES: Tuple[Tuple[str, str], ...] = (
+    ("orbit", r"орбит|orbit|тягот|gravit|планет|kepler|кеплер|n-?body|н-?тел"),
+    ("decay", r"распад|decay|полураспад|half-life|затухан|damping|охлажд|cooling"),
+    ("pendulum", r"маятник|pendulum|колебан|oscill"),
+    ("heat", r"тепл|heat|диффузи|diffusion|энтроп|entropy|броун"),
+    ("prob", r"вероятн|probab|распределен|distribution|гаусс|gauss|нормальн|статистик"),
+    ("wave", r"волн|wave|квант|quant|шрёдингер|schrodinger|интерфер|фотон|аттосекунд|спектр"),
+    ("cells", r"конвей|conway|game of life|клеточн|automaton|автомат|игра «жизнь»"),
+    ("sort", r"сортиров|sort|сложност|complexit|алгоритм|algorithm|big-o|o\(n|o\(log|хеш"),
+    ("graph", r"\bграф(?:ов|ы|е|а|у|ам|ами)?\b|network|вершин|рёбр|ребер|маршрут"),
+    ("growth", r"фибоначч|fibonacci|последовательн|sequence|oeis|прогресси|рекуррент"),
 )
 
 
@@ -89,8 +89,8 @@ def _plot_family(post: Post) -> str:
         str(meta.get("visual_type") or ""),
         str(meta.get("concept") or ""),
     ]).lower()
-    for family, needles in _PLOT_RULES:
-        if any(needle in haystack for needle in needles):
+    for family, pattern in _PLOT_RULES:
+        if re.search(pattern, haystack, re.IGNORECASE):
             return family
     return "formula"
 

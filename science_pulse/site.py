@@ -168,6 +168,74 @@ self.addEventListener('fetch', (event) => {
 """
 
 
+SANDBOX_JS = """
+(function () {
+  const box = document.querySelector('.sandbox');
+  if (!box) return;
+  const canvas = document.getElementById('sandbox-canvas');
+  if (!canvas || !canvas.getContext) return;
+  const ctx = canvas.getContext('2d');
+  const out = document.getElementById('sandbox-y');
+  const domain = box.dataset.sandbox || 'math';
+  const userFn = __USER_FN__;
+  const aEl = document.getElementById('param-a');
+  const bEl = document.getElementById('param-b');
+  const xEl = document.getElementById('sandbox-x');
+  const va = document.getElementById('val-a');
+  const vb = document.getElementById('val-b');
+  const W = canvas.width, H = canvas.height, XMIN = -3.2, XMAX = 3.2, YMAX = 1.7;
+  const toPx = x => (x - XMIN) / (XMAX - XMIN) * W;
+  const toPy = y => H / 2 - (y / YMAX) * (H / 2);
+  function f(x, A, k) {
+    if (userFn) { try { const v = userFn(x, A, k); if (isFinite(v)) return v; } catch (e) {} }
+    if (domain === 'physics') return A * Math.exp(-x * x / 4) * Math.cos(k * x);
+    if (domain === 'cs') return A * Math.max(2, x) * Math.log2(Math.max(2, x)) / 12;
+    return A * Math.sin(k * x);
+  }
+  function axes() {
+    ctx.fillStyle = '#F3F0EA'; ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = '#D6D1C7'; ctx.lineWidth = 1;
+    for (let gx = -3; gx <= 3; gx++) { ctx.beginPath(); ctx.moveTo(toPx(gx), 0); ctx.lineTo(toPx(gx), H); ctx.stroke(); }
+    for (let gy = -1.5; gy <= 1.5; gy += 0.5) { ctx.beginPath(); ctx.moveTo(0, toPy(gy)); ctx.lineTo(W, toPy(gy)); ctx.stroke(); }
+    ctx.strokeStyle = '#111827'; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(0, toPy(0)); ctx.lineTo(W, toPy(0)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(toPx(0), 0); ctx.lineTo(toPx(0), H); ctx.stroke();
+  }
+  function curve(fn, color, width) {
+    ctx.strokeStyle = color; ctx.lineWidth = width; ctx.beginPath();
+    let first = true;
+    for (let i = 0; i <= 340; i++) {
+      const xv = XMIN + (i / 340) * (XMAX - XMIN);
+      const yv = fn(xv);
+      if (!isFinite(yv)) { first = true; continue; }
+      const px = toPx(xv), py = toPy(yv);
+      first ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+      first = false;
+    }
+    ctx.stroke();
+  }
+  function draw() {
+    const A = parseFloat(aEl.value) || 1, k = parseFloat(bEl.value) || 1;
+    const x = parseFloat(xEl.value) || 0;
+    axes();
+    if (domain === 'cs') curve(n => k * n * n / 40, '#9F1239', 2);
+    curve(xv => f(xv, A, k), '#1E3A8A', 2.6);
+    const yx = f(x, A, k);
+    ctx.fillStyle = '#065F46';
+    ctx.beginPath(); ctx.arc(toPx(x), toPy(yx), 5, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#9F1239'; ctx.setLineDash([4, 3]); ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(toPx(x), toPy(0)); ctx.lineTo(toPx(x), toPy(yx)); ctx.stroke();
+    ctx.setLineDash([]);
+    if (out) out.textContent = (Math.round(yx * 1000) / 1000).toString();
+    if (va) va.textContent = A.toFixed(1);
+    if (vb) vb.textContent = k.toFixed(1);
+  }
+  [aEl, bEl, xEl].forEach(el => { if (el) el.addEventListener('input', draw); });
+  draw();
+})();
+"""
+
+
 class SiteBuilder:
     def __init__(self, config: Config, storage: Storage):
         self.config = config
@@ -501,6 +569,36 @@ class SiteBuilder:
 """
         (dist / "index.html").write_text(self._page(self.config.site_title, content, depth=0), encoding="utf-8")
 
+    def _sandbox_html(self, post: Post) -> str:
+        """Интерактивная лаборатория на Canvas: ползунки A/k и расчёт y(x).
+
+        Использует JS-функцию из безопасного SymPy-парсера (`plotting._js_function`);
+        если формула не парсится — безопасный fallback по дисциплине.
+        """
+        from .plotting import _js_function, parse_expression
+
+        js_fn = "null"
+        try:
+            expression = (post.formula_plain or post.formula_latex or "").strip()
+            if expression:
+                js_fn = _js_function(parse_expression(expression))
+        except Exception:
+            js_fn = "null"
+        script = SANDBOX_JS.replace("__USER_FN__", js_fn)
+        return (
+            f'<section class="sandbox" data-sandbox="{_e(post.domain)}">'
+            "<h2>Интерактивная лаборатория</h2>"
+            '<canvas id="sandbox-canvas" width="680" height="280"></canvas>'
+            '<div class="ctl">'
+            '<label>A (масштаб) <input id="param-a" type="range" min="0.2" max="3.0" step="0.1" value="1.0"> <span id="val-a">1.0</span></label>'
+            '<label>k (частота) <input id="param-b" type="range" min="0.5" max="4.0" step="0.1" value="1.0"> <span id="val-b">1.0</span></label>'
+            '<label>x <input id="sandbox-x" type="number" value="1.0" step="0.1"></label>'
+            '<span>y(x) = <output id="sandbox-y">—</output></span>'
+            "</div>"
+            f"<script>{script}</script>"
+            "</section>"
+        )
+
     def _write_post(self, post: Post, all_posts: List[Post], posts_dir: Path) -> None:
         related = self._related(post, all_posts)
         related_html = "".join(
@@ -557,6 +655,7 @@ class SiteBuilder:
             prereq_html = "<h2>Опирается на фундамент</h2><ul>" + "".join(
                 f'<li><a href="{_e(str(url))}" rel="noopener">{_e(str(name))}</a></li>' for name, url in links
             ) + "</ul>"
+        sandbox_html = self._sandbox_html(post)
         content = f"""
 <article>
   <a href="../index.html">← ко всем разборам</a>
@@ -565,6 +664,7 @@ class SiteBuilder:
   <p class="lead">{_e(post.hook)}</p>
   {image_html}
   {formula_html}
+  {sandbox_html}
   {audio_html}
   {audiogram_html}
   <div class="article-body">{self._paragraphs(post.body)}</div>

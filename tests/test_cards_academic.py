@@ -86,5 +86,37 @@ class AcademicCardTests(unittest.TestCase):
             self.assertIsNotNone(artifact)
 
 
+    def test_logic_proof_archetype(self):
+        """6-й архетип: логика/аксиомы (логические символы, нет переменной x)."""
+        post = make_post(formula_latex="", formula_plain=r"P \implies Q", source_name="Логика")
+        self.assertEqual(pick_visual_type(post), "logic_proof")
+        with tempfile.TemporaryDirectory() as tmp:
+            artifact = render_academic_card(post, Path(tmp) / "logic.png")
+            self.assertIsNotNone(artifact)
+            self.assertEqual((artifact.width, artifact.height), (1080, 1080))
+
+    def test_number_sequence_archetype(self):
+        """7-й архетип: числовой ряд (OEIS / Фибоначчи)."""
+        post = make_post(hook="Какой закон скрыт: 0,1,1,2,3,5,8,13,21,34,55,89?", source_name="OEIS A000045")
+        self.assertEqual(pick_visual_type(post), "number_sequence")
+        with tempfile.TemporaryDirectory() as tmp:
+            artifact = render_academic_card(post, Path(tmp) / "seq.png")
+            self.assertIsNotNone(artifact)
+            self.assertEqual((artifact.width, artifact.height), (1080, 1080))
+
+    def test_card_has_where_vars_and_qr(self):
+        """«где: …» (из formula_vars/constants_used), §-номер и QR-код рисуются."""
+        from science_pulse.cards_academic import qr_image
+
+        post = make_post(meta={"section_num": "1.1", "constants_used": ["c", "hbar"]})
+        with tempfile.TemporaryDirectory() as tmp:
+            artifact = render_academic_card(post, Path(tmp) / "card.png")
+            self.assertIsNotNone(artifact)
+            self.assertGreater(len(artifact.data), 10_000)
+        qr = qr_image("https://example.org/post/x.html", 68)
+        self.assertIsNotNone(qr)
+        self.assertEqual(qr.size, (68, 68))
+
+
 if __name__ == "__main__":
     unittest.main()
