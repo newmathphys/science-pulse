@@ -3,6 +3,7 @@
     "section_num": "1.1",
     "step": 1,
     "step_title": "Зарождение аксиом, алгоритмов и статики",
+    "prereq_ids": [],
     "id": "pythagoras",
     "domain": "math",
     "era": "530 г. до н.э. • Античная Греция",
@@ -19,6 +20,7 @@
     "section_num": "1.2",
     "step": 1,
     "step_title": "Зарождение аксиом, алгоритмов и статики",
+    "prereq_ids": [],
     "id": "euclid_gcd",
     "domain": "cs",
     "era": "300 г. до н.э. • Александрия",
@@ -35,6 +37,7 @@
     "section_num": "1.3",
     "step": 1,
     "step_title": "Зарождение аксиом, алгоритмов и статики",
+    "prereq_ids": [],
     "id": "archimedes",
     "domain": "physics",
     "era": "250 г. до н.э. • Сиракузы",
@@ -51,6 +54,9 @@
     "section_num": "2.3",
     "step": 2,
     "step_title": "Координаты, анализ и динамика",
+    "prereq_ids": [
+      "archimedes"
+    ],
     "id": "newton_gravity",
     "domain": "physics",
     "era": "1687 г. • Кембридж",
@@ -67,6 +73,9 @@
     "section_num": "2.1",
     "step": 2,
     "step_title": "Координаты, анализ и динамика",
+    "prereq_ids": [
+      "pythagoras"
+    ],
     "id": "al_khwarizmi",
     "domain": "math",
     "era": "820 г. • Багдад, Дом мудрости",
@@ -78,9 +87,6 @@
     "formula_plain": "x² + bx = c  ⇒  x = −b/2 + √(b²/4 + c)",
     "code": "",
     "source_url": "https://ru.wikipedia.org/wiki/Аль-Хорезми",
-    "prereq_ids": [
-      "pythagoras"
-    ],
     "constants_used": [],
     "modern_application": "компьютерная алгебра (SymPy, Wolfram), решатели уравнений в инженерии",
     "concept": "алгебра"
@@ -89,6 +95,9 @@
     "section_num": "2.2",
     "step": 2,
     "step_title": "Координаты, анализ и динамика",
+    "prereq_ids": [
+      "euclid_gcd"
+    ],
     "id": "leibniz_boolean",
     "domain": "cs",
     "era": "1679 и 1847 • Ганновер и Корк",
@@ -100,9 +109,6 @@
     "formula_plain": "x ∈ {0, 1}  •  a ∧ b, a ∨ b, ¬a",
     "code": "def to_binary(n: int) -> str:\n    # Двоичная запись числа (идея Лейбница, 1679)\n    digits = []\n    while n:\n        digits.append(str(n % 2))\n        n //= 2\n    return ''.join(reversed(digits)) or '0'\n\ndef xor(a: bool, b: bool) -> bool:\n    return (a or b) and not (a and b)",
     "source_url": "https://ru.wikipedia.org/wiki/Булева_алгебра",
-    "prereq_ids": [
-      "euclid_gcd"
-    ],
     "constants_used": [],
     "modern_application": "логические вентили процессоров, схемы памяти, языки запросов к базам данных",
     "concept": "логика и вычисления"
@@ -111,6 +117,9 @@
     "section_num": "2.4",
     "step": 2,
     "step_title": "Координаты, анализ и динамика",
+    "prereq_ids": [
+      "archimedes"
+    ],
     "id": "galileo_fall",
     "domain": "physics",
     "era": "1638 г. • Пиза и Арчетри",
@@ -122,9 +131,6 @@
     "formula_plain": "s(t) = ½·g·t²,  v(t) = g·t",
     "code": "",
     "source_url": "https://ru.wikipedia.org/wiki/Свободное_падение",
-    "prereq_ids": [
-      "archimedes"
-    ],
     "constants_used": [
       "g"
     ],
@@ -135,6 +141,9 @@
     "section_num": "3.1",
     "step": 3,
     "step_title": "Классика полей и симметрий",
+    "prereq_ids": [
+      "al_khwarizmi"
+    ],
     "id": "euler_identity",
     "domain": "math",
     "era": "1748 г. • Берлин",
@@ -151,6 +160,10 @@
     "section_num": "3.2",
     "step": 3,
     "step_title": "Классика полей и симметрий",
+    "prereq_ids": [
+      "al_khwarizmi",
+      "galileo_fall"
+    ],
     "id": "newton_calculus",
     "domain": "math",
     "era": "1665–1687 • Кембридж",
@@ -162,10 +175,6 @@
     "formula_plain": "f′(x) = lim(h→0) [f(x+h) − f(x)]/h  •  ∫ f′ dx = f(b) − f(a)",
     "code": "",
     "source_url": "https://ru.wikipedia.org/wiki/Производная_функции",
-    "prereq_ids": [
-      "al_khwarizmi",
-      "galileo_fall"
-    ],
     "constants_used": [],
     "modern_application": "градиентный спуск в машинном обучении, расчёт траекторий, модели климата",
     "concept": "математический анализ"
@@ -174,6 +183,10 @@
     "section_num": "3.3",
     "step": 3,
     "step_title": "Классика полей и симметрий",
+    "prereq_ids": [
+      "leibniz_boolean",
+      "newton_calculus"
+    ],
     "id": "lovelace",
     "domain": "cs",
     "era": "1843 г. • Лондон",
@@ -185,10 +198,6 @@
     "formula_plain": "числа Бернулли Bₙ: ∑ C(n+1, k)·B_k = 0",
     "code": "def bernoulli_numbers(n: int):\n    # Последовательность операций (алгоритм Ады Лавлейс, 1843)\n    from fractions import Fraction\n    A = [Fraction(0)] * (n + 1)\n    for m in range(n + 1):\n        A[m] = Fraction(1, m + 1)\n        for j in range(m, 0, -1):\n            A[j - 1] = j * (A[j - 1] - A[j])\n    return A[0]",
     "source_url": "https://ru.wikipedia.org/wiki/Лавлейс,_Ада",
-    "prereq_ids": [
-      "leibniz_boolean",
-      "newton_calculus"
-    ],
     "constants_used": [],
     "modern_application": "компиляторы и языки программирования, символьные вычисления, генерация музыки",
     "concept": "программирование"
@@ -197,6 +206,10 @@
     "section_num": "3.4",
     "step": 3,
     "step_title": "Классика полей и симметрий",
+    "prereq_ids": [
+      "galileo_fall",
+      "newton_gravity"
+    ],
     "id": "bernoulli_flow",
     "domain": "physics",
     "era": "1738 г. • Базель",
@@ -208,10 +221,6 @@
     "formula_plain": "ρv²/2 + ρgh + p = const",
     "code": "",
     "source_url": "https://ru.wikipedia.org/wiki/Закон_Бернулли",
-    "prereq_ids": [
-      "galileo_fall",
-      "newton_gravity"
-    ],
     "constants_used": [
       "g"
     ],
@@ -222,6 +231,10 @@
     "section_num": "4.1",
     "step": 4,
     "step_title": "Рождение вычислений",
+    "prereq_ids": [
+      "euler_identity",
+      "newton_calculus"
+    ],
     "id": "fourier_series",
     "domain": "math",
     "era": "1822 г. • Париж",
@@ -238,6 +251,9 @@
     "section_num": "4.5",
     "step": 4,
     "step_title": "Рождение вычислений",
+    "prereq_ids": [
+      "bernoulli_flow"
+    ],
     "id": "maxwell",
     "domain": "physics",
     "era": "1865 г. • Лондон",
@@ -254,6 +270,10 @@
     "section_num": "4.2",
     "step": 4,
     "step_title": "Рождение вычислений",
+    "prereq_ids": [
+      "euler_identity",
+      "newton_calculus"
+    ],
     "id": "noether_symmetry",
     "domain": "math",
     "era": "1918 г. • Гёттинген",
@@ -270,6 +290,9 @@
     "section_num": "4.3",
     "step": 4,
     "step_title": "Рождение вычислений",
+    "prereq_ids": [
+      "newton_calculus"
+    ],
     "id": "gauss_normal",
     "domain": "math",
     "era": "1809 г. • Гёттинген",
@@ -281,9 +304,6 @@
     "formula_plain": "p(x) = 1/(σ√(2π)) · e^(−(x−μ)²/(2σ²))",
     "code": "",
     "source_url": "https://ru.wikipedia.org/wiki/Нормальное_распределение",
-    "prereq_ids": [
-      "newton_calculus"
-    ],
     "constants_used": [
       "pi"
     ],
@@ -294,6 +314,10 @@
     "section_num": "4.4",
     "step": 4,
     "step_title": "Рождение вычислений",
+    "prereq_ids": [
+      "lovelace",
+      "turing_machine"
+    ],
     "id": "hoare_sort",
     "domain": "cs",
     "era": "1960 г. • Москва и Лондон",
@@ -305,10 +329,6 @@
     "formula_plain": "T(n) = 2T(n/2) + O(n)  ⇒  T(n) = O(n log n)",
     "code": "def quicksort(items):\n    # Разделяй и властвуй (Хоар, 1960)\n    if len(items) < 2:\n        return items\n    pivot = items[len(items) // 2]\n    less = [x for x in items if x < pivot]\n    equal = [x for x in items if x == pivot]\n    greater = [x for x in items if x > pivot]\n    return quicksort(less) + equal + quicksort(greater)",
     "source_url": "https://ru.wikipedia.org/wiki/Быстрая_сортировка",
-    "prereq_ids": [
-      "lovelace",
-      "turing_machine"
-    ],
     "constants_used": [],
     "modern_application": "базы данных, компиляторы, поисковые индексы, обработка больших данных",
     "concept": "алгоритмы",
@@ -318,6 +338,9 @@
     "section_num": "4.6",
     "step": 4,
     "step_title": "Рождение вычислений",
+    "prereq_ids": [
+      "bernoulli_flow"
+    ],
     "id": "boltzmann_entropy",
     "domain": "physics",
     "era": "1877 г. • Вена",
@@ -329,9 +352,6 @@
     "formula_plain": "S = k_B · ln W  •  ΔS ≥ 0",
     "code": "",
     "source_url": "https://ru.wikipedia.org/wiki/Энтропия",
-    "prereq_ids": [
-      "bernoulli_flow"
-    ],
     "constants_used": [
       "k_B"
     ],
@@ -342,6 +362,9 @@
     "section_num": "5.2",
     "step": 5,
     "step_title": "Квантовый мир",
+    "prereq_ids": [
+      "hoare_sort"
+    ],
     "id": "turing_machine",
     "domain": "cs",
     "era": "1936 г. • Кембридж",
@@ -358,6 +381,9 @@
     "section_num": "5.3",
     "step": 5,
     "step_title": "Квантовый мир",
+    "prereq_ids": [
+      "hoare_sort"
+    ],
     "id": "shannon_entropy",
     "domain": "cs",
     "era": "1948 г. • Bell Labs",
@@ -374,6 +400,10 @@
     "section_num": "5.5",
     "step": 5,
     "step_title": "Квантовый мир",
+    "prereq_ids": [
+      "maxwell",
+      "noether_symmetry"
+    ],
     "id": "schrodinger",
     "domain": "physics",
     "era": "1926 • Цюрих",
@@ -385,10 +415,6 @@
     "formula_plain": "iħ·∂Ψ/∂t = ĤΨ",
     "code": "",
     "source_url": "https://ru.wikipedia.org/wiki/Уравнение_Шрёдингера",
-    "prereq_ids": [
-      "maxwell",
-      "noether_symmetry"
-    ],
     "constants_used": [
       "hbar"
     ],
@@ -418,6 +444,10 @@
     "section_num": "5.6",
     "step": 5,
     "step_title": "Квантовый мир",
+    "prereq_ids": [
+      "schrodinger",
+      "maxwell"
+    ],
     "id": "quantum_tunneling",
     "domain": "physics",
     "era": "1928 • Гамбург",
@@ -429,10 +459,6 @@
     "formula_plain": "T ≈ e^(−2κa),  κ = √(2m(V₀−E))/ħ,  E = Δm·c²",
     "code": "",
     "source_url": "https://ru.wikipedia.org/wiki/Квантовое_туннелирование",
-    "prereq_ids": [
-      "schrodinger",
-      "maxwell"
-    ],
     "constants_used": [
       "hbar",
       "c"
@@ -446,6 +472,10 @@
     "section_num": "5.1",
     "step": 5,
     "step_title": "Квантовый мир",
+    "prereq_ids": [
+      "newton_calculus",
+      "gauss_normal"
+    ],
     "id": "riemann_integral",
     "domain": "math",
     "era": "1854 г. • Гёттинген",
@@ -457,10 +487,6 @@
     "formula_plain": "∫ f dx = lim(n→∞) ∑ f(xₖ)·Δx",
     "code": "",
     "source_url": "https://ru.wikipedia.org/wiki/Интеграл_Римана",
-    "prereq_ids": [
-      "newton_calculus",
-      "gauss_normal"
-    ],
     "constants_used": [],
     "modern_application": "общая теория относительности, численное интегрирование, обработка сигналов",
     "concept": "геометрия и анализ"
@@ -469,6 +495,9 @@
     "section_num": "5.4",
     "step": 5,
     "step_title": "Квантовый мир",
+    "prereq_ids": [
+      "hoare_sort"
+    ],
     "id": "dijkstra_shortest",
     "domain": "cs",
     "era": "1956–1959 • Амстердам",
@@ -480,9 +509,6 @@
     "formula_plain": "d(v) = min(d(u) + w(u,v)) по рёбрам (u,v)",
     "code": "import heapq\n\ndef dijkstra(graph, start):\n    # Кратчайшие пути от start (Дейкстра, 1959)\n    dist = {node: float('inf') for node in graph}\n    dist[start] = 0\n    queue = [(0, start)]\n    while queue:\n        d, node = heapq.heappop(queue)\n        if d > dist[node]:\n            continue\n        for neighbor, weight in graph[node]:\n            if d + weight < dist[neighbor]:\n                dist[neighbor] = d + weight\n                heapq.heappush(queue, (dist[neighbor], neighbor))\n    return dist",
     "source_url": "https://ru.wikipedia.org/wiki/Алгоритм_Дейкстры",
-    "prereq_ids": [
-      "hoare_sort"
-    ],
     "constants_used": [],
     "modern_application": "навигаторы и карты, маршрутизация интернета, логистика, планировщики",
     "concept": "алгоритмы на графах",
@@ -492,6 +518,10 @@
     "section_num": "5.7",
     "step": 5,
     "step_title": "Квантовый мир",
+    "prereq_ids": [
+      "boltzmann_entropy",
+      "maxwell"
+    ],
     "id": "planck_quantum",
     "domain": "physics",
     "era": "1900 г. • Берлин",
@@ -503,10 +533,6 @@
     "formula_plain": "E = h·ν,  ν = c/λ",
     "code": "",
     "source_url": "https://ru.wikipedia.org/wiki/Квант",
-    "prereq_ids": [
-      "boltzmann_entropy",
-      "maxwell"
-    ],
     "constants_used": [
       "h",
       "c"
@@ -518,6 +544,10 @@
     "section_num": "6.4",
     "step": 6,
     "step_title": "Прикладные гиганты",
+    "prereq_ids": [
+      "fourier_series",
+      "maxwell"
+    ],
     "id": "insar_ndvi",
     "domain": "physics",
     "era": "1822–1842 • Париж и Прага",
@@ -529,10 +559,6 @@
     "formula_plain": "NDVI = (NIR − Red)/(NIR + Red)  •  Δφ = 4π·d/λ",
     "code": "",
     "source_url": "https://ru.wikipedia.org/wiki/Радарная_интерферометрия",
-    "prereq_ids": [
-      "fourier_series",
-      "maxwell"
-    ],
     "constants_used": [
       "c"
     ],
@@ -545,6 +571,10 @@
     "section_num": "6.5",
     "step": 6,
     "step_title": "Прикладные гиганты",
+    "prereq_ids": [
+      "newton_gravity",
+      "euler_identity"
+    ],
     "id": "schwarzschild_light",
     "domain": "physics",
     "era": "1916 • Русский фронт, затем Потсдам",
@@ -556,10 +586,6 @@
     "formula_plain": "r_s = 2GM/c²  •  α = 4GM/(c²·b)",
     "code": "",
     "source_url": "https://ru.wikipedia.org/wiki/Метрика_Шварцшильда",
-    "prereq_ids": [
-      "newton_gravity",
-      "euler_identity"
-    ],
     "constants_used": [
       "c",
       "G"
@@ -597,6 +623,10 @@
     "section_num": "6.2",
     "step": 6,
     "step_title": "Прикладные гиганты",
+    "prereq_ids": [
+      "turing_machine",
+      "newton_gravity"
+    ],
     "id": "lj_lorenz",
     "domain": "cs",
     "era": "1929 и 1963 • Кембридж и MIT",
@@ -608,10 +638,6 @@
     "formula_plain": "V(r) = 4ε[(σ/r)¹² − (σ/r)⁶]",
     "code": "def lennard_jones(r: float, epsilon: float = 1.0, sigma: float = 1.0) -> float:\n    sr6 = (sigma / r) ** 6\n    return 4.0 * epsilon * (sr6 * sr6 - sr6)\n\ndef lorenz_step(state, dt, sigma=10.0, rho=28.0, beta=8/3):\n    x, y, z = state\n    return (x + dt * sigma * (y - x),\n            y + dt * (x * (rho - z) - y),\n            z + dt * (x * y - beta * z))",
     "source_url": "https://ru.wikipedia.org/wiki/Потенциал_Леннард-Джонса",
-    "prereq_ids": [
-      "turing_machine",
-      "newton_gravity"
-    ],
     "constants_used": [
       "k_B"
     ],
@@ -624,6 +650,10 @@
     "section_num": "6.1",
     "step": 6,
     "step_title": "Прикладные гиганты",
+    "prereq_ids": [
+      "turing_machine",
+      "riemann_integral"
+    ],
     "id": "godel_incompleteness",
     "domain": "math",
     "era": "1931 г. • Вена",
@@ -635,10 +665,6 @@
     "formula_plain": "∃ φ: истинно, но недоказуемо (⊬ φ)",
     "code": "",
     "source_url": "https://ru.wikipedia.org/wiki/Теоремы_Гёделя_о_неполноте",
-    "prereq_ids": [
-      "turing_machine",
-      "riemann_integral"
-    ],
     "constants_used": [],
     "modern_application": "верификация программ, теория сложности, формальные методы в безопасности",
     "concept": "логика и основания математики"
@@ -647,6 +673,10 @@
     "section_num": "6.3",
     "step": 6,
     "step_title": "Прикладные гиганты",
+    "prereq_ids": [
+      "euclid_gcd",
+      "godel_incompleteness"
+    ],
     "id": "rsa_crypto",
     "domain": "cs",
     "era": "1977 г. • MIT",
@@ -658,10 +688,6 @@
     "formula_plain": "c = mᵉ mod n,  m = c^d mod n,  e·d ≡ 1 (mod φ(n))",
     "code": "def modinv(a: int, m: int) -> int:\n    # Обратный элемент по модулю: расширенный алгоритм Евклида\n    g, x, _ = extended_gcd(a % m, m)\n    if g != 1:\n        raise ValueError('нет обратного элемента')\n    return x % m",
     "source_url": "https://ru.wikipedia.org/wiki/RSA",
-    "prereq_ids": [
-      "euclid_gcd",
-      "godel_incompleteness"
-    ],
     "constants_used": [],
     "modern_application": "HTTPS и банковские платежи, электронная подпись, мессенджеры",
     "concept": "криптография",
@@ -671,6 +697,10 @@
     "section_num": "6.6",
     "step": 6,
     "step_title": "Прикладные гиганты",
+    "prereq_ids": [
+      "schwarzschild_light",
+      "planck_quantum"
+    ],
     "id": "einstein_relativity",
     "domain": "physics",
     "era": "1905 и 1915 • Берн и Берлин",
@@ -682,10 +712,6 @@
     "formula_plain": "E = mc²  •  R_μν − ½R·g_μν = 8πG/c⁴ · T_μν",
     "code": "",
     "source_url": "https://ru.wikipedia.org/wiki/Общая_теория_относительности",
-    "prereq_ids": [
-      "schwarzschild_light",
-      "planck_quantum"
-    ],
     "constants_used": [
       "c",
       "G"

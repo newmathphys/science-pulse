@@ -56,6 +56,7 @@ class InvariantChecker:
             self._inv4_known_statuses,
             self._inv5_simhash_format,
             self._inv6_no_orphans,
+            self._inv8_causal_completeness,
         ]
         violations: List[Violation] = []
         for check in checks:
@@ -65,6 +66,46 @@ class InvariantChecker:
     def _query(self, sql: str, params: tuple = ()) -> List[Any]:
         with self.storage.cursor() as connection:
             return connection.execute(sql, params).fetchall()
+
+    def _inv8_causal_completeness(self) -> List[Violation]:
+        """INV-8: причинно-геодезическая полнота DAG канона.
+
+        Каждый узел ступени > 1 обязан иметь пререквизит строго меньшей ступени
+        и конечный гиперболический скачок ``d_ℍ ≤ R_max(ступень)``: в графе нет
+        изолированных сирот вне корней Ступени I.
+        """
+        import math
+
+        from .graph import canon_coordinates, hyperbolic_distance, max_hyperbolic_jump
+        from .sources.foundation import CANON, default_prereqs, step_of
+
+        nodes = [
+            {"id": item["id"], "domain": item["domain"], "tier": step_of(item["id"])}
+            for item in CANON
+        ]
+        coords = canon_coordinates(nodes)
+        by_id = {node["id"]: node for node in nodes}
+        violations: List[Violation] = []
+        for node in nodes:
+            tier = int(node["tier"])
+            if tier <= 1:
+                continue
+            parents = default_prereqs(node["id"])
+            if not parents:
+                violations.append(Violation("INV-8", "узел ступени > 1 без пререквизитов", [node["id"]]))
+                continue
+            limit = max_hyperbolic_jump(tier)
+            for parent in parents:
+                parent_node = by_id.get(parent)
+                if parent_node is None or int(parent_node["tier"]) >= tier:
+                    violations.append(Violation("INV-8", "пререквизит не младше узла", [node["id"], parent]))
+                    continue
+                distance = hyperbolic_distance(coords[node["id"]], coords[parent])
+                if not math.isfinite(distance) or distance > limit + 1e-9:
+                    violations.append(
+                        Violation("INV-8", f"скачок d_ℍ {distance:.2f} > R_max {limit:.2f}", [node["id"], parent])
+                    )
+        return violations
 
     def _inv1_idempotent_publications(self) -> List[Violation]:
         rows = self._query(

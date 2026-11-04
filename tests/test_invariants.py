@@ -31,7 +31,7 @@ class InvariantTests(unittest.TestCase):
     def test_empty_state_ok(self):
         report = self.checker.check()
         self.assertTrue(report.ok)
-        self.assertEqual(report.checked, 6)
+        self.assertEqual(report.checked, 7)
 
     def test_clean_published_state_ok(self):
         post = make_post()

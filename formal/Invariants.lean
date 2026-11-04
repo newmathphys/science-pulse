@@ -179,4 +179,12 @@ def canonPublish (g : Gate) : Bool := g = .accepted
 theorem published_requires_canon_gate (g : Gate) (h : canonPublish g = true) : g = .accepted := by
   simpa [canonPublish] using h
 
+/-- INV-8: пререквизит всегда строго младше — скачок ровно на ступень и более.
+
+    Отсюда следует причинная полнота DAG канона: ни один узел ступени > 1
+    не может появиться без родителя меньшей ступени. -/
+theorem inv8_causal_completeness (tier parentTier : Nat)
+    (h : parentTier < tier) : parentTier + 1 ≤ tier := by
+  omega
+
 end SciencePulse

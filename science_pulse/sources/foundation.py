@@ -95,6 +95,29 @@ def section_of(canon_id: str) -> str:
     return f"{step}.{same.index(node) + 1}"
 
 
+def default_prereqs(canon_id: str) -> List[str]:
+    """Пререквизиты узла: узлы предыдущей ступени той же дисциплины.
+
+    Гарантирует причинную связность (INV-8): у любого узла ступени > 1 есть
+    родитель со строго меньшей ступенью, поэтому в графе нет изолированных
+    сирот вне корней Ступени I.
+    """
+    node = next((item for item in CANON if item["id"] == canon_id), None)
+    if node is None:
+        return []
+    step = step_of(canon_id)
+    if step <= 1:
+        return []
+    same_domain = [
+        item["id"] for item in CANON
+        if step_of(item["id"]) == step - 1 and item["domain"] == node["domain"]
+    ]
+    if same_domain:
+        return same_domain
+    fallback = [item["id"] for item in CANON if step_of(item["id"]) == step - 1]
+    return fallback[:1]
+
+
 def ordered_nodes() -> List[Dict[str, Any]]:
     """Узлы канона, отсортированные по ступеням (внутри ступени — по эпохе)."""
     return sorted(CANON, key=lambda item: (step_of(item["id"]), CANON.index(item)))
@@ -125,6 +148,7 @@ class FoundationSource(Source):
             post.meta["step"] = step
             post.meta["step_title"] = STEP_TITLES.get(step, "Дополнительно")
             post.meta["section_num"] = section_of(item["id"])
+            post.meta["prereq_ids"] = default_prereqs(item["id"])
             post.meta["foundation_id"] = item["id"]
             posts.append(post)
         return posts
