@@ -172,6 +172,21 @@ class SciencePulseKernel:
     # ------------------------------------------------------------------
     # Фаза 2: кинетика выбора и вычислительное доказательство
     # ------------------------------------------------------------------
+    def http_getter(self) -> Optional[Any]:
+        """Сетевой геттер конвейера (для обогащения глав полным текстом Википедии).
+
+        Возвращает `None`, если у конвейера нет HTTP-клиента: тогда лонгрид
+        собирается офлайн из канона, и сборка остаётся детерминированной.
+        """
+        http = getattr(getattr(self.pipeline, "sources", None), "http", None)
+        if http is None:
+            return None
+        for name in ("get_json", "get"):
+            getter = getattr(http, name, None)
+            if callable(getter):
+                return getter
+        return None
+
     def phase_selection(self, domain: Optional[str] = None) -> Dict[str, Any]:
         """Выбор следующего узла + лонгрид + вычислительный паспорт."""
         from .enricher import enrich_post_longread
@@ -184,7 +199,7 @@ class SciencePulseKernel:
             post = self.storage.next_ready(target)
         if post is None:
             return {"chosen": None, "slot": slot}
-        longread = enrich_post_longread(post)
+        longread = enrich_post_longread(post, http_get=self.http_getter())
         proof = build_post_proof(post)
         self.storage.set_post_meta(post.id, "longread_body", longread)
         self.storage.set_post_meta(post.id, "proof", proof)
