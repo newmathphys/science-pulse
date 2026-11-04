@@ -92,6 +92,12 @@ python -m science_pulse.cli post --preview  # 👁 предпросмотр: к�
 python -m science_pulse.cli post --send     # отправить предпросмотр в админ-чат
 python -m science_pulse.cli reset --yes # очистить состояние (опасно)
 python -m science_pulse.cli clean-start --yes # чистый старт: сброс + VACUUM + пересборка сайта
+python -m science_pulse.cli kernel      # 🧠 паспорт ядра: канон, курс, очередь, радио, инварианты
+python -m science_pulse.cli kernel --tick  # полный 6-фазный цикл ядра (--publish --voice --formal)
+python -m science_pulse.cli expand --count 30  # ♾️ добрать темы университетского курса в очередь
+python -m science_pulse.cli radio       # 📻 радио 24/7: страница + подкаст + сводка эфира
+python -m science_pulse.cli radio --mix # сквозной радио-микс (ffmpeg) + файл таймкодов
+python -m science_pulse.cli radio --rtmp rtmps://dc4.rtmp.t.me/s/KEY --run  # прямой эфир
 ```
 
 ## Пульт в Telegram
@@ -433,6 +439,9 @@ PDF-книгу. Удобно, чтобы показать проект цели�
 | `docs/QUALITY.md` | контур качества: 7 рубежей, карантин, preflight, verify |
 | `docs/LIMITS.md` | правила площадок: лимиты, цепочки, режимы звука |
 | `docs/PROD_CHECKLIST.md` | боевой запуск по шагам |
+| `docs/KERNEL.md` | центральное ядро: 6 фаз, часы эпохи, паспорт состояния |
+| `docs/RADIO.md` | научное радио 24/7: WebAudio, подкаст, микс, RTMP |
+| `docs/SYLLABUS.md` | бесконечный поток: матрица курса, краулер, родословная первоисточников |
 
 ## Дальше по плану
 

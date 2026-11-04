@@ -97,6 +97,10 @@ sources:
   foundation:
     enabled: true
     weight: 70
+  # Университетский курс: § 11.1 … § 55.3 (бесконечный поток после канона).
+  curriculum:
+    enabled: true
+    weight: 40
   history_canon:
     enabled: false
     weight: 50

@@ -180,37 +180,89 @@ def _approximate_segments(text: str, duration: float, max_words: int = 12) -> Li
     return segments
 
 
-def build_lecture_script(post: Post, max_chars: int = 900) -> str:
-    """Чистый лекционный сценарий для диктора (без URL, тегов, эмодзи).
+def _canon_titles(ids: List[str]) -> List[str]:
+    """Читаемые названия узлов канона по их id (для моста «опирается на …»)."""
+    try:
+        from .sources.foundation import CANON
 
-    Начинается с контекста: «Раздел Физика. 1926 год, Цюрих. Эрвин Шрёдингер.
-    <Заголовок>. <Вопрос>. <Суть>… Применение сегодня: …».
+        table = {str(item["id"]): str(item.get("title") or item["id"]) for item in CANON}
+    except Exception:
+        table = {}
+    titles: List[str] = []
+    for item in ids[:3]:
+        name = table.get(str(item), str(item))
+        titles.append((name.split(":")[0].split("—")[0].strip() or str(item)))
+    return titles
+
+
+def build_lecture_script(post: Post, max_chars: int = 900) -> str:
+    """Пятиблочный лекционный сценарий для диктора (без URL, тегов и эмодзи).
+
+    Блоки:
+    1) **дисциплина, эпоха и первоисточник**: «Раздел Физика. Параграф 5.1.
+       1926, Цюрих. Эрвин Шрёдингер. Первоисточник: …»;
+    2) **проблема-крючок**: «Фундаментальный вопрос: …»;
+    3) **математическое решение словами**: суть + фонетика формулы + «где: …»;
+    4) **связь времён**: «Применение сегодня: …»;
+    5) **мост к следующему уровню**: «опирается на … и открывает дорогу к …».
     """
     meta = getattr(post, "meta", {}) or {}
     parts: List[str] = []
 
     domain_label = {"math": "Математика", "physics": "Физика", "cs": "Информатика"}.get(
         getattr(post, "domain", "math"), "Наука")
-    parts.append(f"Раздел {domain_label}.")
 
+    # --- Блок 1: дисциплина, эпоха, первоисточник --------------------------
+    block_one = [f"Раздел {domain_label}."]
+    section = _strip_links_tags(str(meta.get("section_num") or ""))
+    if section:
+        block_one.append(f"Параграф {section}.")
     era = _strip_links_tags(str(meta.get("era") or ""))
     scientist = _strip_links_tags(str(meta.get("scientist") or ""))
     context = ". ".join(part for part in (era, scientist) if part)
     if context:
-        parts.append(f"{context}.")
-
+        block_one.append(f"{context}.")
+    lineage = meta.get("source_lineage") if isinstance(meta.get("source_lineage"), dict) else {}
+    primary = _strip_links_tags(str((lineage or {}).get("primary_work") or ""))
+    if primary:
+        block_one.append(f"Первоисточник: {primary}.")
     title = _strip_links_tags(_speech_clean(post.title))
     if title:
-        parts.append(f"{title}.")
+        block_one.append(f"{title}.")
+    parts.append(" ".join(block_one))
+
+    # --- Блок 2: проблема-крючок -------------------------------------------
     hook = _strip_links_tags(_speech_clean(post.hook or ""))
     if hook:
-        parts.append(hook)
+        parts.append(f"Фундаментальный вопрос: {hook}")
+
+    # --- Блок 3: математическое решение словами ---------------------------
+    block_three: List[str] = []
     body = _strip_links_tags(_speech_clean(post.body or ""))
     if body:
-        parts.append(body)
+        block_three.append(body)
+    variables = _strip_links_tags(_speech_clean(str(meta.get("formula_vars") or "")))
+    if variables:
+        block_three.append(f"где: {variables}.")
+    if block_three:
+        parts.append(" ".join(block_three))
+
+    # --- Блок 4: связь времён ----------------------------------------------
     application = _strip_links_tags(_speech_clean(str(meta.get("modern_application") or "")))
     if application:
         parts.append(f"Применение сегодня: {application}.")
+
+    # --- Блок 5: мост к следующему уровню ----------------------------------
+    prereqs = _canon_titles([str(item) for item in (meta.get("prereq_ids") or [])])
+    unlocks = [str(item) for item in (meta.get("unlocks_concepts") or [])][:3]
+    bridge: List[str] = []
+    if prereqs:
+        bridge.append(f"Это знание опирается на {', '.join(prereqs)}")
+    if unlocks:
+        bridge.append(f"и открывает дорогу к теме: {', '.join(unlocks)}")
+    if bridge:
+        parts.append(" ".join(bridge) + ". Эфир продолжается.")
+
     formula = _strip_links_tags(_speech_clean(post.formula_plain or ""))
     formula_spoken = math_to_spoken_russian(formula) if formula else ""
     formula_part = f" Формула: {formula_spoken}." if formula_spoken else ""
@@ -231,6 +283,7 @@ def build_lecture_script(post: Post, max_chars: int = 900) -> str:
             cut = (cut[:space] if space > 0 else cut).rstrip(" ,;:—") + "."
         text = cut.rstrip()
     return f"{text}{formula_part}".strip()
+
 
 
 def _boundaries_to_segments(boundaries: List[Any], max_words: int = 12) -> List[Any]:

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import html
 import json
+import logging
 import re
 import shutil
 from pathlib import Path
@@ -12,6 +13,8 @@ from .graph import build_links, pagerank, poincare_layout, top_by_pagerank
 from .models import DOMAIN_LABELS, Post
 from .storage import Storage
 from .text import keywords, truncate
+
+LOGGER = logging.getLogger(__name__)
 
 CSS = """
 :root {
@@ -459,6 +462,44 @@ SANDBOX_JS = """
     setTimeout(stopTone, 1200);
   }
   if (audioBtn) audioBtn.addEventListener('click', playTone);
+
+  // 🖼 Экспорт векторного графика: чистый SVG (для сайта и печати).
+  const svgBtn = document.getElementById('sandbox-svg');
+  function downloadSvg() {
+    const A = parseFloat(aEl.value) || 1, k = parseFloat(bEl.value) || 1;
+    const pts = [];
+    for (let i = 0; i <= 340; i++) {
+      const xv = XMIN + (i / 340) * (XMAX - XMIN);
+      const yv = f(xv, A, k);
+      if (!isFinite(yv)) continue;
+      pts.push([toPx(xv), toPy(yv)]);
+    }
+    const path = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(2) + ' ' + p[1].toFixed(2)).join(' ');
+    const grid = [];
+    for (let gx = -3; gx <= 3; gx++) {
+      grid.push('<line x1="' + toPx(gx) + '" y1="0" x2="' + toPx(gx) + '" y2="' + H + '" stroke="#D6D1C7"/>');
+    }
+    for (let gy = -1.5; gy <= 1.5; gy += 0.5) {
+      grid.push('<line x1="0" y1="' + toPy(gy) + '" x2="' + W + '" y2="' + toPy(gy) + '" stroke="#D6D1C7"/>');
+    }
+    const svg = '<?xml version="1.0" encoding="UTF-8"?>'
+      + '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '">'
+      + '<rect width="' + W + '" height="' + H + '" fill="#F3F0EA"/>'
+      + grid.join('')
+      + '<line x1="0" y1="' + toPy(0) + '" x2="' + W + '" y2="' + toPy(0) + '" stroke="#111827" stroke-width="1.4"/>'
+      + '<line x1="' + toPx(0) + '" y1="0" x2="' + toPx(0) + '" y2="' + H + '" stroke="#111827" stroke-width="1.4"/>'
+      + '<path d="' + path + '" fill="none" stroke="#1E3A8A" stroke-width="2.6"/>'
+      + '</svg>';
+    const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'science-pulse-graph.svg';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+  }
+  if (svgBtn) svgBtn.addEventListener('click', downloadSvg);
 })();
 """
 
@@ -480,20 +521,31 @@ class SiteBuilder:
 
         (assets_dir / "style.css").write_text(CSS, encoding="utf-8")
         posts = self.storage.list_posts(status="published", limit=1000, order="published_at DESC")
+        # Атлас разворачивает СРАЗУ весь фундаментальный курс: открытые (published)
+        # и подготовленные (ready) узлы канона получают полноценные главы.
+        programme = [
+            post for post in self.storage.list_posts(limit=2000)
+            if post.status == "ready" and (post.meta or {}).get("foundation_id")
+        ]
+        programme.sort(key=lambda item: str((item.meta or {}).get("section_num") or "99"))
         for post in posts:
             self._copy_card(post, cards_dir)
             self._copy_audio(post, audio_dir)
             self._copy_audiogram(post, audiogram_dir)
+        for post in programme:
+            self._copy_card(post, cards_dir)
 
         self._write_index(posts, dist)
         for post in posts:
             self._write_post(post, posts, posts_dir)
+        for post in programme:
+            self._write_post(post, posts + programme, posts_dir)
         # Чистим устаревшие страницы постов (посты, ушедшие из published).
-        keep = {f"{post.id}.html" for post in posts}
+        keep = {f"{post.id}.html" for post in posts} | {f"{post.id}.html" for post in programme}
         for stale in posts_dir.glob("*.html"):
             if stale.name not in keep:
                 stale.unlink()
-        self._write_search(posts, dist)
+        self._write_search(posts + programme, dist)
         self._write_graph(posts, dist)
         self._write_scientists(posts, dist)
         self._write_constants(posts, dist)
@@ -506,10 +558,11 @@ class SiteBuilder:
             stale_pult = dist / "pult.html"
             if stale_pult.exists():
                 stale_pult.unlink()
-        self._write_sitemap(posts, dist)
-        self._write_llms(posts, dist)
+        self._write_sitemap(posts + programme, dist)
+        self._write_llms(posts + programme, dist)
         self._write_poincare(posts, dist)
         self._write_bibtex(posts, dist)
+        self._write_radio(posts + programme, dist)
         self._write_pwa(dist)
         (dist / "robots.txt").write_text("User-agent: *\nAllow: /\n", encoding="utf-8")
         # GitHub Pages из ветки gh-pages: отключаем обработку Jekyll, чтобы
@@ -788,6 +841,7 @@ class SiteBuilder:
   <a href="scientists.html">II. Учёные и эпохи</a>
   <a href="constants.html">III. Эталоны СИ (CODATA)</a>
   <a href="flashcards.html">IV. Тренажёр памяти</a>
+  <a href="radio.html">📻 Радио 24/7</a>
   <a href="llms.txt">V. Машиночитаемый слой</a>
 </nav>
 {self._poincare_html()}
@@ -984,10 +1038,42 @@ class SiteBuilder:
             '<label>x <input id="sandbox-x" type="number" value="1.0" step="0.1"></label>'
             '<span>y(x) = <output id="sandbox-y">—</output></span>'
             '<button id="sandbox-audio" class="mini-action" type="button">🔊 Услышать частоту формулы</button>'
+            '<button id="sandbox-svg" class="mini-action" type="button">🖼 Экспорт графика в SVG</button>'
             "</div>"
             f"<script>{script}</script>"
             "</section>"
         )
+
+    def _lineage_html(self, post: Post) -> str:
+        """📜 Родословная первоисточников: первоисточник → свод → цифровой узел."""
+        from .enricher import build_source_lineage
+
+        lineage = (post.meta or {}).get("source_lineage")
+        if not isinstance(lineage, dict):
+            try:
+                lineage = build_source_lineage(post)
+            except Exception:
+                lineage = {}
+        if not lineage:
+            return ""
+        digital = lineage.get("digital_source") or {}
+        rows = [
+            f'<li><b>📜 Первоисточник:</b> {_e(str(lineage.get("primary_work") or ""))}</li>',
+            f'<li><b>🏛 Академический свод:</b> {_e(str(lineage.get("canonical_archive") or ""))}</li>',
+        ]
+        url = str(digital.get("url") or "")
+        name = str(digital.get("name") or "")
+        if name or url:
+            link = f'<a href="{_e(url)}" rel="noopener">{_e(name or url)}</a>' if url else _e(name)
+            rows.append(f"<li><b>🌐 Цифровой узел:</b> {link}</li>")
+        refs = lineage.get("references") or []
+        if refs:
+            rows.append(
+                "<li><b>📚 Библиография:</b> "
+                + "; ".join(_e(str(item)) for item in refs[:3])
+                + "</li>"
+            )
+        return "<h2>Родословная первоисточников</h2><ul>" + "".join(rows) + "</ul>"
 
     def _write_post(self, post: Post, all_posts: List[Post], posts_dir: Path) -> None:
         related = self._related(post, all_posts)
@@ -1047,6 +1133,13 @@ class SiteBuilder:
             ) + "</ul>"
         sandbox_html = self._sandbox_html(post)
         proof_html = self._proof_html(post)
+        lineage_html = self._lineage_html(post)
+        status_html = (
+            ""
+            if post.status == "published"
+            else '<p class="stamp next">⏳ Параграф развёрнут полностью и выйдет в ближайшем '
+                 "слоте эфира (09:00 · 13:00 · 17:00 · 21:00 MSK).</p>"
+        )
         depth_nav = ""
         depth_html = ""
         depth_sections = self._depth_sections(post, {
@@ -1075,17 +1168,21 @@ class SiteBuilder:
         content = f"""
 <article>
   <a href="../index.html">← ко всем разборам</a>
+  <p class="meta"><a href="../radio.html">📻 Слушать этот параграф в эфире Science Pulse FM</a>
+  · <a href="../podcast.xml">подкаст (RSS)</a></p>
   <div class="journal">
     <aside class="side">{passport_html}</aside>
     <div class="main">
       <div class="badge {_e(post.domain)}">{post.emoji} {_e(DOMAIN_LABELS.get(post.domain, post.domain))}</div>
       <h1>{_e(post.title)}</h1>
       <p class="lead">{_e(post.hook)}</p>
+      {status_html}
       {depth_nav}
       {depth_html}
     </div>
     <aside class="side">
       {proof_html}
+      {lineage_html}
       <div class="tags">{tags}</div>
       {source_html}
       <p style="color:var(--ink-2)">Источник: {_e(post.source_name)} · {_e(post.tier)} · качество {post.quality:.2f}</p>
@@ -1118,6 +1215,15 @@ class SiteBuilder:
                 scored.append((score, other))
         scored.sort(key=lambda item: (-item[0], item[1].title))
         return [item for _, item in scored[:5]]
+
+    def _write_radio(self, posts: List[Post], dist: Path) -> None:
+        """Веб-радиостанция 24/7 и подкаст-фид (`radio.py`)."""
+        try:
+            from .radio import write_radio
+
+            write_radio(dist, posts, self.config)
+        except Exception as exc:  # pragma: no cover - радио не должно ронять сборку
+            LOGGER.warning("Радио не собрано: %s", exc)
 
     def _write_search(self, posts: List[Post], dist: Path) -> None:
         data = [
@@ -1439,7 +1545,8 @@ renderPlatforms();
     def _write_sitemap(self, posts: List[Post], dist: Path) -> None:
         base = self.config.site_base_url or "https://science-pulse.local"
         urls = [f"{base}/", f"{base}/index.html", f"{base}/scientists.html",
-                f"{base}/constants.html", f"{base}/topics.html"]
+                f"{base}/constants.html", f"{base}/topics.html",
+                f"{base}/radio.html", f"{base}/podcast.xml"]
         for post in posts:
             urls.append(f"{base}/post/{post.id}.html")
         body = "".join(f"<url><loc>{_e(url)}</loc></url>" for url in urls)

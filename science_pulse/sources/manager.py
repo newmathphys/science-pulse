@@ -8,6 +8,7 @@ from ..models import Post
 from ..storage import Storage
 from .arxiv import ArxivSource
 from .base import HttpClient, Source, SourceError
+from .curriculum_crawler import CurriculumCrawlerSource
 from .foundation import FoundationSource
 from .github_raw import GitHubRawSource
 from .history_canon import HistoryCanonSource
@@ -22,6 +23,7 @@ LOGGER = logging.getLogger(__name__)
 
 REGISTRY: Dict[str, Type[Source]] = {
     "foundation": FoundationSource,
+    "curriculum": CurriculumCrawlerSource,
     "history_canon": HistoryCanonSource,
     "stackexchange": StackExchangeSource,
     "oeis": OEISSource,

@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -187,6 +188,99 @@ def cmd_site(args: argparse.Namespace) -> int:
     path = pipeline.build_site()
     _checkpoint(pipeline)
     print(f"Сайт собран: {path}")
+    return 0
+
+
+def cmd_radio(args: argparse.Namespace) -> int:
+    """Веб-радиостанция: сборка страницы, подкаста, микса и RTMP-вещание."""
+    from .radio import build_radio_mix, mix_plan, radio_status, rtmp_argv, write_chapters, write_radio
+
+    pipeline = _pipeline(args)
+    posts = pipeline.storage.list_posts(limit=2000)
+    if args.rtmp:
+        source = pipeline.config.dist_dir / "radio_mix.mp4"
+        if not source.is_file():
+            print("Сначала соберите микс: cli radio --mix", file=sys.stderr)
+            return 1
+        argv = rtmp_argv(args.rtmp, source)
+        print("Вещание: " + " ".join(argv))
+        if args.run:
+            return subprocess.call(argv)
+        return 0
+    if args.mix:
+        out = pipeline.config.dist_dir / "radio_mix.mp4"
+        chapters = pipeline.config.dist_dir / "radio_chapters.txt"
+        result = build_radio_mix(posts, pipeline.config.data_dir, out, chapters)
+        if result is None:
+            print("Микс не собран: нужен ffmpeg и хотя бы одна видео-аудиограмма.", file=sys.stderr)
+            return 1
+        print(f"Радио-микс: {result}")
+        if chapters.is_file():
+            print(f"Таймкоды:   {chapters}")
+        _checkpoint(pipeline)
+        return 0
+    status = radio_status(posts, pipeline.config)
+    if args.json:
+        print(json.dumps(status, ensure_ascii=False, indent=2))
+        return 0
+    written = write_radio(pipeline.config.dist_dir, posts, pipeline.config)
+    plan = mix_plan(posts, pipeline.config.data_dir)
+    print(f"📻 {status['episodes']} выпусков (с озвучкой {status['with_audio']})")
+    print(f"Такт эпохи: № {status['slot']} · в эфире: {status['now'] or '—'}")
+    print(f"Страница:   {written['radio']}")
+    print(f"Подкаст:    {written['podcast']}")
+    print(f"Готово к миксу: {len(plan['chapters'])} видео-аудиограмм, ~{plan['total_seconds']:.0f} с")
+    _checkpoint(pipeline)
+    return 0
+
+
+def cmd_kernel(args: argparse.Namespace) -> int:
+    """Центральное детерминированное ядро: паспорт состояния или полный цикл."""
+    from .kernel import SciencePulseKernel
+
+    pipeline = _pipeline(args)
+    kernel = SciencePulseKernel(pipeline.config, pipeline.storage, pipeline)
+    if args.tick:
+        report = kernel.run_cycle(
+            expand=not args.no_expand,
+            expand_count=args.count,
+            publish=args.publish,
+            voice=args.voice,
+            rebuild_site=not args.no_site,
+            formal=args.formal,
+        )
+        if args.json:
+            print(json.dumps(report, ensure_ascii=False, indent=2))
+            return 0
+        for name, payload in report.items():
+            mark = "✅" if payload.get("ok") else "⚠️"
+            print(f"{mark} {name}: {json.dumps(payload, ensure_ascii=False)[:200]}")
+        _checkpoint(pipeline)
+        return 0
+    report = kernel.status_report()
+    if args.json:
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 0
+    print(kernel.format_status(report))
+    _checkpoint(pipeline)
+    return 0
+
+
+def cmd_expand(args: argparse.Namespace) -> int:
+    """Бесконечный насос: добрать следующие темы университетского курса."""
+    from .kernel import SciencePulseKernel
+
+    pipeline = _pipeline(args)
+    kernel = SciencePulseKernel(pipeline.config, pipeline.storage, pipeline)
+    result = kernel.expand_syllabus(count=args.count)
+    if args.json:
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0
+    print(
+        f"Добавлено тем курса: {result['syllabus_added']} · "
+        f"в очереди ready: {result['ready']} · курсор: {result['cursor']}"
+    )
+    _checkpoint(pipeline)
     return 0
 
 
@@ -1136,6 +1230,30 @@ def build_parser() -> argparse.ArgumentParser:
     recover = subparsers.add_parser("recover-from-channel", help="восстановить состояние из ленты t.me/s/<канал>")
     recover.add_argument("--limit", type=int, default=100)
     recover.set_defaults(func=cmd_recover)
+
+    radio = subparsers.add_parser("radio", help="научное радио: страница, подкаст, микс, RTMP")
+    radio.add_argument("--mix", action="store_true", help="собрать сквозной радио-микс (ffmpeg)")
+    radio.add_argument("--rtmp", default="", help="RTMP-URL для круглосуточного вещания")
+    radio.add_argument("--run", action="store_true", help="реально запустить ffmpeg-вещание")
+    radio.add_argument("--json", action="store_true", help="машиночитаемый отчёт")
+    radio.set_defaults(func=cmd_radio)
+
+    kernel = subparsers.add_parser("kernel", help="центральное ядро: паспорт состояния или 6-фазный цикл")
+    kernel.add_argument("--tick", action="store_true", help="выполнить полный 6-фазный цикл")
+    kernel.add_argument("--status", action="store_true", help="паспорт состояния (по умолчанию)")
+    kernel.add_argument("--count", type=int, default=None, help="сколько тем курса добрать")
+    kernel.add_argument("--no-expand", action="store_true", help="не добирать темы курса")
+    kernel.add_argument("--no-site", action="store_true", help="не пересобирать сайт")
+    kernel.add_argument("--publish", action="store_true", help="публиковать и готовить N+1")
+    kernel.add_argument("--voice", action="store_true", help="озвучивать лекцию")
+    kernel.add_argument("--formal", action="store_true", help="проверить Lean-доказательства")
+    kernel.add_argument("--json", action="store_true", help="машиночитаемый отчёт")
+    kernel.set_defaults(func=cmd_kernel)
+
+    expand = subparsers.add_parser("expand", help="добрать темы университетского курса в очередь")
+    expand.add_argument("--count", type=int, default=6, help="сколько тем добавить")
+    expand.add_argument("--json", action="store_true", help="машиночитаемый отчёт")
+    expand.set_defaults(func=cmd_expand)
 
     return parser
 

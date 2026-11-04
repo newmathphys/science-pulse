@@ -8,7 +8,8 @@ from .storage import Storage
 
 # Формат SimHash в БД: hex «0x…» (16 знаков) или legacy десятичное число.
 SIMHASH_RE = re.compile(r"^(0x[0-9a-f]{16}|\d+)$")
-KNOWN_STATUSES = {"ready", "publishing", "published", "failed"}
+# `rejected` — законный статус карантина (canon_gate / standards / пульт).
+KNOWN_STATUSES = {"ready", "publishing", "published", "failed", "rejected"}
 
 
 @dataclass

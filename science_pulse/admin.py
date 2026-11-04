@@ -322,6 +322,26 @@ class TelegramAdmin:
                 return self._quiz_next(args)
             if command == "/staged":
                 return self._staged_text()
+            if command == "/radio":
+                from .radio import radio_status
+
+                status = radio_status(self.storage.list_posts(limit=2000), self.config)
+                base = (self.config.site_base_url or "").rstrip("/")
+                page = f"{base}/radio.html" if base else "radio.html"
+                podcast = f"{base}/podcast.xml" if base else "podcast.xml"
+                return (
+                    "📻 <b>Science Pulse FM</b>\n"
+                    f"Выпусков в сетке: {status['episodes']} (с озвучкой {status['with_audio']})\n"
+                    f"Такт эпохи: № {status['slot']}\n"
+                    f"Сейчас в эфире: {html.escape(status['now'] or '—')}\n"
+                    f'<a href="{html.escape(page)}">Открыть радио</a> · '
+                    f'<a href="{html.escape(podcast)}">подкаст (RSS)</a>'
+                )
+            if command == "/kernel":
+                from .kernel import SciencePulseKernel
+
+                kernel = SciencePulseKernel(self.config, self.storage, self.pipeline)
+                return "<pre>" + html.escape(kernel.format_status()) + "</pre>"
             if command == "/backup":
                 return self._backup_text()
             return HELP
@@ -605,6 +625,8 @@ class TelegramAdmin:
         ("trending", "Радар мировых новостей", "World trending"),
         ("pick", "Взять хит в очередь", "Pick a trend"),
         ("platforms", "Площадки и ключи", "Platforms & keys"),
+        ("radio", "Радио 24/7 и подкаст", "Radio 24/7 & podcast"),
+        ("kernel", "Паспорт ядра системы", "Kernel status"),
         ("lang", "Язык RU/EN", "Language RU/EN"),
         ("menu", "Кнопка «Пульт» в чате", "Pult button in chat"),
     ]
