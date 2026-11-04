@@ -1,0 +1,44 @@
+schema: science_pulse.canon.node.v1
+id: canon_1_3
+section: § 1.3
+title: 'Архимед: закон гидростатики и рождение статики'
+discipline: physics
+tier: 1
+status: opened
+poincare:
+  r: 0.0642
+  theta_deg: 330.0
+  w_complex:
+    re: 0.055596
+    im: -0.032099
+  conformal_factor: 4.0332
+causal_dag:
+  prerequisites: []
+  successors:
+  - newton_gravity
+  - galileo_fall
+  max_hyperbolic_jump: 0.2571
+memory_kinetics:
+  s_base_days: 2.4
+  difficulty_rating: 1.1
+  coupling_efficiency: 1.0
+  s_eff_days: 2.4
+  review_interval_days: 0.2529
+holographic_layers:
+  z0_boundary:
+    card_archetype: standard_plot
+    max_caption_chars: 1000
+    spoken_audio_duration_sec: 45
+  z1_intuition:
+    concept_summary: Какая сила удерживает на плаву стальной авианосец и управляет
+      подъёмом стратосферного зонда?
+  z2_formalism:
+    latex_core: F_A = \rho g V = \oint_{\partial V} p \, d\mathbf{S}
+    theorems:
+    - section_1_3
+  z3_simulation:
+    python_entrypoint: science_pulse.simulate
+    deterministic_seed: 530
+  z4_verification:
+    lean_file: formal/Invariants.lean
+    lean_theorem: inv8_causal_completeness

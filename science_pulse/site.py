@@ -98,6 +98,12 @@ pre { background: var(--paper-3); border: 1px solid var(--rule); border-radius: 
 .sandbox output { font-weight: 700; color: var(--ink); }
 .atlas { margin: 26px 0; }
 .atlas canvas { width: 100%; height: auto; background: var(--paper-3); border: 1px solid var(--rule); border-radius: 4px; cursor: grab; }
+.depth-nav { display: flex; gap: 8px; flex-wrap: wrap; margin: 18px 0 12px; }
+.depth-btn { background: var(--paper-2); border: 1px solid var(--rule); color: var(--ink-2); border-radius: 4px; padding: 8px 12px; cursor: pointer; font-family: var(--mono); font-size: 12px; }
+.depth-btn.active { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.depth { display: none; }
+.depth.visible { display: block; }
+.depth > h2 { font-size: 16px; font-family: var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); margin: 4px 0 12px; }
 .journal { display: grid; grid-template-columns: 230px minmax(0, 1fr) 220px; gap: 28px; align-items: start; margin-top: 18px; }
 .journal .side { font-size: 14px; }
 .journal .side h2 { font-size: 13px; margin: 0 0 8px; font-family: var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
@@ -175,6 +181,21 @@ self.addEventListener('fetch', (event) => {
     )
   );
 });
+"""
+
+
+DEPTH_JS = """
+(function () {
+  const buttons = Array.from(document.querySelectorAll('.depth-btn'));
+  const sections = Array.from(document.querySelectorAll('.depth'));
+  if (!buttons.length || !sections.length) return;
+  function show(depth) {
+    buttons.forEach((b) => b.classList.toggle('active', b.dataset.depth === depth));
+    sections.forEach((s) => s.classList.toggle('visible', depth === 'all' || s.dataset.depth === depth));
+  }
+  buttons.forEach((b) => b.addEventListener('click', () => show(b.dataset.depth)));
+  show('0');
+})();
 """
 
 
@@ -782,7 +803,7 @@ class SiteBuilder:
 """
         (dist / "index.html").write_text(self._page(self.config.site_title, content, depth=0), encoding="utf-8")
 
-    def _longread_html(self, post: Post) -> str:
+    def _longread_text(self, post: Post) -> str:
         """Пятичастный лонгрид (`enricher.py`); офлайн-сборка без сети."""
         meta = post.meta or {}
         text = str(meta.get("longread_body") or "")
@@ -793,9 +814,36 @@ class SiteBuilder:
                 text = enrich_post_longread(post)
             except Exception:
                 text = ""
-        if not text:
-            return ""
-        return f'<h2>Полный разбор</h2><div class="article-body">{self._paragraphs(text)}</div>'
+        return text
+
+    @staticmethod
+    def _split_longread(text: str) -> Dict[str, str]:
+        """Делит лонгрид на части по римским заголовкам ``I..V``."""
+        parts: Dict[str, str] = {}
+        matches = list(re.finditer(r"^(I|II|III|IV|V)\.\s", text or "", re.MULTILINE))
+        for index, match in enumerate(matches):
+            start = match.start()
+            end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+            parts[match.group(1)] = text[start:end].strip()
+        return parts
+
+    def _depth_sections(self, post: Post, blocks: Dict[str, str]) -> List[tuple]:
+        """Пять голографических слоёв глубины z = 0…4 (AdS/CFT-развёртка)."""
+        parts = self._split_longread(self._longread_text(post))
+        return [
+            ("0", "z = 0 · Граница / Импульс",
+             blocks.get("image", "") + blocks.get("audio", "") + blocks.get("audiogram", "")),
+            ("1", "z = 1 · Интуиция и генезис",
+             self._paragraphs(parts.get("I", "")) + self._paragraphs(post.body)
+             + self._paragraphs(parts.get("V", ""))),
+            ("2", "z = 2 · Формализм",
+             blocks.get("formula", "") + self._paragraphs(parts.get("II", ""))),
+            ("3", "z = 3 · Симуляция",
+             self._sparkline_html(post) + blocks.get("sandbox", "") + blocks.get("code", "")
+             + self._paragraphs(parts.get("III", ""))),
+            ("4", "z = 4 · Сертификат истины",
+             blocks.get("proof", "") + self._paragraphs(parts.get("IV", ""))),
+        ]
 
     def _sparkline_html(self, post: Post) -> str:
         """Текстовая мини-осциллограмма профиля (Брайль): f(x), иначе сонификация."""
@@ -997,8 +1045,21 @@ class SiteBuilder:
             prereq_html = "<h2>Опирается на фундамент</h2><ul>" + "".join(
                 f'<li><a href="{_e(str(url))}" rel="noopener">{_e(str(name))}</a></li>' for name, url in links
             ) + "</ul>"
+        sandbox_html = self._sandbox_html(post)
         proof_html = self._proof_html(post)
-        longread_html = self._longread_html(post)
+        depth_nav = ""
+        depth_html = ""
+        depth_sections = self._depth_sections(post, {
+            "image": image_html, "audio": audio_html, "audiogram": audiogram_html,
+            "formula": formula_html, "sandbox": sandbox_html, "code": code_html, "proof": proof_html,
+        })
+        depth_nav = '<div class="depth-nav">' + "".join(
+            f'<button class="depth-btn" data-depth="{key}">{label}</button>' for key, label, _ in depth_sections
+        ) + '<button class="depth-btn" data-depth="all">Все слои</button></div>'
+        depth_html = "".join(
+            f'<section class="depth" data-depth="{key}"><h2>{label}</h2>{body}</section>'
+            for key, label, body in depth_sections
+        )
         sandbox_html = self._sandbox_html(post)
         meta_pass = post.meta or {}
         section = str(meta_pass.get("section_num") or "").strip()
@@ -1020,15 +1081,8 @@ class SiteBuilder:
       <div class="badge {_e(post.domain)}">{post.emoji} {_e(DOMAIN_LABELS.get(post.domain, post.domain))}</div>
       <h1>{_e(post.title)}</h1>
       <p class="lead">{_e(post.hook)}</p>
-      {image_html}
-      {formula_html}
-      {self._sparkline_html(post)}
-      {sandbox_html}
-      {audio_html}
-      {audiogram_html}
-      {longread_html}
-      <div class="article-body">{self._paragraphs(post.body)}</div>
-      {code_html}
+      {depth_nav}
+      {depth_html}
     </div>
     <aside class="side">
       {proof_html}
@@ -1040,6 +1094,7 @@ class SiteBuilder:
     </aside>
   </div>
 </article>
+<script>{DEPTH_JS}</script>
 """
         (posts_dir / f"{post.id}.html").write_text(self._page(post.title, content, depth=1), encoding="utf-8")
 

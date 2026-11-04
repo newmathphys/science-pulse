@@ -1,0 +1,44 @@
+schema: science_pulse.canon.node.v1
+id: canon_1_1
+section: § 1.1
+title: 'Пифагор: теорема о метрике евклидова пространства'
+discipline: math
+tier: 1
+status: opened
+poincare:
+  r: 0.0642
+  theta_deg: 90.0
+  w_complex:
+    re: 0.0
+    im: 0.064197
+  conformal_factor: 4.0332
+causal_dag:
+  prerequisites: []
+  successors:
+  - al_khwarizmi
+  max_hyperbolic_jump: 0.2571
+memory_kinetics:
+  s_base_days: 2.4
+  difficulty_rating: 1.1
+  coupling_efficiency: 1.0
+  s_eff_days: 2.4
+  review_interval_days: 0.2529
+holographic_layers:
+  z0_boundary:
+    card_archetype: standard_plot
+    max_caption_chars: 1000
+    spoken_audio_duration_sec: 45
+  z1_intuition:
+    concept_summary: Почему формула из VI века до н.э. сегодня работает в 3D-движках,
+      GPS и машинном обучении?
+  z2_formalism:
+    latex_core: a^2 + b^2 = c^2 \quad \Longrightarrow \quad \|\mathbf{x}\|_2 = \sqrt{\sum_{i=1}^n
+      x_i^2}
+    theorems:
+    - section_1_1
+  z3_simulation:
+    python_entrypoint: science_pulse.simulate
+    deterministic_seed: 530
+  z4_verification:
+    lean_file: formal/Invariants.lean
+    lean_theorem: inv8_causal_completeness

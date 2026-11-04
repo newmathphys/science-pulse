@@ -138,6 +138,17 @@ class SiteTests(unittest.TestCase):
         self.assertTrue(any(item.get("formula") for item in search))
 
 
+    def test_post_page_has_depth_layers(self):
+        """Страница параграфа — 5 голографических слоёв глубины z = 0…4."""
+        dist = self.builder.build()
+        post = self.storage.list_posts(status="published")[0]
+        page = (dist / "post" / f"{post.id}.html").read_text(encoding="utf-8")
+        self.assertIn('class="depth-nav"', page)
+        for depth in range(5):
+            self.assertIn(f'data-depth="{depth}"', page)
+        self.assertIn('data-depth="all"', page)
+        self.assertIn("z = 4", page)
+
     def test_post_page_has_interactive_sandbox(self):
         """На странице поста — интерактивная лаборатория (Canvas + ползунки)."""
         dist = self.builder.build()

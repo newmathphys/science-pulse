@@ -1,0 +1,43 @@
+schema: science_pulse.canon.node.v1
+id: canon_1_2
+section: § 1.2
+title: 'Евклид: алгоритм НОД — древнейший рабочий алгоритм'
+discipline: cs
+tier: 1
+status: opened
+poincare:
+  r: 0.0642
+  theta_deg: 210.0
+  w_complex:
+    re: -0.055596
+    im: -0.032099
+  conformal_factor: 4.0332
+causal_dag:
+  prerequisites: []
+  successors:
+  - leibniz_boolean
+  max_hyperbolic_jump: 0.2571
+memory_kinetics:
+  s_base_days: 2.4
+  difficulty_rating: 1.1
+  coupling_efficiency: 1.0
+  s_eff_days: 2.4
+  review_interval_days: 0.2529
+holographic_layers:
+  z0_boundary:
+    card_archetype: standard_plot
+    max_caption_chars: 1000
+    spoken_audio_duration_sec: 45
+  z1_intuition:
+    concept_summary: Как метод деления отрезков из «Начал» стал фундаментом RSA и
+      современной криптографии?
+  z2_formalism:
+    latex_core: \gcd(a, b) = \gcd(b, a \bmod b), \quad T(n) = \mathcal{O}(\log n)
+    theorems:
+    - section_1_2
+  z3_simulation:
+    python_entrypoint: science_pulse.simulate
+    deterministic_seed: 530
+  z4_verification:
+    lean_file: formal/Invariants.lean
+    lean_theorem: inv8_causal_completeness
