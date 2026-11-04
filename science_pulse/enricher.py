@@ -25,8 +25,10 @@ from .models import Post
 
 WIKI_API = "https://ru.wikipedia.org/w/api.php"
 CACHE_MIN_CHARS = 1200
-# Сколько символов полной статьи Википедии попадает в главу (не «тизер»).
-WIKI_CHARS = 2600
+# Википедия — донор структурированного сырья (факты, история, формулы), а НЕ
+# текст главы: в главу попадает короткая справка, а глубину даёт наш
+# вычислительный контур (задача, расчёт, песочница, родословная).
+WIKI_CHARS = 600
 
 # 🏛 Академический свод / верификатор по дисциплине (второй уровень родословной).
 CANONICAL_ARCHIVES: Dict[str, str] = {
@@ -237,7 +239,7 @@ def _compose_longread(
     if post.body:
         one.append(post.body.strip())
     if wiki:
-        one.append(f"Из энциклопедии: {wiki[:WIKI_CHARS]}")
+        one.append(f"Из энциклопедии (справочное сырьё): {wiki[:WIKI_CHARS]}")
 
     two = ["II. Аналитическая модель и экспликация величин"]
     if formula:
