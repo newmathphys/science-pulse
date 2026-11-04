@@ -1,0 +1,175 @@
+# Science Pulse — рабочая конфигурация.
+# Секреты сюда не пишем: они берутся из .env или GitHub Secrets.
+
+schedule: ["09:00", "14:00", "19:00"]
+timezone: "Europe/Moscow"
+domains: ["math", "physics", "cs"]
+max_queue: 80
+# Если готовых постов меньше этого порога — пайплайн сам дозаказывает harvest.
+low_water: 9
+harvest_per_source: 2
+translate: false
+
+# Светофор автономности (/doctor): ожидаемый темп публикаций.
+doctor:
+  posts_per_day: 3
+
+# Радар мировых новостей (/trending): Hacker News + GitHub + Reddit.
+# auto_enqueue_min_likes: при harvest самому добавлять хиты с таким числом лайков (0 = выкл).
+trending:
+  enabled: true
+  top: 5
+  auto_enqueue_min_likes: 0
+
+# A/B стилей карточки: classic (обычный) / compact (плотнее, без крючка).
+# Вариант выбирается детерминированно по id поста; результат пишется в meta.
+abtest:
+  enabled: false
+  variants: ["classic", "compact"]
+
+# Озвучка постов: голосовое сообщение (OGG/OPUS) или аудио-подкаст (MP3).
+# Движок edge — онлайн, бесплатно, без ключей (pip install edge-tts).
+# Движок piper — офлайн (нужны бинарь piper и ONNX-модель в piper_model).
+voice:
+  enabled: true
+  engine: "edge"                  # auto | edge | piper
+  voice: "ru-RU-SvetlanaNeural"   # проверенный рабочий русский голос
+  rate: "+0%"
+  max_chars: 750                  # ≈55 секунд речи
+  publish: "voice"                # voice (OGG/OPUS) | audio (MP3-подкаст)
+  piper_model: ""
+
+# Озвученные микро-видео: оживший чертёж + сонификация формулы (ffmpeg).
+# Выходят каждый N-й пост (или принудительно: publish --video, /force video).
+video:
+  enabled: true
+  every_nth_post: 3
+  seconds: 3.6
+  frames: 30
+  with_sound: true
+
+# Правила площадок (переопределение лимитов и звука без правок кода).
+# Приоритет: kv (команда /limits set) → этот блок → значения по умолчанию.
+# audio_mode: auto | voice | audio | mp4 | file | link | off
+platform_rules:
+  # threads:
+  #   max_caption_chars: 600
+  # telegram:
+  #   audio_mode: audio
+
+# Edge/D1 как основной источник (Hybrid D1-Primary):
+# при true и заданных CF_WORKER_URL + INGEST_SECRET пайплайн делает pull
+# (CRDT-слияние снимка D1) перед работой и push после.
+edge:
+  d1_primary: false
+
+# Выбор дисциплины: round_robin (по умолчанию) или thompson (бандит).
+selection: "round_robin"
+bandit:
+  enabled: false
+hawkes:
+  enabled: false
+  beta_per_hour: 0.38
+  eps: 0.45
+
+# Адрес сайта (GitHub Pages / Cloudflare Pages). Нужен для ссылок в постах.
+site_base_url: ""
+site_title: "Science Pulse"
+
+data_dir: "data"
+dist_dir: "dist"
+
+card:
+  size: 1080
+  ssaa: 2
+  theme: "neon"
+  # Движок карточек: auto (meta-сигнал) | typst (3Blue1Brown) | academic (книжная серия) | pillow.
+  engine: "auto"
+
+sources:
+  # Фундамент Науки: 30 узлов по ступеням — выходят первыми (см. curriculum.py).
+  foundation:
+    enabled: true
+    weight: 70
+  history_canon:
+    enabled: false
+    weight: 50
+  stackexchange:
+    enabled: true
+    weight: 10
+    sites:
+      math:
+        - ["math", "calculus"]
+        - ["math", "linear-algebra"]
+      physics:
+        - ["physics", "quantum-mechanics"]
+        - ["physics", "classical-mechanics"]
+      cs:
+        - ["cs", "algorithms"]
+        - ["cstheory", "complexity-theory"]
+  oeis:
+    enabled: true
+    weight: 8
+  wikipedia:
+    # Основной источник: понятные фундаментальные темы.
+    enabled: true
+    weight: 12
+  arxiv:
+    # Пониженный приоритет: узкие препринты неинтересны широкой аудитории.
+    enabled: true
+    weight: 1
+  rosetta:
+    enabled: true
+    weight: 7
+  github_raw:
+    # Включайте только для проверенных raw-URL: README-списки дают мусорные посты.
+    enabled: false
+    weight: 5
+    urls:
+      - url: "https://raw.githubusercontent.com/Experience-Monks/math-as-code/master/README.md"
+        domain: "math"
+      - url: "https://raw.githubusercontent.com/brandonhimpfen/awesome-physics/master/README.md"
+        domain: "physics"
+      - url: "https://raw.githubusercontent.com/TheAlgorithms/Python/master/README.md"
+        domain: "cs"
+  numbers:
+    # Публичный numbersapi.com в 2026 требует авторизацию и отдаёт 404/401.
+    # Адаптер оставлен для совместимости; включайте при наличии рабочего эндпоинта.
+    enabled: false
+    weight: 3
+  offline:
+    enabled: true
+    weight: 100
+
+platforms:
+  telegram: {enabled: true}
+  threads: {enabled: true}
+  bluesky: {enabled: true}
+  discord: {enabled: true}
+  mastodon: {enabled: true}
+  vk: {enabled: true}
+
+telegram:
+  channel_id: ""
+  admin_chat_id: ""
+  message_thread_id: ""
+  parse_mode: "HTML"
+
+threads:
+  user_id: ""
+
+mastodon:
+  instance: "https://mathstodon.xyz"
+
+vk:
+  group_id: ""
+
+admin:
+  enabled: true
+  poll_timeout: 25
+  # Ставить нативное меню команд Telegram (setMyCommands) при старте пульта.
+  set_commands: true
+
+source_circuit:
+  failures: 3
+  open_minutes: 45

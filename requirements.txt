@@ -1,0 +1,21 @@
+requests>=2.31
+Pillow>=10.0
+matplotlib>=3.8
+numpy>=1.26
+sympy>=1.12
+scipy>=1.11
+PyYAML>=6.0
+Jinja2>=3.1
+
+# Перевод без LLM: gtx (JSON-эндпоинт Google) + MyMemory + deep-translator.
+# Если ничего не установлено, посты выходят в оригинале.
+deep-translator>=1.11
+
+# Студийный движок карточек (3Blue1Brown + Typst). Опционально:
+# без него карточки рисуются через Pillow.
+typst>=0.11
+
+# Озвучка постов (голосовое/подкаст): edge-tts — онлайн, бесплатно, без ключей.
+# Для офлайн-синтеза нужен бинарь piper + ONNX-модель (config voice.piper_model).
+# Конвертация в OGG/OPUS — через системный ffmpeg.
+edge-tts>=7.0

@@ -1,0 +1,130 @@
+from __future__ import annotations
+
+import logging
+import time
+from typing import Any, Dict, List, Optional
+
+import requests
+
+from ..config import Config
+from ..models import CardArtifact, Post, PublishResult
+from ..text import split_text, truncate
+from .base import (
+    Publisher,
+    PublishContext,
+    audio_link,
+    audiogram_url,
+    build_short_text,
+    context_rules,
+    result_skipped,
+)
+
+LOGGER = logging.getLogger(__name__)
+
+
+class ThreadsPublisher(Publisher):
+    name = "threads"
+
+    def __init__(self, config: Config):
+        self.config = config
+        self.user_id = config.threads_user_id
+        self.token = config.threads_token
+        self.base = f"https://graph.threads.net/v1.0/{self.user_id}"
+
+    def available(self) -> bool:
+        return bool(self.user_id and self.token)
+
+    def publish(self, post: Post, card: CardArtifact, context: PublishContext) -> PublishResult:
+        if not self.available():
+            return result_skipped(self.name, "TH_USER_ID/TH_ACCESS_TOKEN не заданы")
+
+        rules = context_rules(context, self.config)
+        limit = rules.limit(self.name, "max_caption_chars", 500)
+        chain_parts = max(1, rules.limit(self.name, "max_chain_parts", 2))
+
+        text = build_short_text(post, limit=limit, site_url=context.site_url, include_link=False)
+        chunks = split_text(text, max(80, limit - 10))
+        if not chunks:
+            return PublishResult(platform=self.name, ok=False, error="пустой текст")
+        mode = rules.audio_mode(self.name)
+        # Звук: Threads не принимает .ogg/.mp3 — либо ссылка, либо видео-аудиограмма.
+        if mode == "mp4":
+            audiogram = audiogram_url(post, context.site_url)
+            if audiogram and chunks:
+                chunks[0] = truncate(f"{chunks[0]}\n\n🎧 Видео-разбор: {audiogram}", limit)
+        elif mode == "link":
+            link = audio_link(post, context.site_url)
+            if link:
+                chunks[-1] = truncate(f"{chunks[-1]}\n\n🎧 Слушать на сайте: {link}", limit)
+        if context.site_url:
+            chunks[-1] = truncate(f"{chunks[-1]}\n\n🪐 {context.site_url}", limit)
+
+        first_id: Optional[str] = None
+        previous_id: Optional[str] = None
+        published: List[str] = []
+        for index, chunk in enumerate(chunks[:chain_parts]):
+            payload: Dict[str, Any] = {
+                "media_type": "TEXT",
+                "text": chunk,
+                "access_token": self.token,
+            }
+            if index == 0 and context.public_card_url:
+                payload["media_type"] = "IMAGE"
+                payload["image_url"] = context.public_card_url
+            if previous_id:
+                payload["reply_to_id"] = previous_id
+
+            creation = self._create_container(payload)
+            if not creation.get("id"):
+                if index == 0 and context.public_card_url:
+                    # Картинка не принята — повторяем первый пост как текст.
+                    payload["media_type"] = "TEXT"
+                    payload.pop("image_url", None)
+                    creation = self._create_container(payload)
+                if not creation.get("id"):
+                    return PublishResult(
+                        platform=self.name,
+                        ok=False,
+                        error=str(creation.get("error") or creation)[:200],
+                    )
+
+            time.sleep(1.2)
+            published_id = self._publish_container(creation["id"])
+            if not published_id:
+                return PublishResult(platform=self.name, ok=False, error="threads_publish не вернул id")
+            published.append(published_id)
+            first_id = first_id or published_id
+            previous_id = published_id
+
+        return PublishResult(
+            platform=self.name,
+            ok=True,
+            external_id=first_id,
+            url=f"https://www.threads.net/t/{first_id}" if first_id else None,
+            meta={"published_ids": published, "chunks": len(published)},
+        )
+
+    def _create_container(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        try:
+            response = requests.post(f"{self.base}/threads", data=payload, timeout=25)
+            return response.json()
+        except Exception as exc:
+            LOGGER.warning("Threads create container: %s", exc)
+            return {"error": str(exc)}
+
+    def _publish_container(self, creation_id: str) -> Optional[str]:
+        for attempt in range(2):
+            try:
+                response = requests.post(
+                    f"{self.base}/threads_publish",
+                    data={"creation_id": creation_id, "access_token": self.token},
+                    timeout=25,
+                )
+                payload = response.json()
+                if payload.get("id"):
+                    return str(payload["id"])
+                LOGGER.warning("Threads publish attempt %s: %s", attempt + 1, payload)
+            except Exception as exc:
+                LOGGER.warning("Threads publish attempt %s: %s", attempt + 1, exc)
+            time.sleep(2.0)
+        return None

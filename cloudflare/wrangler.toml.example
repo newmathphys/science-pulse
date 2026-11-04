@@ -1,0 +1,27 @@
+# Пример конфигурации Cloudflare Worker.
+# Скопируйте в cloudflare/wrangler.toml и заполните ID.
+
+name = "science-pulse-edge"
+main = "worker.js"
+compatibility_date = "2026-01-01"
+
+[vars]
+SITE_ORIGIN = "https://your-site.example"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "science-pulse"
+database_id = "REPLACE_WITH_D1_ID"
+
+[[r2_buckets]]
+binding = "R2_BUCKET"
+bucket_name = "science-pulse-cards"
+
+[triggers]
+crons = ["17 */4 * * *"]
+
+# Секреты:
+#   wrangler secret put TG_BOT_TOKEN
+#   wrangler secret put GH_PAT
+#   wrangler secret put GH_REPO       # owner/repo
+#   wrangler secret put INGEST_SECRET

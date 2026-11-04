@@ -1,0 +1,114 @@
+"""Фундаментальный источник: канон, выстроенный по ступеням старта.
+
+Публикация начинается не со случайных постов, а со **Ступени 1** —
+корневых законов, на которые потом ссылаются все остальные:
+
+| Ступень | Тема | Узлы канона |
+|:--|:--|:--|
+| 1 | Зарождение аксиом, алгоритмов и статики | pythagoras, euclid_gcd, archimedes |
+| 2 | Координаты, анализ и динамика | newton_gravity, euler_identity |
+| 3 | Классика полей и симметрий | fourier_series, maxwell, noether_symmetry |
+| 4 | Рождение вычислений | turing_machine, shannon_entropy |
+| 5 | Квантовый мир | schrodinger, quantum_tunneling |
+| 6 | Прикладные гиганты | insar_ndvi, schwarzschild_light, lj_lorenz |
+
+`FoundationSource` отдаёт узлы в порядке ступеней и добавляет в `meta`
+поля `step` и `step_title` — по ним работают `/foundation status` и подпись.
+"""
+from __future__ import annotations
+
+from typing import Any, Dict, List
+
+from ..models import Post, make_id
+from .base import Source
+from .history_canon import CANON, HistoryCanonSource
+
+STEP_TITLES: Dict[int, str] = {
+    1: "Зарождение аксиом, алгоритмов и статики",
+    2: "Координаты, анализ и динамика",
+    3: "Классика полей и симметрий",
+    4: "Рождение вычислений",
+    5: "Квантовый мир",
+    6: "Прикладные гиганты",
+}
+
+STEP_BY_ID: Dict[str, int] = {
+    # Ступень 1 — Зарождение
+    "pythagoras": 1,
+    "euclid_gcd": 1,
+    "archimedes": 1,
+    # Ступень 2 — Координаты, алгебра и эксперимент
+    "al_khwarizmi": 2,
+    "leibniz_boolean": 2,
+    "galileo_fall": 2,
+    "newton_gravity": 2,
+    # Ступень 3 — Анализ и первые машины
+    "newton_calculus": 3,
+    "lovelace": 3,
+    "bernoulli_flow": 3,
+    "euler_identity": 3,
+    # Ступень 4 — Классика полей, статистика и алгоритмы
+    "gauss_normal": 4,
+    "hoare_sort": 4,
+    "boltzmann_entropy": 4,
+    "fourier_series": 4,
+    "maxwell": 4,
+    "noether_symmetry": 4,
+    # Ступень 5 — Вычисления и кванты
+    "riemann_integral": 5,
+    "dijkstra_shortest": 5,
+    "planck_quantum": 5,
+    "turing_machine": 5,
+    "shannon_entropy": 5,
+    "schrodinger": 5,
+    "quantum_tunneling": 5,
+    # Ступень 6 — Границы знания и прикладные гиганты
+    "godel_incompleteness": 6,
+    "rsa_crypto": 6,
+    "einstein_relativity": 6,
+    "insar_ndvi": 6,
+    "schwarzschild_light": 6,
+    "lj_lorenz": 6,
+}
+
+
+def step_of(canon_id: str) -> int:
+    return STEP_BY_ID.get(canon_id, 9)
+
+
+def ordered_nodes() -> List[Dict[str, Any]]:
+    """Узлы канона, отсортированные по ступеням (внутри ступени — по эпохе)."""
+    return sorted(CANON, key=lambda item: (step_of(item["id"]), CANON.index(item)))
+
+
+class FoundationSource(Source):
+    name = "foundation"
+    domains = ("math", "physics", "cs")
+    tier = "foundation"
+
+    def __init__(self, config: Any = None, http: Any = None):
+        super().__init__(config, http)
+        self._history = HistoryCanonSource(config, http)
+
+    def fetch(self, limit: int = 2, cycle: int = 0) -> List[Post]:
+        nodes = ordered_nodes()
+        posts: List[Post] = []
+        for offset in range(max(1, limit)):
+            index = cycle + offset
+            if index >= len(nodes):
+                break
+            item = nodes[index]
+            original_index = CANON.index(item)
+            post = self._history._build(item, original_index)
+            post.tier = self.tier
+            post.source_name = f"Фундамент Науки · {item['scientist']}"
+            step = step_of(item["id"])
+            post.meta["step"] = step
+            post.meta["step_title"] = STEP_TITLES.get(step, "Дополнительно")
+            post.meta["foundation_id"] = item["id"]
+            posts.append(post)
+        return posts
+
+    @staticmethod
+    def post_id_for(canon_id: str) -> str:
+        return make_id("history_canon", canon_id)

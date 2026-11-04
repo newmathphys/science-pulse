@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "science-pulse"
+version = "0.1.0"
+description = "Детерминированная научная лента: Telegram, Threads, сайт"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.31",
+    "Pillow>=10.0",
+    "matplotlib>=3.8",
+    "numpy>=1.26",
+    "sympy>=1.12",
+    "scipy>=1.11",
+    "PyYAML>=6.0",
+    "Jinja2>=3.1",
+    "deep-translator>=1.11",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+science-pulse = "science_pulse.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["science_pulse*"]

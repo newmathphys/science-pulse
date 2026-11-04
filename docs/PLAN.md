@@ -1,0 +1,438 @@
+# Science Pulse — план разработки
+
+Документ-основание: `2-2026-10-31.md` (экспорт диалога, 56 сообщений).
+Ниже — выжимка требований, целевая архитектура и поэтапный план. План
+рассчитан на то, что проект можно запускать локально без токенов и без сети
+(офлайн-режим), а затем постепенно включать источники и площадки.
+
+---
+
+## 1. Что требует заказчик (сводка по документу)
+
+1. Бот публикует **2 раза в сутки** научные посты по трём дисциплинам:
+   **математика, физика, информатика**.
+2. Контент берётся из **готовых легальных источников** (Wikipedia/Wikimedia,
+   Stack Exchange, OEIS, arXiv, Rosetta Code, GitHub raw, Numbers API), а не
+   генерируется нейросетью. ИИ минимизируется: максимум — перевод.
+3. Картинка **рисуется кодом** (1080×1080): тёмная карточка, формула, график,
+   код, рубрика. Никакого Midjourney.
+4. Публикация — **отдельными постами** в **Telegram** и **Threads**, далее
+   Bluesky, Discord, Mastodon/Mathstodon, VK (включаются токенами).
+5. Управление — **Пульт в Telegram**: статус, очередь, принудительный пост,
+   пауза, источники, статистика, ссылка на сайт.
+6. Сайт **растёт вместе с постами**: страницы постов, поиск, формулы KaTeX,
+   граф связей, калькуляторы/симуляции, `sitemap.xml`, `llms.txt`.
+7. Отказоустойчивость: несколько источников, кэш/очередь, офлайн-бункер,
+   circuit breaker, защита от дублей, fallback рендера и площадок.
+8. Экономия: бесплатные API и хостинги, отсутствие платных LLM, минимум
+   хранения (картинки не коммитятся в Git; в перспективе — Telegram CDN /
+   Cloudflare R2).
+9. Модульность: новый источник или соцсеть добавляется адаптером, без
+   переписывания ядра.
+
+### Ограничения площадок (из документа)
+
+| Площадка | Текст | Картинка | Особенность |
+|:--|--:|:--|:--|
+| Telegram | 1024 caption / 4096 сообщение | да | `message_thread_id` для топиков |
+| Threads | 500 | по URL | контейнер → публикация, цепочка reply |
+| Bluesky | 300 | из RAM | AT Protocol, app password |
+| Discord | 2000 / 4096 embed | файл | webhook |
+| Mastodon | 500 | из RAM | нативный LaTeX |
+| VK | 16384 | из RAM | `photos.getWallUploadServer` |
+
+---
+
+## 2. Целевая архитектура
+
+### Три контура
+
+```
+КОНТУР 1 — ДОБЫЧА                 КОНТУР 2 — ПРОИЗВОДСТВО        КОНТУР 3 — ПУБЛИКАЦИЯ
+┌─────────────────────────┐      ┌──────────────────────────┐    ┌─────────────────────────┐
+│ источники (API/raw)     │      │ нормализация текста      │    │ Telegram / Threads      │
+│ quality gate            │ ───> │ защита LaTeX при переводе│───>│ Bluesky / Discord       │
+│ dedup (SimHash64)       │      │ рендер карточки 1080×1080│    │ Mastodon / VK           │
+│ очередь в SQLite        │      │ график / код / формула   │    │ идемпотентность + WAL   │
+└─────────────────────────┘      └──────────────────────────┘    └─────────────────────────┘
+             │                              │                               │
+             └──────────────┬───────────────┴───────────────┬───────────────┘
+                            ▼                               ▼
+                   ПУЛЬТ В TELEGRAM                 САМОРАСТУЩИЙ САЙТ
+                   (команды, статус, очередь)       (HTML, поиск, граф, KaTeX)
+```
+
+### Три эшелона отказоустойчивости
+
+1. **Эшелон 1 — онлайн-источники.** Stack Exchange, OEIS, Wikipedia, arXiv,
+   Rosetta Code, GitHub raw, Numbers API. Каждый — с таймаутом, лимитом,
+   circuit breaker и записью ошибок.
+2. **Эшелон 2 — очередь.** Всё, что успешно собрано, лежит в SQLite. Публикация
+   не зависит от доступности источника в момент выхода поста.
+3. **Эшелон 3 — офлайн-бункер.** Детерминированный генератор на SymPy +
+   SciPy CODATA: ортогональные полиномы, формулы, константы. Работает без
+   сети и без повторов за счёт индекса эпохи.
+
+### Принципы
+
+- **Никакого LLM в контенте.** Только детерминированные преобразования.
+- **Перевод опционален.** Если `deep-translator` не установлен — текст
+  сохраняется в оригинале, пост всё равно выходит.
+- **Формулы неприкосновенны.** LaTeX/код маскируются перед переводом и
+  восстанавливаются после.
+- **Идемпотентность.** Уникальный ключ `(post_id, platform)`; повторный запуск
+  не создаёт второй пост.
+- **Ноль тяжёлых файлов в Git.** Карточки — в `data/cards/`, сайт — в `dist/`;
+  в репозиторий коммитится только код и SQLite-состояние (маленькое).
+
+---
+
+## 3. Что реализуется в этой версии (MVP+)
+
+### 3.1. Ядро
+
+- `science_pulse/config.py` — YAML + `.env` + переменные окружения.
+- `science_pulse/models.py` — `Post`, `PublishResult`, валидация, лимиты.
+- `science_pulse/storage.py` — SQLite (WAL, FK): посты, публикации, метрики,
+  источники, KV, дедупликация.
+- `science_pulse/text.py` — очистка HTML, маскировка LaTeX/кода, перевод,
+  SimHash64, нарезка под лимиты площадок, Unicode-fallback формул.
+
+### 3.2. Источники (Контур 1)
+
+- `sources/stackexchange.py` — вопросы с `accepted_answer_id`, пакетный запрос
+  ответов, извлечение LaTeX, `quota_remaining`/`backoff`.
+- `sources/oeis.py` — последовательность, формула, Python-код, `xref`-связи.
+- `sources/wikipedia.py` — случайная статья из научной категории + summary.
+- `sources/arxiv.py` — Atom API, свежие статьи.
+- `sources/rosetta.py` — MediaWiki API, intro + Python-код.
+- `sources/github_raw.py` — raw Markdown/JSON из списка URL.
+- `sources/numbers.py` — Numbers API (математический факт).
+- `sources/history_canon.py` — хронологический канон науки: Пифагор, Евклид,
+  Архимед, Ньютон, Эйлер, Фурье, Максвелл, Тьюринг, Шеннон, Нётер.
+- `sources/offline.py` — детерминированный бункер (полиномы + CODATA).
+- `sources/manager.py` — реестр, приоритеты, circuit breaker, fallback.
+
+### 3.3. Производство (Контур 2)
+
+- `cards.py` — рендер 1080×1080: SSAA 2160→1080, тёмная тема, сетка,
+  график функции (SymPy/NumPy), формула, код, источник; безопасные отступы;
+  fallback без Matplotlib.
+- `plotting.py` — безопасный разбор выражения, комплексная плоскость,
+  Re/Im, защита от NaN/∞.
+
+### 3.4. Публикация (Контур 3)
+
+- `publishers/telegram.py` — `sendPhoto`, caption ≤1024, продолжение текстом,
+  топики, возврат `file_id`.
+- `publishers/threads.py` — контейнер + публикация, текст ≤500, цепочка
+  ответов, image по URL или текстовый fallback.
+- `publishers/bluesky.py`, `discord.py`, `mastodon.py`, `vk.py`.
+- `publishers/manager.py` — включение по наличию токенов, сбор результатов,
+  запись в БД, повтор только неуспешных площадок.
+
+### 3.5. Оркестрация и управление
+
+- `pipeline.py` — `harvest()`, `publish_next()`, `run()`, выбор дисциплины
+  «маятником» (math → physics → cs), качество, дедуп, fallback.
+- `scheduler.py` — ежедневные слоты (09:00/18:00) без внешних зависимостей.
+- `admin.py` — Telegram-пульт на long polling: `/status`, `/queue`, `/next`,
+  `/force`, `/harvest`, `/sources`, `/pause`, `/resume`, `/stats`, `/site`.
+- `cli.py` — `init`, `harvest`, `publish`, `run`, `site`, `admin`, `daemon`,
+  `status`, `sources`, `reset`.
+
+### 3.6. Сайт
+
+- `site.py` — `dist/index.html`, `dist/post/<id>.html`, `search.json`,
+  `graph.json`, `sitemap.xml`, `llms.txt`, `assets/style.css`.
+- KaTeX с CDN, карточки, фильтры по дисциплинам, поиск, граф связей
+  (vis-network), ссылки на первоисточники.
+
+### 3.7. Инфраструктура
+
+- `cloudflare/worker.js` + `schema.sql` — заготовка edge-слоя: Telegram CDN
+  proxy, R2-картинки, D1-граф, вебхук пульта (опционально).
+- `.github/workflows/science_pulse.yml` — cron 2 раза в сутки, запуск,
+  сохранение состояния, публикация сайта на Pages.
+- `tests/` — unittest без сети: текст, БД, карточки, офлайн-источник,
+  сайт, конвейер с фейковыми адаптерами.
+
+---
+
+## 4. Модель данных (SQLite)
+
+```
+posts(id TEXT PK, domain, title, hook, body, formula_latex, formula_plain,
+      code, source_name, source_url, tier, quality, status, created_at,
+      scheduled_for, published_at, card_path, card_file_id, meta_json)
+publications(id PK, post_id FK, platform, external_id, url, status, error,
+             created_at, UNIQUE(post_id, platform))
+metrics(id PK, post_id, platform, views, likes, replies, collected_at)
+sources(name PK, enabled, last_ok, last_error, failures, open_until)
+kv(key PK, value)
+seen(hash PK, post_id, created_at)
+```
+
+Статусы поста: `ready` → `publishing` → `published` / `failed`.
+Выбор следующего поста: сначала `ready` с наименьшим `created_at`, но с
+чередованием дисциплин; если очередь пуста — офлайн-бункер.
+
+---
+
+## 5. Алгоритмы
+
+1. **Дедупликация.** Нормализация заголовка + SimHash64 по шинглам.
+   Хэш хранится в `seen`; при совпадении пост отбрасывается.
+2. **Quality gate.** Минимальная длина заголовка/тела, наличие формулы или
+   кода, отсутствие мусорных HTML-остатков, score источника.
+3. **Маятник дисциплин.** Если прошлый пост был `math`, следующий —
+   `physics`, затем `cs`. Внутри дисциплины — FIFO.
+4. **Circuit breaker.** 3 ошибки подряд → источник `OPEN` на 30–60 минут.
+   Успех сбрасывает счётчик.
+5. **Перевод с защитой.** Маскируются `$...$`, `$$...$$`, `\(...\)`,
+   `\[...\]`, fenced code, inline code; после перевода возвращаются.
+6. **Рендер.** 2160×2160 → LANCZOS → 1080×1080; проверка безопасной рамки;
+   при переполнении — уменьшение шрифта и повтор.
+7. **Публикация.** Сначала Telegram (даёт `file_id` и CDN-идентификатор),
+   затем остальные площадки; ошибка одной площадки не отменяет остальные.
+
+---
+
+## 6. Этапы и критерии приёмки
+
+### Этап 0. Каркас (сделано в этой версии)
+- [x] Структура пакета, конфиг, `.env.example`, README.
+- [x] SQLite-хранилище с миграцией.
+- [x] CLI `init/status`.
+
+### Этап 1. Контент без сети
+- [x] Офлайн-бункер: полиномы + CODATA, детерминированный индекс.
+- [x] Рендер карточки 1080×1080.
+- [x] Тест: карточка создаётся, размер 1080×1080, файл > 10 КБ.
+
+### Этап 2. Онлайн-источники
+- [x] Stack Exchange (принятые ответы, LaTeX).
+- [x] OEIS, Wikipedia, arXiv, Rosetta Code, GitHub raw, Numbers API.
+- [x] Circuit breaker, таймауты, лимиты.
+- [x] Тест: парсеры на фикстурах (без сети).
+
+### Этап 3. Публикация
+- [x] Telegram + Threads + Bluesky + Discord + Mastodon + VK.
+- [x] Идемпотентность, запись результатов.
+- [x] Тест: фейковый публикатор, повторный запуск не дублирует.
+
+### Этап 4. Пульт и расписание
+- [x] Long polling команды.
+- [x] Планировщик 2 раза в сутки.
+- [x] Тест: команды `/status`, `/force` на фейковом Telegram API.
+
+### Этап 5. Сайт
+- [x] Генерация страниц, поиска, графа, sitemap, llms.txt.
+- [x] Тест: файлы создаются, пост присутствует в индексе.
+
+### Этап 6. Инфраструктура
+- [x] GitHub Actions (cron + ручной запуск).
+- [x] Cloudflare Worker/D1/R2 заготовки.
+- [x] Документация по токенам и запуску.
+
+### Дальше (после MVP)
+- [x] Перевод через deep-translator (опционально, `SP_TRANSLATE=1`) — см. `docs/TRANSLATION.md`.
+- [x] Telegram Mini App «Пульт»: статическая `dist/pult.html` — см. `docs/MINIAPP.md`.
+- [x] Cloudflare R2/D1: edge-синхронизация `science_pulse/edge.py` — см. `docs/EDGE.md`.
+- [x] Репликация состояния в D1: `science_pulse/state_export.py`, `/api/state` —
+      см. `docs/D1_STATE.md`.
+- [x] D1 как основной источник: CRDT-слияние (`Storage.merge_snapshot`),
+      `state --pull/--sync/--batch-size`, режим `edge.d1_primary`, монотонный
+      merge в Worker; законы слияния доказаны в Lean (`docs/FORMAL.md`).
+- [x] `science_pulse/sota.py`: бандит Томпсона, Hawkes O(1), FSRS v4.5,
+      координаты Диска Пуанкаре (включаются флагами).
+- [x] `sources/history_canon.py`: хронологический канон от Пифагора до Нётер.
+- [x] PageRank/Пуанкаре-граф в сайте: `science_pulse/graph.py` — см. `docs/GRAPH.md`.
+- [x] Инварианты состояния (INV-1…INV-6): `science_pulse/invariants.py` — см. `docs/INVARIANTS.md`.
+- [x] Lean-доказательства инвариантов (машинная проверка): `formal/Invariants.lean`,
+      `cli formal` — см. `docs/FORMAL.md`.
+- [x] Метрики площадок: `science_pulse/metrics.py`, `cli metrics --collect`,
+      `/metrics` в пульте (Mastodon/Bluesky/VK/Threads; Telegram/Discord — `skipped`).
+- [x] A/B стилей карточки: `science_pulse/abtest.py` — см. `docs/ABTEST.md`.
+- [x] Светофор автономности `/doctor` + `cli doctor` — см. `docs/PULT.md`.
+- [x] Радар мировых новостей: `science_pulse/trending.py`, `/trending`, `/pick`,
+      `cli trending` — см. `docs/TRENDING.md`.
+- [x] Операторские команды: `/preview` (карточка в личку), `/skip` (приоритет
+      очереди), меню `setMyCommands`, `cli admin --once` для CI.
+- [x] Авто-пополнение очереди: `low_water` (по умолчанию 9) в `Pipeline.run()`.
+- [x] Карточки 3Blue1Brown + Typst: 3 архетипа, цветовой ключ, формула
+      математическим движком — см. `docs/CARDS.md`.
+- [x] Автономный контур GitHub Actions: `admin --once`, `doctor`, деплой Pages,
+      сохранение состояния `if: always()`, алерт оператору `if: failure()`.
+- [x] Книжная серия карточек: `science_pulse/cards_academic.py` (бумага
+      `#FAF8F4`, тушь `#111827`, DejaVu Serif, формулы Computer Modern,
+      `y_cursor`-вёрстка), 5 архетипов (`standard_plot`, `code_booktabs`,
+      `diptych_insar`, `cheatsheet_table`, `timeline_evolution`) — см. README.
+- [x] Детерминированные симуляции `science_pulse/simulate.py` (NumPy/SciPy):
+      InSAR/NDVI, геодезические Шварцшильда, туннелирование (split-step FFT),
+      Леннард-Джонс, аттрактор Лоренца.
+- [x] Междисциплиналярные узлы канона: `schrodinger`, `insar_ndvi`,
+      `schwarzschild_light`, `quantum_tunneling`, `lj_lorenz` — «Тройная связь
+      времени» (`scientist`/`era` → формула/`constants_used` →
+      `modern_application`), `prereq_ids` к учёным-основателям, `visual_type`.
+- [x] Словарь констант (CODATA из `scipy.constants`): `science_pulse/constants.py`,
+      страница `constants.html`, связка «константа → посты».
+- [x] Страницы знаний: Досье учёных (`scientists.html`), Темы и маршруты
+      изучения (`topics.html`, хабы при ≥2 постах с общей концепцией).
+- [x] PDF-книга проекта: `science_pulse/book.py` (Typst: титул, `#outline()`,
+      главы по дисциплинам, формулы CM, предметный указатель учёных),
+      `cli book`, `/book` в пульте.
+- [x] Расписание 3 слота в сутки: 09:00/14:00/19:00 МСК (cron `0 6,11,16 * * *`).
+- [x] Озвучка постов: `science_pulse/voice.py` (edge-tts онлайн / piper офлайн,
+      голос `ru-RU-SvetlanaNeural`), голосовое OGG/OPUS + аудио-подкаст MP3,
+      кэш `data/audio/`, плеер на сайте, `/voice` в пульте — см. `docs/VOICE.md`.
+- [x] Полная подпись под карточкой: разбор до ~620 символов (вместо обрезка в
+      380) и конкретное «Где работает сегодня» из `meta["modern_application"]`
+      вместо шаблонной врезки дисциплины.
+- [x] Озвученные микро-видео: `sound.py` (сонификация: Фурье/волновой пакет/
+      шаги сортировки) + `video.py` (30 кадров книжной страницы + ffmpeg →
+      MP4 H.264+AAC, fallback GIF), режим `video.every_nth_post`, `sendVideo`,
+      `--video` / `/force video` / `/preview video` — см. `docs/VIDEO.md`.
+- [x] Контур качества: `standards.py` (7 рубежей, авто-лечение, карантин
+      `rejected`) + `preflight.py` (предполётная проверка), команды
+      `standards`/`quarantine`/`reject`/`preflight` — см. `docs/QUALITY.md`.
+- [x] Старт от фундамента: `sources/foundation.py` (ступени 1–6) + `evolve.py`
+      (порядок выхода, паспорт 🏛/🔬/🔗, обратные ссылки `used_in`),
+      `cli foundation`.
+- [x] Единая верификация `cli verify`: инварианты + Lean (INV-7:
+      `published_implies_gate`, `gate_blocks_published`, `round_robin_no_deadlock`,
+      `reject_monotone`) + фаззинг подписей + медиа-smoke, `tests/test_fuzz.py`.
+- [x] Единый движок правил площадок: `platforms_info.DEFAULT_PLATFORM_RULES` +
+      `PlatformRules` (kv → config.yaml → дефолт), все 6 адаптеров читают лимиты
+      и режим звука оттуда; `audio_mode` = auto/voice/audio/mp4/file/link/off;
+      видео-аудиограмма (`voice.build_audiogram_mp4`) для видео-сетей;
+      команды `/limits`, `/limits set`, `/limits reset` — см. `docs/LIMITS.md`.
+- [x] Фонетический нормализатор формул `math_to_spoken_russian` (диктор
+      произносит `O(N log N)`, `Δφ`, `ℏ`, `c²`, `≥` как лектор).
+- [x] Живая осциллограмма в аудиограмме: `ffmpeg showwaves` + overlay над
+      колонтитулом (цвет чернил дисциплины), fallback на статичную картинку.
+- [x] Прямая загрузка `.mp4` без сайта: Bluesky (`uploadBlob` video/mp4 →
+      `app.bsky.embed.video`), VK (`video.save` → upload_url).
+- [x] Авто-определение `SP_SITE_BASE_URL` из `git remote` (GitHub Pages) с
+      защитой от чужого репозитория `kern`.
+- [x] Аудит программы: 55 модулей импортируются, заглушек/TODO нет; тест
+      поймал и исправлен баг `preflight.video_available`; добавлены тесты
+      `test_cli.py`, `test_preflight.py`, `test_speech.py` (273 теста OK).
+- [x] Детальное описание поста: `build_full_description` — второе сообщение
+      до 4096 знаков (рубрика → эпоха/учёный → вопрос → полный разбор без
+      обрезки → код → формула → где работает → константы → тема → фундамент →
+      источник → сайт → теги); подпись к карточке остаётся ≤1024.
+- [x] Экскурсия `cli demo`: 5 карточек (по архетипу) + детальные описания +
+      варианты для 6 соцсетей + звук/видео + служебные таблицы + PDF-книга;
+      сообщения не разрезаются по HTML-тегам (fallback без разметки).
+- [x] Улучшена логика архетипов: алгоритмические посты с кодом получают
+      книжный листинг `code_booktabs` даже при наличии формулы.
+- [x] Лестница сложности: канон расширен до **30 узлов** (10 ступеней ×
+      3 дисциплины), `curriculum.complexity_tier` (1..100), приоритет
+      `foundation → tier → created_at` в `choose_next`, команда
+      `cli reorder-from-foundation`, источник `foundation` (weight 70).
+- [x] Лекционный сценарий диктора `build_lecture_script` (без URL/тегов/эмодзи)
+      + синхронные субтитры `.vtt`/`.srt` (SentenceBoundary edge-tts, при кэше —
+      приблизительные).
+- [x] Живой чертёж в видео-аудиограмме: 36 кадров анимации + голос +
+      осциллограмма (`audiogram_for_post(animate=True)`).
+- [x] 100% прямые тесты ядра: `tests/test_core_direct.py` (models/config/
+      state_export), `tests/test_curriculum.py`; тесты нашли 2 недоработки
+      в `config` (неизвестная площадка, отсутствие `low_water`) — исправлены.
+      Итого 301 тест OK.
+- [x] Фаззинг сделан герметичным (регресс-фикс): `verify.fuzz_captions` больше
+      не ходит в сеть — на время прогона `translate_preserving_latex`
+      подменяется тождеством, поэтому `heal()` не дёргает gtx/MyMemory.
+      Раньше прогон зависал на HTTP 429 (тесты `test_fuzz_many_iterations`,
+      `test_fuzz_deterministic` не завершались / были недетерминированы);
+      теперь `python -m unittest discover` проходит за ~50 с. Регресс-тесты —
+      `tests/test_fuzz.py::FuzzHermeticityTests`.
+
+---
+
+## 7. Команды
+
+```bash
+python -m science_pulse.cli init
+python -m science_pulse.cli status
+python -m science_pulse.cli harvest --limit 3
+python -m science_pulse.cli publish --dry-run
+python -m science_pulse.cli run
+python -m science_pulse.cli site
+python -m science_pulse.cli metrics --collect
+python -m science_pulse.cli trending
+python -m science_pulse.cli doctor --send
+python -m science_pulse.cli invariants
+python -m science_pulse.cli formal
+python -m science_pulse.cli edge
+python -m science_pulse.cli state
+python -m science_pulse.cli state --sync
+python -m science_pulse.cli admin
+python -m science_pulse.cli admin --once
+python -m science_pulse.cli daemon
+python -m unittest discover -v
+```
+
+`--dry-run` рендерит карточку и пишет её в `data/cards/`, но не отправляет
+в сеть. Это основной режим проверки без токенов.
+
+---
+
+## 8. Безопасность
+
+- Токены только в `.env` / GitHub Secrets / Cloudflare Secrets; в Git не
+  попадают.
+- Ссылка на файл Telegram не отдаётся наружу: для Threads/сайта используется
+  прокси Cloudflare Worker по `file_id`, иначе текст без картинки.
+- В HTML сайта всё экранируется; формулы рендерит KaTeX, а не `eval`.
+- Пользовательские выражения в калькуляторах — только через безопасный
+  парсер SymPy с белым списком.
+
+---
+
+## 9. Фактический статус этой итерации
+
+Проверено командами (без сети и без токенов):
+
+```text
+$ python -m unittest discover -v
+Ran 153 tests
+OK
+```
+
+```text
+$ python -m science_pulse.cli init
+$ python -m science_pulse.cli status
+Очередь: 0 · Опубликовано: 0 · Ошибок: 0
+```
+
+```text
+$ python -m science_pulse.cli publish --dry-run --domain math
+Пост: Минимаксная аппроксимация и полином Чебышёва T_3(x) [math]
+Карточка: data/cards/<id>.png
+Режим dry-run: в сеть не отправлялось.
+```
+
+```text
+$ python -m science_pulse.cli metrics
+📊 Метрики площадок
+Просмотры: 0 · Реакции: 0 · Ответы: 0 · Замеров: 0
+Данных нет: запустите `metrics --collect` после публикации.
+```
+
+Сборщик метрик `science_pulse/metrics.py` проверен юнит-тестами на фейковом
+HTTP: Mastodon, Bluesky, VK и Threads сохраняют замеры, Telegram/Discord
+помечаются `skipped`, ошибка одной площадки не роняет сбор. Живой сбор
+требует токенов площадок и не выполнялся.
+
+Онлайн-добыча проверена 2026-11-01 на реальной сети: Stack Exchange, OEIS,
+Wikipedia, arXiv, Rosetta Code и GitHub raw вернули карточки; источники
+`math/physics/cs` смешиваются. `numbersapi.com` отдаёт 404/401 и по умолчанию
+отключён. Telegram-публикация проверена на живом канале; Threads, Bluesky,
+Discord, Mastodon и VK **не проверялись**: в среде нет их токенов. Перед
+продакшеном нужны тестовые аккаунты и проверка квот площадок.
+
+Тестовый Telegram-пост опубликован 2026-11-01:
+`https://t.me/newmathphys/24` и `https://t.me/newmathphys/26` (message_id 24 и 26).
+Повторный запуск без `--force` отклонён, с `--force` — `skipped: уже опубликовано`;
+дубликата нет.

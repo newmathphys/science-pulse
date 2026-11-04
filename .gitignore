@@ -1,0 +1,26 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Сгенерированные карточки и сайт не коммитим
+data/cards/
+dist/
+data/*.log
+data/*.pid
+data/*.db-wal
+data/*.db-shm
+
+# Генерируемые медиа-кэши (озвучка / аудиограммы / видео) — тоже не коммитим
+data/audio/
+data/audiogram/
+data/video/
+
+# Случайные карточки в корне (артефакты ручных прогонов)
+/card_*.png
+
+# SQLite-состояние маленькое и нужно для GitHub Actions
+!data/science.db
