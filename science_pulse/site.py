@@ -529,10 +529,12 @@ class SiteBuilder:
         ]
         programme.sort(key=lambda item: str((item.meta or {}).get("section_num") or "99"))
         for post in posts:
+            self._ensure_card(post)
             self._copy_card(post, cards_dir)
             self._copy_audio(post, audio_dir)
             self._copy_audiogram(post, audiogram_dir)
         for post in programme:
+            self._ensure_card(post)
             self._copy_card(post, cards_dir)
 
         self._write_index(posts, dist)
@@ -569,6 +571,24 @@ class SiteBuilder:
         # отдавались все файлы как есть (важно для статического сайта).
         (dist / ".nojekyll").write_text("", encoding="utf-8")
         return dist
+
+    def _ensure_card(self, post: Post) -> None:
+        """Дорисовывает отсутствующую карточку (бессерверная живучесть).
+
+        На чистой виртуальной машине (GitHub Actions) `data/cards/` пуст, и без
+        этого шага сайт уезжал бы без картинок: 30 глав канона теряли оформление.
+        """
+        if not bool((self.config.raw.get("site") or {}).get("render_missing_cards", True)):
+            return
+        source = self.config.cards_dir / f"{post.id}.png"
+        if source.is_file():
+            return
+        try:
+            from .cards import render_card
+
+            render_card(post, out_path=source, engine="auto")
+        except Exception as exc:  # pragma: no cover - защита сборки
+            LOGGER.warning("Карточка %s не дорисована: %s", post.id, exc)
 
     def _copy_card(self, post: Post, cards_dir: Path) -> None:
         raw = post.card_path or post.meta.get("card_path") or ""

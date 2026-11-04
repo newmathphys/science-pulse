@@ -589,8 +589,7 @@ RADIO_PAGE_HEAD = """<!doctype html>
   <div>
     <img class="radio-card" id="radio-card" src="icon-512.png" alt="Карточка параграфа">
     <p class="meta">__TAGLINE__<br>
-    <a href="podcast.xml">podcast.xml</a> \u00B7 <a href="radio_mix.mp4">радио-микс</a> \u00B7
-    <a href="radio_chapters.txt">таймкоды</a></p>
+    <a href="podcast.xml">podcast.xml</a> \u00B7 __MIX_LINK__</p>
   </div>
   <div>
     <span class="onair"><i></i> <span id="radio-status">в эфире</span></span>
@@ -618,7 +617,7 @@ RADIO_PAGE_HEAD = """<!doctype html>
 """
 
 
-def radio_page_html(entries: Sequence[Dict[str, Any]], config: Config) -> str:
+def radio_page_html(entries: Sequence[Dict[str, Any]], config: Config, has_mix: bool = False) -> str:
     """Полная страница бессерверной радиостанции (WebAudio + лекции + mediaSession)."""
     from datetime import datetime
 
@@ -634,6 +633,11 @@ def radio_page_html(entries: Sequence[Dict[str, Any]], config: Config) -> str:
         f'{html.escape(str(item["title"]))}</li>'
         for item in entries
     )
+    mix_link = (
+        '<a href="radio_mix.mp4">радио-микс</a> · <a href="radio_chapters.txt">таймкоды</a>'
+        if has_mix
+        else "<span>радио-микс собирается локально (<code>cli radio --mix</code>)</span>"
+    )
     head = (
         RADIO_PAGE_HEAD
         .replace("__RADIO__", html.escape(RADIO_TITLE))
@@ -643,6 +647,7 @@ def radio_page_html(entries: Sequence[Dict[str, Any]], config: Config) -> str:
         .replace("__COUNT__", str(len(entries)))
         .replace("__LIVE__", str(sum(1 for item in entries if item.get("audio"))))
         .replace("__ROWS__", rows)
+        .replace("__MIX_LINK__", mix_link)
     )
     tail = (
         f"<script>window.SP_RADIO = {_json_script(payload)};</script>\n"
@@ -655,7 +660,10 @@ def write_radio(dist: Path, posts: Sequence[Post], config: Config) -> Dict[str, 
     """Собирает веб-радиостанцию и подкаст-фид; возвращает карту артефактов."""
     dist = Path(dist)
     entries = radio_playlist(posts, config)
-    (dist / "radio.html").write_text(radio_page_html(entries, config), encoding="utf-8")
+    has_mix = (dist / "radio_mix.mp4").is_file()
+    (dist / "radio.html").write_text(
+        radio_page_html(entries, config, has_mix=has_mix), encoding="utf-8"
+    )
     (dist / "radio.json").write_text(
         json.dumps(
             {"playlist": entries, "epoch": EPOCH_START_UTC, "slot": SLOT_SECONDS},

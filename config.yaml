@@ -91,6 +91,11 @@ miniapp:
 data_dir: "data"
 dist_dir: "dist"
 
+# Сборка сайта: дорисовывать отсутствующие карточки (бессерверная живучесть —
+# на чистой виртуальной машине GitHub Actions data/cards пуст).
+site:
+  render_missing_cards: true
+
 card:
   size: 1080
   ssaa: 2

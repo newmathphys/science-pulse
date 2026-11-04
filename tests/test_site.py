@@ -13,7 +13,8 @@ class SiteTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
-        self.config = Config(raw={}, root=self.root)
+        # Дорисовку карточек проверяет отдельный тест — здесь экономим время.
+        self.config = Config(raw={"site": {"render_missing_cards": False}}, root=self.root)
         self.config.ensure_dirs()
         self.storage = Storage(self.config.db_path)
         self.source = OfflineBunkerSource(self.config)
@@ -58,6 +59,16 @@ class SiteTests(unittest.TestCase):
         self.assertIn("katex", page.lower())
         search = json.loads((dist / "search.json").read_text(encoding="utf-8"))
         self.assertTrue(any(item["id"] == post.id for item in search))
+
+    def test_missing_cards_are_rendered_on_clean_machine(self):
+        """Бессерверная живучесть: на чистой ВМ (data/cards пуст) сайт рисует карточки сам."""
+        config = Config(raw={}, root=self.root)
+        config.ensure_dirs()
+        builder = SiteBuilder(config, self.storage)
+        dist = builder.build()
+        post = self.storage.list_posts(status="published")[0]
+        self.assertTrue((config.cards_dir / f"{post.id}.png").is_file())
+        self.assertTrue((dist / "cards" / f"{post.id}.png").is_file())
 
     def test_graph_links(self):
         dist = self.builder.build()
