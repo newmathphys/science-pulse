@@ -55,7 +55,7 @@ class ExpressionError(ValueError):
     pass
 
 
-def parse_expression(expression: str):
+def parse_expression(expression: str, extra_locals: Optional[Dict[str, Any]] = None):
     if not _HAS_SYMPY:
         raise ExpressionError("SymPy не установлен")
     clean = (expression or "").replace("^", "**").strip()
@@ -84,8 +84,11 @@ def parse_expression(expression: str):
     if len(clean) > 300:
         raise ExpressionError("выражение слишком длинное")
     transformations = standard_transformations + (implicit_multiplication_application,)
+    locals_map = dict(SAFE_LOCALS)
+    if extra_locals:
+        locals_map.update(extra_locals)
     try:
-        return parse_expr(clean, local_dict=SAFE_LOCALS, transformations=transformations, evaluate=True)
+        return parse_expr(clean, local_dict=locals_map, transformations=transformations, evaluate=True)
     except Exception as exc:
         raise ExpressionError(f"не удалось разобрать выражение: {exc}") from exc
 

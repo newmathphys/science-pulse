@@ -257,6 +257,20 @@ def _compose_longread(
     three = ["III. Вычислительная верификация"]
     if computed:
         three.append(computed)
+    challenge = meta.get("challenge") if isinstance(meta.get("challenge"), dict) else None
+    if not challenge:
+        try:
+            from .challenge import build_challenge
+
+            challenge = build_challenge(post)
+        except Exception:
+            challenge = None
+    if challenge:
+        three.append("🧠 Задача для самопроверки: " + str(challenge.get("question") or ""))
+        three.append(
+            "Ответ ядра: " + str(challenge.get("answer") or "")
+            + ". " + str(challenge.get("explanation") or "")
+        )
     code_proof = (proof or {}).get("code_proof") or {}
     if code_proof.get("summary"):
         three.append(f"Песочница кода: {code_proof['summary']}")

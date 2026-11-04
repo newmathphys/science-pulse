@@ -252,7 +252,19 @@ def build_lecture_script(post: Post, max_chars: int = 900) -> str:
     if application:
         parts.append(f"Применение сегодня: {application}.")
 
-    # --- Блок 5: мост к следующему уровню ----------------------------------
+    # --- Блок 5: задача слушателю и мост к следующему уровню ----------------
+    challenge_question = ""
+    try:
+        from .challenge import build_challenge
+
+        challenge_question = _strip_links_tags(
+            _speech_clean(str(build_challenge(post).get("question") or ""))
+        )
+    except Exception:  # pragma: no cover - защитный контур
+        challenge_question = ""
+    if challenge_question:
+        parts.append(f"Задача слушателю: {challenge_question} Ответ проверите на тренажёре сайта.")
+
     prereqs = _canon_titles([str(item) for item in (meta.get("prereq_ids") or [])])
     unlocks = [str(item) for item in (meta.get("unlocks_concepts") or [])][:3]
     bridge: List[str] = []

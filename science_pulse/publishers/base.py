@@ -118,6 +118,20 @@ def build_rich_telegram_caption(post: Post, limit: int = 1024, site_url: str = "
     example = str((proof or {}).get("computed_example") or "").strip()
     if example:
         footer_parts.append(f"🔢 {escape_html(truncate(example, 220))}")
+    challenge = (proof or {}).get("challenge") if isinstance(proof, dict) else None
+    if not isinstance(challenge, dict):
+        try:
+            from ..challenge import build_challenge
+
+            challenge = build_challenge(post)
+        except Exception:
+            challenge = None
+    if isinstance(challenge, dict) and challenge.get("question"):
+        footer_parts.append(
+            "🧠 <b>Задача на смекалку:</b> "
+            f"{escape_html(truncate(str(challenge['question']), 220))} "
+            "Напишите ответ в комментариях 👇"
+        )
     if post.source_url:
         footer_parts.append(f"🏛 <a href=\"{escape_html(post.source_url)}\">Источник: {escape_html(truncate(source, 60))}</a>")
     prereq_links = meta.get("prereq_links") or []
@@ -128,7 +142,10 @@ def build_rich_telegram_caption(post: Post, limit: int = 1024, site_url: str = "
         )
         footer_parts.append(f"🔗 <b>Опирается на фундамент:</b> {rendered}")
     if site_url:
-        footer_parts.append(f"🪐 <a href=\"{escape_html(site_url)}\">Разбор на сайте</a>")
+        footer_parts.append(
+            f"🧭 <a href=\"{escape_html(site_url)}/post/{escape_html(post.id)}.html\">"
+            "Тренажёр: покрутить формулу и проверить себя</a>"
+        )
     footer_parts.append(post.hashtags or tags)
 
     header = "\n\n".join(header_parts)

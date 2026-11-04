@@ -129,15 +129,19 @@ def _code_proof(code: str) -> Dict[str, Any]:
 
 def build_post_proof(post: Post, prev_merkle: str = "0" * 64) -> Dict[str, Any]:
     """Собирает вычислительный паспорт и пишет его в ``post.meta["proof"]``."""
+    from .challenge import build_challenge
+
     parts = [part for part in (_codata_line(post), _formula_line(post)) if part]
     proof: Dict[str, Any] = {
         "computed_example": "; ".join(parts),
         "code_proof": _code_proof(getattr(post, "code", "") or ""),
         "merkle_hash": merkle_hash(post, prev_merkle),
+        "challenge": build_challenge(post),
     }
     meta = getattr(post, "meta", None)
     if isinstance(meta, dict):
         meta["proof"] = proof
+        meta["challenge"] = proof["challenge"]
     return proof
 
 

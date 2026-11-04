@@ -893,8 +893,8 @@ class SiteBuilder:
             ("2", "z = 2 · Формализм",
              blocks.get("formula", "") + self._paragraphs(parts.get("II", ""))),
             ("3", "z = 3 · Симуляция",
-             self._sparkline_html(post) + blocks.get("sandbox", "") + blocks.get("code", "")
-             + self._paragraphs(parts.get("III", ""))),
+             self._sparkline_html(post) + blocks.get("sandbox", "") + self._challenge_html(post)
+             + blocks.get("code", "") + self._paragraphs(parts.get("III", ""))),
             ("4", "z = 4 · Сертификат истины",
              blocks.get("proof", "") + self._paragraphs(parts.get("IV", ""))),
         ]
@@ -1042,6 +1042,27 @@ class SiteBuilder:
             "</div>"
             f"<script>{script}</script>"
             "</section>"
+        )
+
+    def _challenge_html(self, post: Post) -> str:
+        """🧠 Просветительская задача для самопроверки (с раскрытием ответа)."""
+        from .challenge import build_challenge, challenge_reveal
+
+        challenge = (post.meta or {}).get("challenge")
+        if not isinstance(challenge, dict) or not challenge.get("question"):
+            try:
+                challenge = build_challenge(post)
+            except Exception:
+                return ""
+        question = str(challenge.get("question") or "").strip()
+        if not question:
+            return ""
+        hint = str(challenge.get("hint") or "").strip()
+        hint_html = f"<p><i>Подсказка: {_e(hint)}</i></p>" if hint else ""
+        return (
+            '<details class="flash"><summary>🧠 Просветительская задача для самопроверки</summary>'
+            f"<p><b>{_e(question)}</b></p>{hint_html}"
+            f"<p>✅ {_e(challenge_reveal(challenge))}</p></details>"
         )
 
     def _lineage_html(self, post: Post) -> str:
