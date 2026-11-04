@@ -153,6 +153,28 @@ def _json_for_script(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False).replace("</", "<\\/")
 
 
+SERVICE_WORKER_JS = """// Science Pulse — офлайн-кэш статики (network-first, cache fallback).
+const CACHE = 'science-pulse-v1';
+self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
+self.addEventListener('fetch', (event) => {
+  const request = event.request;
+  if (request.method !== 'GET') return;
+  let url;
+  try { url = new URL(request.url); } catch (error) { return; }
+  if (url.origin !== self.location.origin) return;
+  event.respondWith(
+    caches.open(CACHE).then((cache) =>
+      fetch(request).then((response) => {
+        if (response && response.ok) cache.put(request, response.clone());
+        return response;
+      }).catch(() => cache.match(request))
+    )
+  );
+});
+"""
+
+
 class SiteBuilder:
     def __init__(self, config: Config, storage: Storage):
         self.config = config
@@ -183,6 +205,7 @@ class SiteBuilder:
         self._write_scientists(posts, dist)
         self._write_constants(posts, dist)
         self._write_topics(posts, dist)
+        self._write_flashcards(posts, dist)
         if self.config.miniapp_public:
             self._write_miniapp(dist)
         else:
@@ -192,6 +215,8 @@ class SiteBuilder:
                 stale_pult.unlink()
         self._write_sitemap(posts, dist)
         self._write_llms(posts, dist)
+        self._write_bibtex(posts, dist)
+        self._write_pwa(dist)
         (dist / "robots.txt").write_text("User-agent: *\nAllow: /\n", encoding="utf-8")
         # GitHub Pages из ветки gh-pages: отключаем обработку Jekyll, чтобы
         # отдавались все файлы как есть (важно для статического сайта).
@@ -225,6 +250,105 @@ class SiteBuilder:
             if source.resolve() != destination.resolve():
                 shutil.copyfile(source, destination)
 
+    def _write_pwa(self, dist: Path) -> None:
+        """PWA: манифест, service worker и иконки (офлайн-режим сайта)."""
+        manifest = {
+            "name": self.config.site_title,
+            "short_name": "Science Pulse",
+            "description": "Детерминированная научная лента: математика, физика, информатика.",
+            "lang": "ru",
+            "start_url": "./index.html",
+            "scope": "./",
+            "display": "standalone",
+            "background_color": "#07090f",
+            "theme_color": "#07090f",
+            "icons": [
+                {"src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+                {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+            ],
+        }
+        (dist / "manifest.webmanifest").write_text(
+            json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        (dist / "sw.js").write_text(SERVICE_WORKER_JS, encoding="utf-8")
+        self._write_icons(dist)
+
+    def _write_icons(self, dist: Path) -> None:
+        """Иконки PWA рисуются кодом; без Pillow — молча пропускаем."""
+        try:
+            from PIL import Image, ImageDraw, ImageFont
+        except Exception:
+            return
+        for size in (192, 512):
+            image = Image.new("RGB", (size, size), "#07090f")
+            draw = ImageDraw.Draw(image)
+            margin = max(8, size // 10)
+            draw.rounded_rectangle(
+                [margin, margin, size - margin, size - margin],
+                radius=size // 6, outline="#00f5d4", width=max(2, size // 40),
+            )
+            font = None
+            for name in ("DejaVuSans-Bold.ttf", "DejaVuSans.ttf"):
+                try:
+                    font = ImageFont.truetype(name, size // 3)
+                    break
+                except Exception:
+                    continue
+            if font is None:
+                try:
+                    font = ImageFont.load_default(size // 3)
+                except Exception:
+                    font = ImageFont.load_default()
+            try:
+                box = draw.textbbox((0, 0), "SP", font=font)
+                width, height = box[2] - box[0], box[3] - box[1]
+                draw.text(
+                    ((size - width) / 2 - box[0], (size - height) / 2 - box[1]),
+                    "SP", fill="#00f5d4", font=font,
+                )
+            except Exception:
+                pass
+            image.save(dist / f"icon-{size}.png")
+
+    def _write_bibtex(self, posts: List[Post], dist: Path) -> None:
+        """BibTeX-экспорт постов: ``dist/bibtex.bib``."""
+        entries: List[str] = []
+        for post in posts:
+            fields = [
+                f"  title = {{{self._bib_escape(post.title)}}}",
+                f"  author = {{{self._bib_escape(post.source_name or self.config.site_title)}}}",
+            ]
+            if post.formula_latex or post.formula_plain:
+                fields.append(f"  note = {{{self._bib_escape(post.formula_plain or post.formula_latex)}}}")
+            if post.source_url:
+                fields.append(f"  howpublished = {{\\url{{{post.source_url}}}}}")
+            if post.published_at[:4].isdigit():
+                fields.append(f"  year = {{{post.published_at[:4]}}}")
+            link = (
+                f"{self.config.site_base_url}/post/{post.id}.html"
+                if self.config.site_base_url
+                else f"post/{post.id}.html"
+            )
+            fields.append(f"  url = {{{link}}}")
+            entries.append("@misc{sciencepulse_%s,\n%s\n}" % (post.id, ",\n".join(fields)))
+        header = "% Science Pulse — BibTeX-экспорт\n% Детерминированная научная лента (без LLM)\n\n"
+        (dist / "bibtex.bib").write_text(header + "\n\n".join(entries) + "\n", encoding="utf-8")
+
+    @staticmethod
+    def _bib_escape(text: str) -> str:
+        """Экранирует спецсимволы BibTeX (иначе .bib не соберётся)."""
+        return (
+            str(text or "")
+            .replace("\\", "")
+            .replace("{", "(")
+            .replace("}", ")")
+            .replace("&", "\\&")
+            .replace("%", "\\%")
+            .replace("_", "\\_")
+            .replace("#", "\\#")
+            .replace("$", "\\$")
+        )
+
     def _page(self, title: str, content: str, depth: int = 0, extra_head: str = "") -> str:
         prefix = "../" * depth
         site_title = _e(self.config.site_title)
@@ -235,6 +359,11 @@ class SiteBuilder:
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{_e(title)} · {site_title}</title>
 <meta name="description" content="Детерминированная научная лента: математика, физика, информатика.">
+<meta name="theme-color" content="#07090f">
+<link rel="manifest" href="{prefix}manifest.webmanifest">
+<link rel="icon" type="image/png" href="{prefix}icon-192.png">
+<link rel="apple-touch-icon" href="{prefix}icon-192.png">
+<link rel="alternate" type="application/x-bibtex" href="{prefix}bibtex.bib" title="BibTeX">
 <link rel="stylesheet" href="{prefix}assets/style.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
@@ -251,6 +380,7 @@ class SiteBuilder:
 {content}
 <footer>Science Pulse · источники: Stack Exchange, OEIS, Wikipedia, arXiv, Rosetta Code, GitHub raw, Numbers API, SymPy/CODATA. Без LLM в контенте.</footer>
 </div>
+<script>if ('serviceWorker' in navigator) {{ window.addEventListener('load', () => navigator.serviceWorker.register('{prefix}sw.js').catch(() => {{}})); }}</script>
 </body>
 </html>"""
 
@@ -268,7 +398,10 @@ class SiteBuilder:
         for post in posts:
             image = f"cards/{post.id}.png"
             image_html = f'<img src="{image}" alt="{_e(post.title)}" loading="lazy">' if (dist / image).exists() else ""
-            haystack = " ".join([post.title, post.hook, post.body, post.formula_plain, post.source_name])
+            tags = " ".join(str(tag) for tag in (post.meta.get("tags") or []))
+            haystack = " ".join(
+                [post.title, post.hook, post.body, post.formula_plain, post.formula_latex, tags, post.source_name]
+            )
             cards.append(
                 f"""<a class="card" data-domain="{_e(post.domain)}" data-search="{_e(haystack)}" href="post/{post.id}.html">
 {image_html}
@@ -305,7 +438,9 @@ class SiteBuilder:
             )
             + '<p><a href="scientists.html">Досье учёных</a> · <a href="constants.html">Словарь констант</a> · '
             '<a href="topics.html">Темы и маршруты</a> · <a href="llms.txt">llms.txt</a> · '
-            '<a href="sitemap.xml">sitemap.xml</a> · <a href="search.json">search.json</a>'
+            '<a href="sitemap.xml">sitemap.xml</a> · <a href="search.json">search.json</a> · '
+            '<a href="flashcards.html">Флешкарты</a> · '
+            '<a href="bibtex.bib">bibtex.bib</a>'
             + (' · <a href="pult.html">Пульт</a>' if self.config.miniapp_public else '')
             + '</p>'
             '</div></div>'
@@ -712,6 +847,32 @@ renderPlatforms();
             f'<div class="grid">{"".join(blocks) or "<p>Темы появятся после публикаций.</p>"}</div></article>'
         )
         (dist / "topics.html").write_text(self._page("Темы и маршруты", content), encoding="utf-8")
+
+    def _write_flashcards(self, posts: List[Post], dist: Path) -> None:
+        """Страница карточек-повторений (flashcards): вопрос → ответ."""
+        cards: List[str] = []
+        for post in posts:
+            question = post.hook or f"Что описывает формула {post.formula_plain}?"
+            formula = post.formula_latex or post.formula_plain
+            formula_html = f"<p><code>{_e(formula)}</code></p>" if formula else ""
+            cards.append(
+                f"""<details class="flash">
+  <summary>{_e(question)}</summary>
+  <p><b>{_e(post.title)}</b> <span class="meta">{_e(DOMAIN_LABELS.get(post.domain, post.domain))}</span></p>
+  {formula_html}
+  <p>{_e(truncate(post.body, 320))}</p>
+  <p><a href="post/{post.id}.html">Полный разбор →</a></p>
+</details>"""
+            )
+        content = (
+            '<article><div class="badge">🃏 ФЛЕШКАРТЫ</div>'
+            "<h1>Карточки для повторения</h1>"
+            f'<p class="lead">Вопрос → ответ по {len(posts)} разборам. '
+            "Нажмите на карточку, чтобы увидеть ответ.</p>"
+            + ("".join(cards) if cards else '<p class="empty">Пока нет опубликованных постов.</p>')
+            + '<p><a href="index.html">← ко всем разборам</a></p></article>'
+        )
+        (dist / "flashcards.html").write_text(self._page("Флешкарты", content), encoding="utf-8")
 
     def _write_sitemap(self, posts: List[Post], dist: Path) -> None:
         base = self.config.site_base_url or "https://science-pulse.local"

@@ -88,7 +88,10 @@ python -m science_pulse.cli foundation # 🏛 ступени фундамент�
 python -m science_pulse.cli limits     # 📐 правила площадок: лимиты и режим звука
 python -m science_pulse.cli limits --set threads max_caption_chars 600
 python -m science_pulse.cli demo       # 🎓 экскурсия по системе в админ-чат
+python -m science_pulse.cli post --preview  # 👁 предпросмотр: карточка + подпись + описание
+python -m science_pulse.cli post --send     # отправить предпросмотр в админ-чат
 python -m science_pulse.cli reset --yes # очистить состояние (опасно)
+python -m science_pulse.cli clean-start --yes # чистый старт: сброс + VACUUM + пересборка сайта
 ```
 
 ## Пульт в Telegram
@@ -437,6 +440,9 @@ PDF-книгу. Удобно, чтобы показать проект цели�
 лежат в `science_pulse/sota.py` (Томпсон, Hawkes O(1), FSRS, Диск Пуанкаре)
 и включаются флагами в `config.yaml`. Реализованы PageRank/Пуанкаре-граф
 (`graph.py`), A/B стилей (`abtest.py`), Mini App-пульт (`pult.html`, приватный — `miniapp.public`),
+PWA (манифест + service worker + иконки), флешкарты (`flashcards.html`), BibTeX-экспорт
+(`bibtex.bib`), поиск по формулам и символам, единый предпросмотр `cli post --preview`,
+викторина `/quiz` в пульте и `cli clean-start`,
 инварианты состояния (`invariants.py`), машинно проверяемые Lean-доказательства
 (`formal/Invariants.lean`) и edge-синхронизация R2/D1 (`edge.py`,
 `state_export.py`) с CRDT-разрешением конфликтов параллельных писателей и

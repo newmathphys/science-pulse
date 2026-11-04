@@ -110,6 +110,57 @@ def cmd_publish(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_post(args: argparse.Namespace) -> int:
+    """Единый предпросмотр поста: карточка + подпись + детальное описание.
+
+    Ничего не публикует в соцсети. С ``--send`` отправляет карточку с подписью
+    в админ-чат Telegram (тот же, что у пульта) — удобно для эталонных постов.
+    """
+    import requests
+
+    from .cards import render_card
+    from .publishers.base import build_caption, build_full_description
+
+    pipeline = _pipeline(args)
+    storage, config = pipeline.storage, pipeline.config
+    post = storage.get_post(args.id) if args.id else pipeline.choose_next(domain=args.domain)
+    if post is None:
+        print("Пост не найден", file=sys.stderr)
+        return 1
+
+    out_path = Path(config.cards_dir) / f"{post.id}.png"
+    card = render_card(post, out_path=out_path, engine=args.engine)
+    caption = build_caption(post, limit=1020, html=True, site_url=config.site_base_url)
+    description = build_full_description(post, site_url=config.site_base_url)
+    print(f"Пост: {post.title} [{post.domain}] · {post.status}")
+    print(f"Карточка: {card.path}")
+    print(f"\n--- ПОДПИСЬ ({len(caption)} симв.) ---\n{caption}")
+    print(f"\n--- ОПИСАНИЕ ({len(description)} симв.) ---\n{description}")
+
+    if args.send:
+        if not (config.telegram_token and config.telegram_admin_chat):
+            print("Нет TG_BOT_TOKEN/TG_ADMIN_CHAT_ID — отправка невозможна", file=sys.stderr)
+            return 1
+        api = f"https://api.telegram.org/bot{config.telegram_token}"
+        response = requests.post(
+            f"{api}/sendPhoto",
+            data={
+                "chat_id": config.telegram_admin_chat,
+                "caption": caption[:1020],
+                "parse_mode": "HTML",
+            },
+            files={"photo": ("card.png", card.data, "image/png")},
+            timeout=30,
+        )
+        payload = response.json()
+        if not payload.get("ok"):
+            print(f"Telegram: {payload.get('description')}", file=sys.stderr)
+            return 1
+        print(f"Отправлено в админ-чат: message_id {payload['result']['message_id']}")
+    _checkpoint(pipeline)
+    return 0
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     pipeline = _pipeline(args)
     result = pipeline.run(
@@ -756,6 +807,28 @@ def cmd_reset(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_clean_start(args: argparse.Namespace) -> int:
+    """Чистый старт: сброс состояния, обслуживание БД и пересборка сайта.
+
+    Опасно: удаляет посты, публикации, метрики, источники и историю дублей.
+    Требует явного ``--yes``.
+    """
+    if not args.yes:
+        print("Отказ: для чистого старта добавьте --yes", file=sys.stderr)
+        return 2
+    pipeline = _pipeline(args)
+    pipeline.storage.reset()
+    try:
+        pipeline.storage.checkpoint()
+        pipeline.storage.vacuum()
+    except Exception as exc:
+        LOGGER.warning("Обслуживание БД не удалось: %s", exc)
+    path = pipeline.build_site()
+    print("Чистый старт выполнен: состояние сброшено, сайт пересобран.")
+    print(f"Сайт: {path}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="science_pulse",
@@ -790,6 +863,14 @@ def build_parser() -> argparse.ArgumentParser:
     publish.add_argument("--no-video", action="store_true", help="только статичная карточка")
     publish.add_argument("--no-site", action="store_true")
     publish.set_defaults(func=cmd_publish)
+
+    post = subparsers.add_parser("post", help="предпросмотр поста: карточка + подпись + описание")
+    post.add_argument("--id", default=None, help="id конкретного поста")
+    post.add_argument("--domain", choices=["math", "physics", "cs"])
+    post.add_argument("--engine", choices=["auto", "typst", "academic", "pillow"], default="auto")
+    post.add_argument("--preview", action="store_true", help="предпросмотр (режим по умолчанию)")
+    post.add_argument("--send", action="store_true", help="отправить карточку с подписью в админ-чат")
+    post.set_defaults(func=cmd_post)
 
     run = subparsers.add_parser("run", help="добыча + публикация + сайт")
     run.add_argument("--dry-run", action="store_true")
@@ -956,6 +1037,10 @@ def build_parser() -> argparse.ArgumentParser:
     reset = subparsers.add_parser("reset", help="очистить состояние (опасно)")
     reset.add_argument("--yes", action="store_true")
     reset.set_defaults(func=cmd_reset)
+
+    clean = subparsers.add_parser("clean-start", help="чистый старт: сброс + VACUUM + пересборка сайта")
+    clean.add_argument("--yes", action="store_true")
+    clean.set_defaults(func=cmd_clean_start)
 
     return parser
 

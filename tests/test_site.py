@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 
 from science_pulse.config import Config
-from science_pulse.site import SiteBuilder
+from science_pulse.site import SiteBuilder, _e
 from science_pulse.sources.offline import OfflineBunkerSource
 from science_pulse.storage import Storage
 
@@ -96,6 +96,47 @@ class SiteTests(unittest.TestCase):
         self.assertIn("renderPlatforms", pult)
         self.assertIn('data-about="en"', pult)
         self.assertIn("TG_BOT_TOKEN", pult)
+
+
+    def test_pwa_assets(self):
+        dist = self.builder.build()
+        for name in ("manifest.webmanifest", "sw.js"):
+            self.assertTrue((dist / name).exists(), name)
+        manifest = json.loads((dist / "manifest.webmanifest").read_text(encoding="utf-8"))
+        self.assertEqual(manifest["name"], "Science Pulse")
+        self.assertTrue(any(icon["sizes"] == "192x192" for icon in manifest["icons"]))
+        index = (dist / "index.html").read_text(encoding="utf-8")
+        self.assertIn("manifest.webmanifest", index)
+        self.assertIn("serviceWorker", index)
+
+    def test_bibtex_export(self):
+        dist = self.builder.build()
+        bib = (dist / "bibtex.bib").read_text(encoding="utf-8")
+        posts = self.storage.list_posts(status="published")
+        self.assertIn("@misc{sciencepulse_", bib)
+        self.assertIn(posts[0].id, bib)
+        index = (dist / "index.html").read_text(encoding="utf-8")
+        self.assertIn("bibtex.bib", index)
+
+    def test_symbol_search_index(self):
+        """В индекс поиска попадают формулы — искать можно по символам."""
+        dist = self.builder.build()
+        index = (dist / "index.html").read_text(encoding="utf-8")
+        post = self.storage.list_posts(status="published")[0]
+        token = post.formula_plain.strip()[:12]
+        self.assertTrue(token, "у поста должна быть формула")
+        self.assertIn(_e(token), index)
+        search = json.loads((dist / "search.json").read_text(encoding="utf-8"))
+        self.assertTrue(any(item.get("formula") for item in search))
+
+
+    def test_flashcards_page(self):
+        dist = self.builder.build()
+        page = (dist / "flashcards.html").read_text(encoding="utf-8")
+        self.assertIn("Карточки для повторения", page)
+        self.assertIn("<details", page)
+        index = (dist / "index.html").read_text(encoding="utf-8")
+        self.assertIn("flashcards.html", index)
 
 
 if __name__ == "__main__":

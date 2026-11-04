@@ -347,6 +347,19 @@ seen(hash PK, post_id, created_at)
       `test_fuzz_deterministic` не завершались / были недетерминированы);
       теперь `python -m unittest discover` проходит за ~50 с. Регресс-тесты —
       `tests/test_fuzz.py::FuzzHermeticityTests`.
+- [x] Приватность ПУЛЬТА: Telegram-пульт принимает команды только из админ-чата
+      (`admin.py`), а Mini App (`pult.html`) по умолчанию **не публикуется** на
+      сайте (`miniapp.public: false`); устаревший файл удаляется при сборке.
+      Тесты — `tests/test_site.py::test_miniapp_hidden_by_default`.
+- [x] Сайт: **PWA** (`manifest.webmanifest` + `sw.js` + иконки 192/512),
+      **флешкарты** (`flashcards.html`), **BibTeX-экспорт** (`bibtex.bib`),
+      **поиск по формулам и символам** (в индекс поиска попадают `formula_latex`
+      и теги). Тесты — `tests/test_site.py` (pwa/bibtex/flashcards/symbol search).
+- [x] Единый предпросмотр `cli post [--id|--domain] [--preview|--send]`:
+      карточка + подпись + детальное описание без публикации; `--send` шлёт
+      эталонный пост в админ-чат. Викторина `/quiz [math|physics|cs]` в пульте
+      (нативный опрос Telegram). `cli clean-start --yes`: сброс состояния +
+      `VACUUM` + пересборка сайта.
 
 ---
 

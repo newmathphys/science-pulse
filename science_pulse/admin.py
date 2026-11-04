@@ -48,6 +48,7 @@ HELP = """🎛 <b>Science Pulse — пульт</b>
 /reject ID — отправить пост в карантин вручную
 /preflight — 🛫 предполётная проверка следующего поста
 /verify — 🧪 инварианты + Lean + фаззинг
+/quiz [math|physics|cs] — 🧠 викторина из постов (нативный опрос Telegram)
 /foundation — 🏛 ступени фундамента: с каких постов начинаем
 /limits — 📐 правила площадок (и /limits set площадка параметр значение)
 /site — адрес сайта
@@ -289,10 +290,52 @@ class TelegramAdmin:
                 return self._limits_text(args)
             if command == "/foundation":
                 return self._foundation_text(args)
+            if command == "/quiz":
+                return self._quiz_next(args)
             return HELP
         except Exception as exc:
             LOGGER.exception("Ошибка команды %s", command)
             return f"Ошибка: {html.escape(str(exc))}"
+
+    def _quiz_next(self, args: Optional[List[str]] = None) -> str:
+        """/quiz — викторина из постов: вопрос + варианты (нативный опрос Telegram).
+
+        Правильный ответ — заголовок поста; дистракторы — заголовки других
+        постов той же дисциплины (если их мало — из остальных).
+        """
+        domain = args[0] if args and args[0] in ("math", "physics", "cs") else None
+        post = self.pipeline.choose_next(domain=domain)
+        if post is None:
+            return "🧠 Нет постов для викторины — сначала /harvest."
+        question = post.hook or f"Что описывает формула {post.formula_plain}?"
+        correct = post.title
+        pool = [
+            item.title
+            for item in self.pipeline.storage.list_posts(domain=post.domain, limit=12)
+            if item.id != post.id and item.title and item.title != correct
+        ]
+        if len(pool) < 3:
+            for item in self.pipeline.storage.list_posts(limit=20):
+                if item.id != post.id and item.title and item.title != correct and item.title not in pool:
+                    pool.append(item.title)
+        options = [correct] + pool[:3]
+        if len(options) < 2:
+            return "🧠 Недостаточно постов для вариантов ответа."
+        payload = self.api_call(
+            "sendPoll",
+            {
+                "chat_id": self.chat_id,
+                "question": f"🧠 {question}"[:300],
+                "options": json.dumps(options, ensure_ascii=False),
+                "type": "quiz",
+                "correct_option_id": 0,
+                "is_anonymous": "true",
+                "explanation": f"Правильный ответ: {correct}"[:200],
+            },
+        )
+        if not payload.get("ok"):
+            return f"🧠 Не удалось отправить викторину: {payload.get('description') or payload.get('error')}"
+        return "🧠 Викторина отправлена в чат."
 
     def _status_text(self) -> str:
         status = self.pipeline.status()

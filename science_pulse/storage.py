@@ -869,6 +869,14 @@ class Storage:
         with self.cursor() as connection:
             connection.execute("PRAGMA wal_checkpoint(TRUNCATE);")
 
+    def vacuum(self) -> None:
+        """Сжимает файл БД (``VACUUM``) — уменьшает размер после удалений."""
+        connection = sqlite3.connect(self.path, timeout=30, isolation_level=None)
+        try:
+            connection.execute("VACUUM;")
+        finally:
+            connection.close()
+
     # ------------------------------------------------------------------
     # Сброс (только для CLI с подтверждением)
     # ------------------------------------------------------------------
