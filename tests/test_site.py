@@ -150,6 +150,20 @@ class SiteTests(unittest.TestCase):
         self.assertIn('id="param-b"', page)
         self.assertIn("getContext('2d')", page)
 
+    def test_poincare_atlas(self):
+        """Главная содержит интерактивный диск Пуанкаре и данные маршрутов."""
+        dist = self.builder.build()
+        index = (dist / "index.html").read_text(encoding="utf-8")
+        self.assertIn('id="poincare"', index)
+        self.assertIn("id=\"poincare-path\"", index)
+        self.assertIn("mobius", index)
+        payload = json.loads((dist / "poincare.json").read_text(encoding="utf-8"))
+        self.assertEqual(len(payload["nodes"]), 30)
+        self.assertTrue(payload["edges"])
+        for node in payload["nodes"]:
+            self.assertLess(node["x"] ** 2 + node["y"] ** 2, 1.0)
+        self.assertTrue(all(payload["paths"][node["id"]] for node in payload["nodes"]))
+
     def test_flashcards_page(self):
         dist = self.builder.build()
         page = (dist / "flashcards.html").read_text(encoding="utf-8")

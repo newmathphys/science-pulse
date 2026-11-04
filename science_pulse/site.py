@@ -96,6 +96,8 @@ pre { background: var(--paper-3); border: 1px solid var(--rule); border-radius: 
 .sandbox input[type=range] { width: 170px; }
 .sandbox input[type=number] { width: 90px; border: 1px solid var(--rule); padding: 5px 8px; font-family: var(--mono); }
 .sandbox output { font-weight: 700; color: var(--ink); }
+.atlas { margin: 26px 0; }
+.atlas canvas { width: 100%; height: auto; background: var(--paper-3); border: 1px solid var(--rule); border-radius: 4px; cursor: grab; }
 .journal { display: grid; grid-template-columns: 230px minmax(0, 1fr) 220px; gap: 28px; align-items: start; margin-top: 18px; }
 .journal .side { font-size: 14px; }
 .journal .side h2 { font-size: 13px; margin: 0 0 8px; font-family: var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
@@ -173,6 +175,177 @@ self.addEventListener('fetch', (event) => {
     )
   );
 });
+"""
+
+
+POINCARE_JS = """
+(function () {
+  const canvas = document.getElementById('poincare');
+  if (!canvas || !canvas.getContext) return;
+  const ctx = canvas.getContext('2d');
+  const out = document.getElementById('poincare-path');
+  const W = canvas.width, H = canvas.height;
+  const cx = W / 2, cy = H / 2, S = Math.min(W, H) * 0.45;
+  const R0 = 9;
+  const COLORS = { math: '#1E3A8A', physics: '#9F1239', cs: '#065F46' };
+  let data = null, selected = null;
+  let centre = { x: 0, y: 0 }, target = { x: 0, y: 0 };
+  let dragging = false, dragStart = null;
+
+  const toScreen = (p) => ({ x: cx + p.x * S, y: cy - p.y * S });
+
+  // Автоморфизм Мёбиуса: Φ(z) = (z − z0) / (1 − conj(z0)·z)
+  function mobius(z, z0) {
+    const nx = z.x - z0.x, ny = z.y - z0.y;
+    const dx = 1 - (z0.x * z.x + z0.y * z.y);
+    const dy = -(z0.x * z.y - z0.y * z.x);
+    const den = dx * dx + dy * dy || 1e-12;
+    return { x: (nx * dx + ny * dy) / den, y: (ny * dx - nx * dy) / den };
+  }
+
+  function project(point) { return mobius(point, centre); }
+
+  // Геодезическая дуга, ортогональная границе |z| = 1.
+  function geodesic(u, v) {
+    const D = 2 * (u.x * v.y - u.y * v.x);
+    if (Math.abs(D) < 1e-6) {
+      const a = toScreen(u), b = toScreen(v);
+      ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+      return;
+    }
+    const U = (1 + u.x * u.x + u.y * u.y) / 2;
+    const V = (1 + v.x * v.x + v.y * v.y) / 2;
+    const gx = (U * v.y - V * u.y) / D;
+    const gy = (u.x * V - v.x * U) / D;
+    const radius = Math.sqrt(Math.max(0, gx * gx + gy * gy - 1));
+    const cc = toScreen({ x: gx, y: gy });
+    const a = toScreen(u), b = toScreen(v);
+    const a1 = Math.atan2(a.y - cc.y, a.x - cc.x);
+    const a2 = Math.atan2(b.y - cc.y, b.x - cc.x);
+    let delta = a2 - a1;
+    while (delta > Math.PI) delta -= 2 * Math.PI;
+    while (delta < -Math.PI) delta += 2 * Math.PI;
+    ctx.arc(cc.x, cc.y, radius * S, a1, a1 + delta, delta < 0);
+  }
+
+  function drawSectors() {
+    const centres = { math: Math.PI / 2, cs: 7 * Math.PI / 6, physics: 11 * Math.PI / 6 };
+    for (const [domain, angle] of Object.entries(centres)) {
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.cos(angle) * S, cy - Math.sin(angle) * S);
+      ctx.strokeStyle = COLORS[domain];
+      ctx.globalAlpha = 0.18;
+      ctx.setLineDash([4, 4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  function draw() {
+    if (!data) return;
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#F3F0EA'; ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = '#D6D1C7'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(cx, cy, S, 0, Math.PI * 2); ctx.stroke();
+    drawSectors();
+
+    const projected = {};
+    for (const node of data.nodes) projected[node.id] = project(node);
+    const pathPairs = new Set();
+    const chain = selected ? (data.paths[selected] || []) : [];
+    for (let i = 0; i + 1 < chain.length; i++) pathPairs.add(chain[i] + '|' + chain[i + 1]);
+
+    for (const edge of data.edges) {
+      const a = edge[0], b = edge[1];
+      if (!projected[a] || !projected[b]) continue;
+      const onPath = pathPairs.has(a + '|' + b) || pathPairs.has(b + '|' + a);
+      ctx.beginPath();
+      ctx.strokeStyle = onPath ? '#B45309' : '#C9C3B8';
+      ctx.lineWidth = onPath ? 2.4 : 0.8;
+      geodesic(projected[a], projected[b]);
+      ctx.stroke();
+    }
+
+    for (const node of data.nodes) {
+      const w = projected[node.id];
+      const p = toScreen(w);
+      const radius = Math.max(2, R0 * (1 - (w.x * w.x + w.y * w.y)));
+      const colour = COLORS[node.domain] || '#111827';
+      ctx.beginPath(); ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+      if (node.status === 'published') {
+        ctx.fillStyle = colour; ctx.fill();
+      } else if (node.status === 'staged') {
+        ctx.fillStyle = '#FFFFFF'; ctx.fill();
+        ctx.strokeStyle = colour; ctx.lineWidth = 2; ctx.stroke();
+      } else {
+        ctx.fillStyle = '#FFFFFF'; ctx.fill();
+        ctx.strokeStyle = '#C9C3B8'; ctx.lineWidth = 1; ctx.stroke();
+      }
+      if (node.id === selected) {
+        ctx.beginPath(); ctx.arc(p.x, p.y, radius + 4, 0, Math.PI * 2);
+        ctx.strokeStyle = '#B45309'; ctx.lineWidth = 2; ctx.stroke();
+      }
+    }
+  }
+
+  function animate() {
+    centre.x += (target.x - centre.x) * 0.18;
+    centre.y += (target.y - centre.y) * 0.18;
+    if (Math.abs(target.x - centre.x) < 1e-4 && Math.abs(target.y - centre.y) < 1e-4) {
+      centre = { x: target.x, y: target.y };
+    }
+    draw();
+    requestAnimationFrame(animate);
+  }
+
+  function pick(event) {
+    const rect = canvas.getBoundingClientRect();
+    const mx = (event.clientX - rect.left) * (W / rect.width);
+    const my = (event.clientY - rect.top) * (H / rect.height);
+    let best = null, bestDistance = 16;
+    for (const node of data.nodes) {
+      const p = toScreen(project(node));
+      const distance = Math.hypot(p.x - mx, p.y - my);
+      if (distance < bestDistance) { bestDistance = distance; best = node; }
+    }
+    return best;
+  }
+
+  canvas.addEventListener('click', (event) => {
+    const node = pick(event);
+    if (!node) return;
+    selected = node.id;
+    target = { x: node.x, y: node.y };
+    const chain = data.paths[node.id] || [];
+    const sections = chain
+      .map((id) => (data.nodes.find((item) => item.id === id) || {}).section)
+      .filter(Boolean);
+    if (out) out.textContent = 'Маршрут наименьшего когнитивного сопротивления: § ' + sections.join(' → § ');
+  });
+
+  canvas.addEventListener('mousedown', (event) => {
+    dragging = true;
+    const rect = canvas.getBoundingClientRect();
+    dragStart = { x: event.clientX, y: event.clientY, cx: centre.x, cy: centre.y, w: rect.width };
+  });
+  window.addEventListener('mousemove', (event) => {
+    if (!dragging || !dragStart) return;
+    const dx = (event.clientX - dragStart.x) / dragStart.w;
+    const dy = -(event.clientY - dragStart.y) / dragStart.w;
+    target = {
+      x: Math.max(-0.95, Math.min(0.95, dragStart.cx + dx * 2.0)),
+      y: Math.max(-0.95, Math.min(0.95, dragStart.cy + dy * 2.0)),
+    };
+  });
+  window.addEventListener('mouseup', () => { dragging = false; dragStart = null; });
+
+  fetch('poincare.json').then((response) => response.json()).then((payload) => {
+    data = payload;
+    animate();
+  }).catch(() => {});
+})();
 """
 
 
@@ -289,6 +462,7 @@ class SiteBuilder:
                 stale_pult.unlink()
         self._write_sitemap(posts, dist)
         self._write_llms(posts, dist)
+        self._write_poincare(posts, dist)
         self._write_bibtex(posts, dist)
         self._write_pwa(dist)
         (dist / "robots.txt").write_text("User-agent: *\nAllow: /\n", encoding="utf-8")
@@ -570,6 +744,7 @@ class SiteBuilder:
   <a href="flashcards.html">IV. Тренажёр памяти</a>
   <a href="llms.txt">V. Машиночитаемый слой</a>
 </nav>
+{self._poincare_html()}
 <div class="toolbar">
   <input id="search" type="search" placeholder="Поиск по формулам, теоремам, учёным…">
   {''.join(filters)}
@@ -619,6 +794,70 @@ class SiteBuilder:
         if proof.get("merkle_hash"):
             rows.append(f'<li><b>Печать (merkle v1):</b> <code>{_e(str(proof["merkle_hash"])[:32])}…</code></li>')
         return "<h2>Вычислительный паспорт</h2><ul>" + "".join(rows) + "</ul>" if rows else ""
+
+    def _write_poincare(self, posts: List[Post], dist: Path) -> None:
+        """Данные гиперболического атласа: узлы, рёбра DAG и геодезические маршруты."""
+        from .graph import canon_coordinates, canon_edges, find_geodesic_path
+        from .sources.foundation import CANON, default_prereqs, section_of, step_of
+
+        nodes = [
+            dict(item, tier=step_of(item["id"]), section=section_of(item["id"]),
+                 prereq_ids=default_prereqs(item["id"]))
+            for item in CANON
+        ]
+        coords = canon_coordinates(nodes)
+        edges = canon_edges(nodes)
+        roots = [node["id"] for node in nodes if int(node["tier"]) == 1]
+
+        status: Dict[str, str] = {}
+        for post in self.storage.list_posts(limit=1000):
+            canon_id = (post.meta or {}).get("foundation_id")
+            if canon_id:
+                status[canon_id] = post.status
+        staged = ""
+        for post in sorted(self.storage.list_posts(limit=1000), key=lambda item: (item.meta or {}).get("section_num", "")):
+            if post.status == "ready" and (post.meta or {}).get("foundation_id"):
+                staged = (post.meta or {})["foundation_id"]
+                break
+
+        payload = {
+            "nodes": [
+                {
+                    "id": node["id"],
+                    "x": round(coords[node["id"]][0], 6),
+                    "y": round(coords[node["id"]][1], 6),
+                    "title": node["title"],
+                    "section": node["section"],
+                    "domain": node["domain"],
+                    "tier": node["tier"],
+                    "status": (
+                        "published" if status.get(node["id"]) == "published"
+                        else ("staged" if node["id"] == staged else "locked")
+                    ),
+                }
+                for node in nodes
+            ],
+            "edges": [[source, target] for source, target in edges],
+            "paths": {node["id"]: find_geodesic_path(edges, coords, roots, node["id"]) for node in nodes},
+        }
+        (dist / "poincare.json").write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    def _poincare_html(self) -> str:
+        """Секция «Гиперболический атлас»: интерактивный диск Пуанкаре на Canvas."""
+        return (
+            '<section class="atlas">'
+            "<h2>Гиперболический атлас (диск Пуанкаре)</h2>"
+            '<p class="lead">Каждый узел — точка пространства Лобачевского: радиус задаёт ступень '
+            '<span class="mono">r(k) = tanh((k − 0.82)/2.8)</span>, угол — дисциплину '
+            '(математика 90°, информатика 210°, физика 330°). '
+            "Клик по узлу центрирует диск преобразованием Мёбиуса и подсвечивает геодезический "
+            "маршрут от Ступени I; диск можно перетаскивать.</p>"
+            '<canvas id="poincare" width="900" height="560"></canvas>'
+            '<p class="mono" id="poincare-path">Кликните по узлу, чтобы увидеть маршрут '
+            "наименьшего когнитивного сопротивления.</p>"
+            f"<script>{POINCARE_JS}</script>"
+            "</section>"
+        )
 
     def _sandbox_html(self, post: Post) -> str:
         """Интерактивная лаборатория на Canvas: ползунки A/k и расчёт y(x).
