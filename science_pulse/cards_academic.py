@@ -47,6 +47,8 @@ ARCHETYPES = (
     "timeline_evolution",
     "logic_proof",
     "number_sequence",
+    "matrix_grid",
+    "prob_tree",
 )
 SIMULATIONS = ("insar", "ndvi", "geodesics", "tunneling", "lorenz", "lj")
 
@@ -558,6 +560,12 @@ def pick_visual_type(post: Post) -> str:
     # 7-й архетип: числовые ряды (OEIS, простые числа, Фибоначчи).
     if str(getattr(post, "source_name", "")).lower().startswith("oeis") or _sequence_values(post, minimum=6):
         return "number_sequence"
+    # 8-й архетип: линейная алгебра, матрицы, тензоры, квантовые операторы.
+    if re.search(r"матриц|matrix|собственн|eigen|линейн|тензор|tensor|оператор|determinant", text):
+        return "matrix_grid"
+    # 9-й архетип: теория вероятностей, Байес, цепи Маркова.
+    if re.search(r"вероятн|probab|байес|bayes|марков|markov|статистик|энтроп", text):
+        return "prob_tree"
     # Алгоритмический пост с кодом — книжный листинг «Алгоритм 1.», даже если есть формула
     # (сложность O(...) показывается отдельной строкой под листингом).
     if code and ("алгоритм" in text or "algorithm" in text or ("def " in code and not has_formula)):
@@ -814,6 +822,103 @@ def _draw_number_sequence(
     return base + 18 * scale
 
 
+def _draw_matrix_grid(
+    image: Image.Image, draw: ImageDraw.ImageDraw, post: Post, y: int, margin: int, width: int, scale: int
+) -> int:
+    """Матричная решётка 3×3: элементы, собственные значения и вектор преобразования."""
+    import numpy as np
+
+    size = 72 * scale
+    gap = 8 * scale
+    origin_x = margin + 20 * scale
+    seed = sum(ord(char) for char in (getattr(post, "id", "") or "matrix"))
+    rng = np.random.default_rng(seed % (2 ** 32))
+    matrix = rng.integers(-3, 4, size=(3, 3)).astype(float)
+    for row in range(3):
+        for col in range(3):
+            left = origin_x + col * (size + gap)
+            top = y + row * (size + gap)
+            draw.rectangle([left, top, left + size, top + size], fill=PANEL, outline=RULE, width=scale)
+            draw.text((left + size // 2 - 12 * scale, top + size // 2 - 14 * scale),
+                      f"{int(matrix[row][col]):+d}", fill=INK, font=_serif_font(20 * scale, mono=True))
+    info_x = origin_x + 3 * (size + gap) + 24 * scale
+    draw.text((info_x, y + 12 * scale), "СОБСТВЕННЫЕ ЗНАЧЕНИЯ", fill=ACCENT,
+              font=_serif_font(14 * scale, bold=True, mono=True))
+    values = np.linalg.eigvals(matrix)
+    text = ", ".join(
+        f"{value.real:+.2f}" + (f"{value.imag:+.2f}i" if abs(value.imag) > 1e-9 else "")
+        for value in values
+    )
+    draw.text((info_x, y + 38 * scale), text[:36], fill=INK, font=_serif_font(16 * scale, mono=True))
+    draw.text((info_x, y + 66 * scale), "M · v = λ · v", fill=MUTED, font=_serif_font(16 * scale, italic=True))
+    draw.text((info_x, y + 94 * scale), "det M ≠ 0 → обратимое преобразование", fill=MUTED,
+              font=_serif_font(14 * scale))
+    return y + 3 * size + 2 * gap + 18 * scale
+
+
+def _draw_prob_tree(
+    image: Image.Image, draw: ImageDraw.ImageDraw, post: Post, y: int, margin: int, width: int, scale: int
+) -> int:
+    """Дерево исходов: ветви с весами P(A|B), суммы по уровням равны единице."""
+    root = (margin + 30 * scale, y + 96 * scale)
+    first = [(margin + 250 * scale, y + 34 * scale), (margin + 250 * scale, y + 158 * scale)]
+    second = [
+        (margin + 490 * scale, y + 12 * scale),
+        (margin + 490 * scale, y + 74 * scale),
+        (margin + 490 * scale, y + 136 * scale),
+        (margin + 490 * scale, y + 198 * scale),
+    ]
+    edges = [
+        (root, first[0], "0.6"), (root, first[1], "0.4"),
+        (first[0], second[0], "0.7"), (first[0], second[1], "0.3"),
+        (first[1], second[2], "0.5"), (first[1], second[3], "0.5"),
+    ]
+    for source, target, weight in edges:
+        draw.line([source, target], fill=RULE, width=2 * scale)
+        mid_x = (source[0] + target[0]) // 2
+        mid_y = (source[1] + target[1]) // 2
+        draw.text((mid_x - 22 * scale, mid_y - 22 * scale), f"P={weight}", fill=ACCENT,
+                  font=_serif_font(13 * scale, mono=True))
+    for point in [root] + first + second:
+        draw.ellipse([point[0] - 9 * scale, point[1] - 9 * scale, point[0] + 9 * scale, point[1] + 9 * scale],
+                     fill=PAPER, outline=INK, width=2 * scale)
+    draw.text((margin + 530 * scale, y + 90 * scale), "Σ P(ветвь) = 1", fill=MUTED,
+              font=_serif_font(16 * scale, italic=True))
+    return y + 216 * scale
+
+
+def _draw_mini_dag(draw: ImageDraw.ImageDraw, post: Post, x: int, y: int, scale: int) -> int:
+    """Миниатюра локального графа: ``[§ пред.] → [● § тек.] → [§ след.]``."""
+    from .sources.foundation import CANON, default_prereqs, section_of
+
+    meta = getattr(post, "meta", {}) or {}
+    canon_id = str(meta.get("foundation_id") or "")
+    section = str(meta.get("section_num") or "").strip()
+    if not canon_id:
+        return x
+    parents = default_prereqs(canon_id)
+    before = section_of(parents[0]) if parents else ""
+    after = ""
+    for item in CANON:
+        if canon_id in default_prereqs(item["id"]):
+            after = section_of(item["id"])
+            break
+    boxes = [((f"§ {before}" if before else "аксиома"), MUTED), (f"● § {section}", INK)]
+    if after:
+        boxes.append((f"§ {after}", MUTED))
+    cursor = x
+    font = _serif_font(13 * scale, mono=True)
+    for index, (label, colour) in enumerate(boxes):
+        box_w = int(draw.textlength(label, font=font)) + 18 * scale
+        draw.rectangle([cursor, y, cursor + box_w, y + 26 * scale], fill=PANEL, outline=RULE, width=scale)
+        draw.text((cursor + 9 * scale, y + 6 * scale), label, fill=colour, font=font)
+        cursor += box_w + 6 * scale
+        if index < len(boxes) - 1:
+            draw.text((cursor, y + 4 * scale), "→", fill=ACCENT, font=_serif_font(15 * scale, bold=True))
+            cursor += 20 * scale
+    return cursor
+
+
 def render_academic_card(post: Post, out_path: str | Path, size: int = 1080) -> Optional[CardArtifact]:
     """Книжная карточка академической серии (бумага, тушь, DejaVu Serif, CM-формулы).
 
@@ -904,6 +1009,10 @@ def render_academic_card(post: Post, out_path: str | Path, size: int = 1080) -> 
             y_cursor = _draw_logic_proof(image, draw, post, y_cursor, margin, width, scale)
         elif visual == "number_sequence":
             y_cursor = _draw_number_sequence(image, draw, post, y_cursor, margin, width, scale)
+        elif visual == "matrix_grid":
+            y_cursor = _draw_matrix_grid(image, draw, post, y_cursor, margin, width, scale)
+        elif visual == "prob_tree":
+            y_cursor = _draw_prob_tree(image, draw, post, y_cursor, margin, width, scale)
         else:  # standard_plot
             _chart_standard(post, chart_wide)
             y_cursor = _paste_fitted(image, chart_wide, y_cursor, center_x, width, 360 * scale) + 16 * scale
@@ -949,6 +1058,7 @@ def render_academic_card(post: Post, out_path: str | Path, size: int = 1080) -> 
 
         # ── Подвал ─────────────────────────────────────────────────────
         footer_y = canvas_size - 78 * scale
+        _draw_mini_dag(draw, post, margin, footer_y - 42 * scale, scale)
         draw.line((margin, footer_y, margin + width, footer_y), fill=RULE, width=scale)
         source = (getattr(post, "source_name", "") or "Science Pulse")[:60]
         draw.text((margin, footer_y + 14 * scale), source, fill=MUTED, font=_serif_font(16 * scale, mono=True))

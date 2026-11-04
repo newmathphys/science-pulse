@@ -104,6 +104,22 @@ class AcademicCardTests(unittest.TestCase):
             self.assertIsNotNone(artifact)
             self.assertEqual((artifact.width, artifact.height), (1080, 1080))
 
+    def test_matrix_grid_archetype(self):
+        post = make_post(title="Собственные значения матрицы линейного оператора")
+        self.assertEqual(pick_visual_type(post), "matrix_grid")
+        with tempfile.TemporaryDirectory() as tmp:
+            artifact = render_academic_card(post, Path(tmp) / "matrix.png")
+            self.assertIsNotNone(artifact)
+            self.assertEqual((artifact.width, artifact.height), (1080, 1080))
+
+    def test_prob_tree_archetype(self):
+        post = make_post(title="Теорема Байеса и цепи Маркова", hook="Как считать вероятность?")
+        self.assertEqual(pick_visual_type(post), "prob_tree")
+        with tempfile.TemporaryDirectory() as tmp:
+            artifact = render_academic_card(post, Path(tmp) / "prob.png")
+            self.assertIsNotNone(artifact)
+            self.assertEqual((artifact.width, artifact.height), (1080, 1080))
+
     def test_card_has_where_vars_and_qr(self):
         """«где: …» (из formula_vars/constants_used), §-номер и QR-код рисуются."""
         from science_pulse.cards_academic import qr_image
