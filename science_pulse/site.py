@@ -261,6 +261,11 @@ class SiteBuilder:
         self._write_index(posts, dist)
         for post in posts:
             self._write_post(post, posts, posts_dir)
+        # Чистим устаревшие страницы постов (посты, ушедшие из published).
+        keep = {f"{post.id}.html" for post in posts}
+        for stale in posts_dir.glob("*.html"):
+            if stale.name not in keep:
+                stale.unlink()
         self._write_search(posts, dist)
         self._write_graph(posts, dist)
         self._write_scientists(posts, dist)
@@ -569,6 +574,21 @@ class SiteBuilder:
 """
         (dist / "index.html").write_text(self._page(self.config.site_title, content, depth=0), encoding="utf-8")
 
+    def _longread_html(self, post: Post) -> str:
+        """Пятичастный лонгрид (`enricher.py`); офлайн-сборка без сети."""
+        meta = post.meta or {}
+        text = str(meta.get("longread_body") or "")
+        if len(text) < 1200:
+            try:
+                from .enricher import enrich_post_longread
+
+                text = enrich_post_longread(post)
+            except Exception:
+                text = ""
+        if not text:
+            return ""
+        return f'<h2>Полный разбор</h2><div class="article-body">{self._paragraphs(text)}</div>'
+
     def _proof_html(self, post: Post) -> str:
         """Блок «Вычислительный паспорт»: CODATA-расчёт, проверка кода, merkle-печать."""
         proof = (post.meta or {}).get("proof")
@@ -679,6 +699,7 @@ class SiteBuilder:
                 f'<li><a href="{_e(str(url))}" rel="noopener">{_e(str(name))}</a></li>' for name, url in links
             ) + "</ul>"
         proof_html = self._proof_html(post)
+        longread_html = self._longread_html(post)
         sandbox_html = self._sandbox_html(post)
         content = f"""
 <article>
@@ -691,6 +712,7 @@ class SiteBuilder:
   {sandbox_html}
   {audio_html}
   {audiogram_html}
+  {longread_html}
   <div class="article-body">{self._paragraphs(post.body)}</div>
   {code_html}
   <div class="tags">{tags}</div>

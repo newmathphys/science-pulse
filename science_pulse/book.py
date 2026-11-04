@@ -76,7 +76,8 @@ def build_typst_source(posts: List[Post], card_names: Dict[str, str], formula_na
                 )
             elif post.formula_plain:
                 sections.append(f"#align(center)[#text(size: 12pt)[{_esc(post.formula_plain)}]]")
-            body = (post.body or post.hook or "").strip()
+            body = str((getattr(post, "meta", {}) or {}).get("longread_body") or "").strip() \
+                or (post.body or post.hook or "").strip()
             for paragraph in [chunk.strip() for chunk in body.split("\n") if chunk.strip()][:6]:
                 sections.append(f"#par[{_esc(paragraph)}]")
             if post.code:
