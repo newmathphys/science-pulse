@@ -187,6 +187,9 @@ class SiteBuilder:
         self._write_sitemap(posts, dist)
         self._write_llms(posts, dist)
         (dist / "robots.txt").write_text("User-agent: *\nAllow: /\n", encoding="utf-8")
+        # GitHub Pages из ветки gh-pages: отключаем обработку Jekyll, чтобы
+        # отдавались все файлы как есть (важно для статического сайта).
+        (dist / ".nojekyll").write_text("", encoding="utf-8")
         return dist
 
     def _copy_card(self, post: Post, cards_dir: Path) -> None:

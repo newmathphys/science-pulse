@@ -29,7 +29,7 @@ class SiteTests(unittest.TestCase):
 
     def test_build_files(self):
         dist = self.builder.build()
-        for name in ("index.html", "search.json", "graph.json", "sitemap.xml", "llms.txt", "llms-full.txt", "robots.txt", "pult.html"):
+        for name in ("index.html", "search.json", "graph.json", "sitemap.xml", "llms.txt", "llms-full.txt", "robots.txt", "pult.html", ".nojekyll"):
             self.assertTrue((dist / name).exists(), name)
         self.assertTrue((dist / "assets" / "style.css").exists())
 
