@@ -227,28 +227,52 @@ def all_sensors(http: Optional[Callable[[str], Any]] = None) -> Dict[str, Dict[s
     return {name: sensor(name, http=http) for name in SENSORS}
 
 
-# Ключевые слова темы поста → подходящий датчик (по приоритету).
-TOPIC_KEYWORDS = (
-    ("earthquake", ("логар", "logar", "землетряс", "сейсм", "рихтер", "гутенберг", "магнитуд",
-                    "упруг", "волн", "энерг")),
-    ("space_weather", ("максвелл", "лоренц", "магнит", "плазм", "геомагнит", "буря", "космическ",
-                       "солнечн", "ионосфер")),
-    ("gravitational_waves", ("эйнштейн", "ото", "шварцшильд", "чёрн", "черн", "гравитационн",
-                             "фурье", "ligo", "слияни", "горизонт")),
-    ("iss_orbit", ("тяготен", "ньютон", "орбит", "мкс", "свободн", "падени", "баллист",
-                   "спутник", "гравитац")),
+# Правила маршрутизации: сопоставление идёт ТОЛЬКО по заголовку и формуле.
+# Опыт: поиск по всему тексту давал ложные срабатывания — «Бином Ньютона»
+# ловился на «ньютон», «быстрая сортировка» на «слияние» (merge sort), а
+# «нормальное распределение» на «орбиту». Заголовок — точный индикатор темы.
+TOPIC_RULES = (
+    {
+        "sensor": "earthquake",
+        "any": ("рихтер", "землетряс", "сейсм", "гутенберг", "магнитуд", "логарифм", "logar"),
+        "exclude": (),
+    },
+    {
+        "sensor": "space_weather",
+        "any": ("максвелл", "геомагнит", "магнитосфер", "ионосфер", "солнечный ветер",
+                "солнечн", "сила лоренца"),
+        "exclude": (),
+    },
+    {
+        "sensor": "gravitational_waves",
+        "any": ("шварцшильд", "чёрн", "черн", "ligo", "гравитационные волн",
+                "гравитационных волн", "горизонт событий"),
+        "exclude": (),
+    },
+    {
+        "sensor": "iss_orbit",
+        "any": ("тяготен", "орбит", "мкс", "баллист", "падени", "первая космическ"),
+        "exclude": ("бином", "комбинаторик", "многочлен", "треугольник паскаля"),
+    },
 )
 
 
 def sensor_for_post(post: Any) -> str:
-    """Выбирает живой датчик по теме поста (или пустую строку)."""
+    """Выбирает живой датчик по теме поста (или пустую строку).
+
+    Смотрим только заголовок и формулу: текст разбора слишком «шумный» и давал
+    ложные совпадения. Дополнительно работает `exclude`-защита.
+    """
     text = " ".join(str(value or "") for value in (
-        getattr(post, "title", ""), getattr(post, "hook", ""), getattr(post, "body", ""),
-        getattr(post, "formula_plain", ""), getattr(post, "formula_latex", ""),
+        getattr(post, "title", ""),
+        getattr(post, "formula_plain", ""),
+        getattr(post, "formula_latex", ""),
     )).lower()
-    for name, keywords in TOPIC_KEYWORDS:
-        if any(word in text for word in keywords):
-            return name
+    for rule in TOPIC_RULES:
+        if any(word in text for word in rule["exclude"]):
+            continue
+        if any(word in text for word in rule["any"]):
+            return rule["sensor"]
     return ""
 
 

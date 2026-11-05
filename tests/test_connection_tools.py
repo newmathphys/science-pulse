@@ -260,6 +260,32 @@ class LiveSensorTests(unittest.TestCase):
             post.title = title
             self.assertEqual(live_sensors.sensor_for_post(post), sensor_name, title)
 
+    def test_binomial_newton_gets_no_sensor(self):
+        """Регрессия: «Бином Ньютона» не должен получать строку про орбиту МКС."""
+        post = make_post("binom1", "13.2")
+        post.title = "§ 13.2 Бином Ньютона"
+        post.hook = "Как одна сумма объясняет вероятности и комбинаторику?"
+        self.assertEqual(live_sensors.sensor_for_post(post), "")
+
+    def test_gravitational_field_post_is_not_waves(self):
+        """«Закон тяготения» — это орбита, а не гравитационные волны."""
+        post = make_post("grav1", "2.3")
+        post.title = "Закон всемирного тяготения Ньютона"
+        post.body = "Гравитационное поле Земли убывает как 1/r²."
+        self.assertEqual(live_sensors.sensor_for_post(post), "iss_orbit")
+
+    def test_lorenz_attractor_is_not_lorentz_force(self):
+        """«Аттрактор Лоренца» не должен ловиться на «силу Лоренца»."""
+        post = make_post("lorenz1", "6.2")
+        post.title = "Молекулярная динамика и хаос: потенциал Леннард-Джонса и аттрактор Лоренца"
+        self.assertEqual(live_sensors.sensor_for_post(post), "")
+
+    def test_insar_post_gets_no_iss_number(self):
+        """Спутниковая интерферометрия — не орбитальная механика."""
+        post = make_post("insar1", "6.4")
+        post.title = "Спутниковая интерферометрия: фазовые кольца InSAR"
+        self.assertEqual(live_sensors.sensor_for_post(post), "")
+
     def test_live_line_disabled_by_default(self):
         post = make_post("live2", "1.2")
         post.title = "Закон Рихтера и логарифмы"
