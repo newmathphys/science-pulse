@@ -103,6 +103,32 @@ class SynthesizeTests(unittest.TestCase):
             self.assertIsNotNone(second)
             self.assertEqual(first.mp3_path, second.mp3_path)
 
+    def test_fallback_does_not_poison_cache(self):
+        """Сонификация не помечается кэш-ключом речи — иначе голос не вернётся."""
+        config = Config(raw={"voice": {"enabled": True, "engine": "edge"}})
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.object(voice_mod, "_synthesize_edge", return_value=("", [])), \
+                 mock.patch.object(voice_mod, "_to_voice_ogg", return_value=False):
+                fallback = synthesize("Текст для сонификации", tmp, "p4", config, post=make_post())
+            self.assertIsNotNone(fallback, "фоллбэк обязан дать аудио, а не падать")
+            self.assertEqual(fallback.engine, "sonification_fallback")
+            self.assertFalse(Path(tmp, "p4.key").exists(), "фоллбэк не пишет кэш-ключ")
+            with mock.patch.object(voice_mod, "_synthesize_edge", side_effect=self._fake_edge), \
+                 mock.patch.object(voice_mod, "_to_voice_ogg", return_value=False):
+                real = synthesize("Текст для сонификации", tmp, "p4", config)
+            self.assertIsNotNone(real)
+            self.assertEqual(real.engine, "edge", "кэш не подменил речь сонификацией")
+
+    def test_fallback_removes_stale_key(self):
+        """Если ключ уже лежал от прошлого прогона — фоллбэк его снимает."""
+        config = Config(raw={"voice": {"enabled": True, "engine": "edge"}})
+        with tempfile.TemporaryDirectory() as tmp:
+            Path(tmp, "p5.key").write_text("старый-ключ", encoding="utf-8")
+            with mock.patch.object(voice_mod, "_synthesize_edge", return_value=("", [])), \
+                 mock.patch.object(voice_mod, "_to_voice_ogg", return_value=False):
+                synthesize("Текст", tmp, "p5", config, post=make_post())
+            self.assertFalse(Path(tmp, "p5.key").exists(), "старый ключ снят")
+
     def test_failure_returns_none(self):
         config = Config(raw={"voice": {"enabled": True, "engine": "edge"}})
         with tempfile.TemporaryDirectory() as tmp:

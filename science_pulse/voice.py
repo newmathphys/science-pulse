@@ -659,7 +659,16 @@ def synthesize(
                     pass
 
     _to_voice_ogg(mp3_path, ogg_path)
-    key_path.write_text(key, encoding="utf-8")
+    if engine_used == "sonification_fallback":
+        # Фоллбэк НЕ кэшируем: иначе сонификация остаётся под ключом настоящей
+        # речи и заглушает голос после восстановления TTS (реальный случай:
+        # пропавший edge-tts «залипал» в кэше до ручной чистки).
+        try:
+            key_path.unlink()
+        except OSError:
+            pass
+    else:
+        key_path.write_text(key, encoding="utf-8")
     duration = _duration_seconds(mp3_path)
     segments = _boundaries_to_segments(boundaries) if boundaries else _approximate_segments(text, duration or 10.0)
     subtitles = write_subtitles(segments, mp3_path)
