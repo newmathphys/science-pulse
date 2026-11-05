@@ -60,7 +60,7 @@ python -m science_pulse.cli daemon              # фон: слоты + риту�
 ## Проверка
 
 ```bash
-python -m unittest tests.test_multi_horizon_schedule -v   # 15 тестов
+python -m unittest tests.test_multi_horizon_schedule -v   # 21 тест
 ```
 
 ## Ограничения

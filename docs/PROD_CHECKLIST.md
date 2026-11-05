@@ -187,6 +187,24 @@ python -m science_pulse.cli admin --once      # обработка команд 
 
 ---
 
+## Шаг 12. Резервное копирование и восстановление
+
+```bash
+python -m science_pulse.cli checkpoint            # WAL-чекпоинт: слить журнал в science.db
+python -m science_pulse.cli backup                # снимок science.db документом в админ-чат
+python -m science_pulse.cli recover-from-channel  # восстановить базу из ленты канала
+```
+
+Критерий: `checkpoint` сливает журнал (`science.db-wal` пуст), поэтому `git` и
+обычное копирование файла больше не видят «пустую» базу (ловушка А). `backup`
+требует `TG_BOT_TOKEN` и `TG_ADMIN_CHAT_ID`: он делает чекпоинт и отправляет
+цельный `science.db` документом в админ-чат — то же самое делает `/backup` в
+Пульте. Если база потеряна целиком, `recover-from-channel --limit N` читает
+историю канала и восстанавливает `posts`/`publications` по `file_id` карточек,
+не обращаясь к внешним источникам.
+
+---
+
 ## Дополнительно: алгоритмы «после MVP»
 
 `science_pulse/sota.py` работает поверх `kv` без изменения схемы:

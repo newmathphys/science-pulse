@@ -89,6 +89,7 @@ class Post:
 
     @property
     def emoji(self) -> str:
+        """Значок дисциплины для внутреннего чата оператора (не для публикаций)."""
         return DOMAIN_EMOJI.get(self.domain, "🔬")
 
     @property

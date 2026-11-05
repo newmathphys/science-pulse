@@ -50,6 +50,20 @@ python -m science_pulse.cli site
 | VK | `VK_GROUP_ID`, `VK_ACCESS_TOKEN` | vkhost.github.io (права wall/photos/groups) |
 | Cloudflare CDN | `CF_WORKER_URL` | `cloudflare/worker.js` + Secrets |
 
+Переменные-алиасы (если так удобнее): `TELEGRAM_BOT_TOKEN` = `TG_BOT_TOKEN`,
+`THREADS_ACCESS_TOKEN` = `TH_ACCESS_TOKEN`, `THREADS_USER_ID` = `TH_USER_ID`.
+
+Служебные переопределения (не секреты, полезны в CI и в контейнерах):
+
+| Переменная | Что меняет | По умолчанию |
+|:--|:--|:--|
+| `SP_DATA_DIR` | каталог данных (база, карточки, медиа) | `data` |
+| `SP_DIST_DIR` | каталог собранного сайта | `dist` |
+| `SP_SITE_BASE_URL` | базовый адрес сайта в ссылках и QR | определяется из `git remote` |
+| `SP_SITE_TITLE` | заголовок сайта | `Science Pulse` |
+| `SP_SCHEDULE` | список слотов расписания через запятую | из `config.yaml` |
+| `SP_TRANSLATE` | `1` — включить перевод постов | выключен |
+
 Threads принимает картинку только по публичному URL. Если `CF_WORKER_URL`
 задан, используется безопасный прокси Telegram CDN по `file_id` (токен бота
 наружу не попадает). Если прокси нет — Threads получает текстовый пост.

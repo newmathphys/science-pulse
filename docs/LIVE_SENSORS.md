@@ -55,7 +55,7 @@ sensor("earthquake", http=fake)   # инъекция HTTP для тестов
 ## Проверка
 
 ```bash
-python -m unittest tests.test_connection_tools -v   # 9 тестов датчиков
+python -m unittest tests.test_connection_tools -v   # 24 теста: датчики, режимы, /auth и /sync
 ```
 
 Живой прогон (05.11.2026): землетрясение M = 2.05 (глубина 17.7 км, E ≈ 7.5·10⁷ Дж),
