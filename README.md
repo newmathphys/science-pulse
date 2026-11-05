@@ -76,6 +76,12 @@ python -m science_pulse.cli auth-check  # живой тестер ключей �
 python -m science_pulse.cli sync-platform threads --limit 5   # довыгрузить летопись с § 1.1
 python -m science_pulse.cli sensors     # живые датчики Планеты и Космоса (USGS, NOAA, LIGO, МКС)
 python -m science_pulse.cli rituals --dry-run   # 4-уровневый календарь: слоты, Пт/Сб/Вс, 1-е число
+python -m science_pulse.cli add --domain math --title "…" --body "…"   # свой пост в очередь
+python -m science_pulse.cli staged      # показать подготовленный N+1 выпуск
+python -m science_pulse.cli reject <id> # отправить пост в карантин вручную
+python -m science_pulse.cli backup      # снимок science.db документом в админ-чат
+python -m science_pulse.cli recover-from-channel   # восстановить состояние из t.me/s/<канал>
+python -m science_pulse.cli checkpoint  # сбросить WAL в основной файл БД
 python -m science_pulse.cli invariants  # проверка инвариантов состояния
 python -m science_pulse.cli formal      # машинная проверка Lean-доказательств
 python -m science_pulse.cli edge        # синхронизация R2/D1 (Cloudflare)
@@ -488,6 +494,9 @@ PDF-книгу. Удобно, чтобы показать проект цели�
 | `docs/LIVE_SENSORS.md` | живые датчики Планеты и Космоса без ключей |
 | `docs/LABS.md` | шесть лабораторных стендов: ЦЕРН, LIGO, Вороной, 3-SAT, CG, P/S |
 | `docs/SCHEDULE.md` | 4-уровневый календарь: слоты, Пт/Сб/Вс, 1-е число |
+| `docs/CANON_GATE.md` | двухпроходный шлюз канона (Pass 1 и Pass 2) |
+| `docs/FOUNDATION_TOPOLOGY.md` | топология фундамента: диск Пуанкаре и геодезические |
+| `docs/PROOF.md` | вычислительный паспорт выпуска и проверка кода |
 | `docs/MINIAPP.md` | Mini App «Пульт» (статическая страница) |
 | `docs/TRANSLATION.md` | перевод без LLM (формулы и код не трогаются) |
 | `docs/INVARIANTS.md` | инварианты состояния (Lean-спецификация + проверки) |
