@@ -88,6 +88,28 @@ def news_threshold(config: Any) -> int:
     return max(0, int(raw.get("auto_publish_min_likes", 0) or 0))
 
 
+def evening_hour(config: Any = None) -> int:
+    """Час вечернего слота (последний в расписании, по умолчанию 21)."""
+    table = slots(config)
+    return max(table) if table else 21
+
+
+def evening_kind(now: datetime) -> str:
+    """Формат вечернего слота: Пн–Чт — лаборатория/фильм, Пт — квиз, Сб — шпаргалка, Вс — книга.
+
+    Так вечерний выпуск НИКОГДА не накладывается на ритуал: в пятницу, субботу
+    и воскресенье вечерний слот занят ровно одним событием.
+    """
+    return {4: "quiz", 5: "cheatsheet", 6: "book"}.get(now.weekday(), "lab")
+
+
+def publishes_post(now: datetime, config: Any = None) -> bool:
+    """Публикуем ли обычный пост сейчас (в Пт/Сб/Вс вечер отдан ритуалу)."""
+    if now.hour != evening_hour(config):
+        return True
+    return evening_kind(now) == "lab"
+
+
 def refresh_threads_token(config: Any, http: Optional[Callable[..., Dict[str, Any]]] = None) -> Dict[str, Any]:
     """Продление 60-дневного токена Meta Threads (`refresh_access_token`)."""
     import os

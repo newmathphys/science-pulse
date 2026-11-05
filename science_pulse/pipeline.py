@@ -175,14 +175,24 @@ class Pipeline:
         return domains
 
     def choose_next(self, domain: str | None = None) -> Optional[Post]:
-        """Выбор поста: сначала фундамент по ступеням, затем маятник по сложности."""
-        from .curriculum import is_foundation, order_posts
+        """Выбор поста: сначала фундамент по ступеням, затем маятник по сложности.
+
+        Закон причинности: пост выходит, только если его родители (`prereq_ids`)
+        уже опубликованы. Если так вышло, что вся очередь ждёт родителей,
+        причинность уступает непрерывности эфира — с честным предупреждением.
+        """
+        from .curriculum import is_foundation, order_posts, open_posts, published_ids
 
         ready = self.storage.list_posts(status="ready", limit=300, order="created_at ASC")
         if domain:
             ready = [post for post in ready if post.domain == domain]
         if not ready:
             return self.storage.next_ready(domain)
+        allowed = open_posts(ready, published_ids(self.storage))
+        if allowed:
+            ready = allowed
+        else:
+            LOGGER.warning("Все готовые посты ждут родителей — беру ближайший по ступеням")
         # 1) Узлы фундамента выходят строго по ступеням (Пифагор → Евклид → Архимед …).
         foundation = [post for post in ready if is_foundation(post)]
         if foundation:

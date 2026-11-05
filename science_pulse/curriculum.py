@@ -99,6 +99,35 @@ def order_posts(posts: Iterable[Any]) -> List[Any]:
     return sorted(posts, key=sort_key)
 
 
+def prereqs_open(post: Any, published_ids: Any) -> bool:
+    """Закон причинности: узел открыт, только если ВСЕ родители уже опубликованы.
+
+    Корни (без `prereq_ids`) открыты всегда. Иначе сложный прикладной стенд
+    (например, `§ 6.4 InSAR`, требующий преобразования Фурье) не может выйти
+    раньше своего фундамента — ни в утреннем слоте, ни в вечернем синтезе.
+    """
+    meta = getattr(post, "meta", {}) or {}
+    prereqs = [str(item) for item in (meta.get("prereq_ids") or []) if str(item).strip()]
+    if not prereqs:
+        return True
+    from .sources.foundation import FoundationSource
+
+    for canon_id in prereqs:
+        if FoundationSource.post_id_for(canon_id) not in published_ids:
+            return False
+    return True
+
+
+def open_posts(posts: Iterable[Any], published_ids: Any) -> List[Any]:
+    """Только те посты, чьи родители уже опубликованы (для выбора выпуска)."""
+    return [post for post in posts if prereqs_open(post, published_ids)]
+
+
+def published_ids(storage: Any) -> set:
+    """Множество id опубликованных постов (для проверки причинности)."""
+    return {post.id for post in storage.list_posts(status="published", limit=5000)}
+
+
 def annotate(post: Any) -> Any:
     """Записывает вычисленный tier в meta (для отчётов и /queue)."""
     meta = getattr(post, "meta", None)

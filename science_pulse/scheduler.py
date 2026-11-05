@@ -60,13 +60,17 @@ def run_daemon(
         time.sleep(wait_seconds)
         moment = datetime.now(timezone)
         try:
-            from .rituals import SATELLITE_DOMAIN, daily_domain
+            from .rituals import SATELLITE_DOMAIN, daily_domain, evening_kind, publishes_post
 
-            slot = daily_domain(moment, config)
-            domain = SATELLITE_DOMAIN if slot == "satellite_lab" else slot
-            LOGGER.info("Слот суток: %s → дисциплина %s", slot, domain)
-            result = pipeline.run(dry_run=dry_run, domain=domain)
-            LOGGER.info("Публикация: %s", result.get("ok"))
+            if publishes_post(moment, config):
+                slot = daily_domain(moment, config)
+                domain = SATELLITE_DOMAIN if slot == "satellite_lab" else slot
+                LOGGER.info("Слот суток: %s → дисциплина %s", slot, domain)
+                result = pipeline.run(dry_run=dry_run, domain=domain)
+                LOGGER.info("Публикация: %s", result.get("ok"))
+            else:
+                # Вечер Пт/Сб/Вс занят ритуалом: второго сообщения в ту же минуту нет.
+                LOGGER.info("Вечерний слот отдан ритуалу: %s", evening_kind(moment))
         except Exception:
             LOGGER.exception("Ошибка планировщика")
         try:
