@@ -58,10 +58,24 @@ def run_daemon(
         wait_seconds = max(1.0, (target - now).total_seconds())
         LOGGER.info("Следующий запуск: %s (%s сек.)", target.isoformat(), int(wait_seconds))
         time.sleep(wait_seconds)
+        moment = datetime.now(timezone)
         try:
-            result = pipeline.run(dry_run=dry_run)
+            from .rituals import SATELLITE_DOMAIN, daily_domain
+
+            slot = daily_domain(moment, config)
+            domain = SATELLITE_DOMAIN if slot == "satellite_lab" else slot
+            LOGGER.info("Слот суток: %s → дисциплина %s", slot, domain)
+            result = pipeline.run(dry_run=dry_run, domain=domain)
             LOGGER.info("Публикация: %s", result.get("ok"))
         except Exception:
             LOGGER.exception("Ошибка планировщика")
+        try:
+            from .rituals import run_rituals
+
+            report = run_rituals(pipeline, now=moment, dry_run=dry_run)
+            if report.get("due"):
+                LOGGER.info("Ритуалы: %s", report["due"])
+        except Exception:
+            LOGGER.exception("Ошибка ритуалов")
         runs += 1
     return runs

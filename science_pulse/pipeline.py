@@ -485,10 +485,11 @@ class Pipeline:
         dry_run: bool = False,
         harvest_if_low: bool = True,
         build_site: bool = True,
+        domain: str | None = None,
     ) -> Dict[str, Any]:
         if harvest_if_low and self.storage.count("ready") < int(self.config.raw.get("low_water", 9)):
             self.harvest()
-        result = self.publish_next(dry_run=dry_run, build_site=False)
+        result = self.publish_next(dry_run=dry_run, domain=domain, build_site=False)
         if build_site:
             try:
                 self.build_site()

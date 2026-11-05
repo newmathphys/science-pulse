@@ -756,6 +756,32 @@ def cmd_sensors(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_rituals(args: argparse.Namespace) -> int:
+    """4-уровневый календарь: что должно сработать сейчас (слоты, Пт/Сб/Вс, 1-е число)."""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from .rituals import daily_domain, due_rituals, news_threshold, run_rituals
+
+    pipeline = _pipeline(args)
+    now = datetime.now(ZoneInfo(pipeline.config.timezone))
+    slot = daily_domain(now, pipeline.config)
+    due = due_rituals(pipeline.storage, pipeline.config, now)
+    print(f"Слот суток: {slot} · дисциплина: {'physics (лаборатория)' if slot == 'satellite_lab' else slot}")
+    print(f"Порог «Молнии науки»: {news_threshold(pipeline.config)} лайков")
+    print(f"Должно сработать: {', '.join(due) if due else 'ничего'}")
+    if not args.dry_run:
+        report = run_rituals(pipeline, now=now)
+        for name, result in report["results"].items():
+            print(f"  {name}: {result}")
+    else:
+        report = run_rituals(pipeline, now=now, dry_run=True)
+        for name, result in report["results"].items():
+            print(f"  {name} (проверка): {result}")
+    _checkpoint(pipeline)
+    return 0
+
+
 def cmd_formal(args: argparse.Namespace) -> int:
     from .formal import check_lean
 
@@ -1392,6 +1418,10 @@ def build_parser() -> argparse.ArgumentParser:
     sensors = subparsers.add_parser("sensors", help="живые датчики Планеты и Космоса (без ключей)")
     sensors.add_argument("--json", action="store_true")
     sensors.set_defaults(func=cmd_sensors)
+
+    rituals = subparsers.add_parser("rituals", help="4-уровневый календарь: слоты, Пт/Сб/Вс, 1-е число")
+    rituals.add_argument("--dry-run", action="store_true", help="только показать, что должно сработать")
+    rituals.set_defaults(func=cmd_rituals)
 
     reset = subparsers.add_parser("reset", help="очистить состояние (опасно)")
     reset.add_argument("--yes", action="store_true")
