@@ -141,7 +141,7 @@ python -m science_pulse.cli radio --rtmp rtmps://dc4.rtmp.t.me/s/KEY --run  # п
 /lang ru|en          язык описаний площадок
 /about               как работает пульт, где Mini App и где хранится состояние
 /theme [стиль]       дизайн выпуска; без аргумента — рейтинг A/B (алиас /ab)
-/film [ID]           5-актовый фильм Moku3D в этот чат
+/film [ID] [9:16]   5-актовый фильм Moku3D в этот чат (9:16 — для Reels/Shorts)
 /auth                живой тестер ключей всех 6 площадок (read-only)
 /sync platform [N]   довыгрузить пропущенное начало летописи на площадку
 /book                📕 собрать PDF-книгу проекта и прислать файл
