@@ -23,13 +23,29 @@ MESSAGE_RE = re.compile(
 SECTION_RE = re.compile(r"§\s*(\d+\.\d+)")
 
 
-def parse_public_feed(html: str) -> List[Dict[str, str]]:
-    """Разбирает публичную ленту: ``[{'message_id', 'section'}, …]``."""
+def parse_public_feed(html: str, titles: Optional[Dict[str, str]] = None) -> List[Dict[str, str]]:
+    """Разбирает публичную ленту: ``[{'message_id', 'section', 'title'}…]``.
+
+    Номер параграфа ищется как ``§ X.Y`` (так подписываются новые выпуски).
+    Для старых постов без ``§`` работает резервный путь: сопоставление по
+    заголовку из переданного словаря ``{нормализованный_заголовок: section}``.
+    """
     items: List[Dict[str, str]] = []
     for match in MESSAGE_RE.finditer(html or ""):
-        section = SECTION_RE.search(match.group("body") or "")
+        body = match.group("body") or ""
+        section = SECTION_RE.search(body)
+        found = {"message_id": match.group("message")}
         if section:
-            items.append({"message_id": match.group("message"), "section": section.group(1)})
+            found["section"] = section.group(1)
+        elif titles:
+            plain = re.sub(r"<[^>]+>", " ", body)
+            plain = re.sub(r"\s+", " ", plain).strip().lower()
+            for title, mapped in titles.items():
+                if title and title in plain:
+                    found["title"] = mapped
+                    break
+        if found.get("section") or found.get("title"):
+            items.append(found)
     return items
 
 
@@ -56,10 +72,20 @@ def recover_from_public_channel(
         return {"ok": False, "error": f"сеть: {str(exc)[:120]}", "recovered": 0}
 
     by_section = {section_of(item["id"]): item["id"] for item in CANON}
+    # Резервный путь для постов, вышедших до появления «§» в подписи:
+    # сопоставляем сообщение с заголовком нашего поста.
+    titles: Dict[str, str] = {}
+    for canon in CANON:
+        post = storage.get_post(make_id("history_canon", canon["id"]))
+        if post is None:
+            continue
+        key = re.sub(r"\s+", " ", str(post.title or "")).strip().lower()
+        if len(key) >= 12:
+            titles[key[:60]] = section_of(canon["id"])
     recovered: List[Dict[str, Any]] = []
     seen: set = set()
-    for entry in parse_public_feed(html):
-        section = entry["section"]
+    for entry in parse_public_feed(html, titles):
+        section = entry.get("section") or entry.get("title")
         canon_id = by_section.get(section)
         if not canon_id or canon_id in seen:
             continue

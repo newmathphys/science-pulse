@@ -85,7 +85,9 @@ def build_rich_telegram_caption(post: Post, limit: int = 1024, site_url: str = "
     code = (post.code or "").strip()
     source = clean_latex_for_telegram(post.source_name or "Science Pulse")
 
-    header_parts = [f"{post.emoji} <b>{post.label}</b> · <b>{escape_html(title)}</b>"]
+    section = str(meta.get("section_num") or "").strip()
+    section_prefix = f"<b>§ {escape_html(section)}</b> · " if section else ""
+    header_parts = [f"{post.emoji} <b>{post.label}</b> · {section_prefix}<b>{escape_html(title)}</b>"]
     era_line = " — ".join(part for part in (str(meta.get("era") or "").strip(),
                                             str(meta.get("scientist") or "").strip()) if part)
     if era_line:
