@@ -470,9 +470,11 @@ PDF-книгу. Удобно, чтобы показать проект цели�
 
 ## Дальше по плану
 
-См. `docs/PLAN.md` и `docs/PROD_CHECKLIST.md`. Алгоритмы «после MVP» уже
-лежат в `science_pulse/sota.py` (Томпсон, Hawkes O(1), FSRS, Диск Пуанкаре)
-и включаются флагами в `config.yaml`. Реализованы PageRank/Пуанкаре-граф
+См. `docs/PLAN.md` и `docs/PROD_CHECKLIST.md`. Алгоритмы «после MVP» лежат в
+`science_pulse/sota.py` (Томпсон, Hawkes O(1), FSRS, Диск Пуанкаре) и
+управляются флагами в `config.yaml`. **Thompson и гейт Hawkes включены по
+умолчанию**; отказ гейта — это отложение (`deferred`), а не сбой, поэтому CI
+не падает и не шлёт ложный алерт оператору. Реализованы PageRank/Пуанкаре-граф
 (`graph.py`), A/B стилей (`abtest.py`), Mini App-пульт (`pult.html`, приватный — `miniapp.public`),
 PWA (манифест + service worker + иконки), флешкарты (`flashcards.html`), BibTeX-экспорт
 (`bibtex.bib`), поиск по формулам и символам, единый предпросмотр `cli post --preview`,

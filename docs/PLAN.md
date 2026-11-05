@@ -464,8 +464,9 @@ Discord, Mastodon и VK **не проверялись**: в среде нет и
 
 | Что | Состояние | Детали |
 |:--|:--|:--|
-| `hawkes_matrix`, `effective_stability` (S_eff), `review_interval_days` (FSRS) | **не используются** | формулы и тесты есть в `sota.py`; пайплайн зовёт только `check_hawkes_ready`/`record_hawkes_fire`, и то лишь при `hawkes.enabled: true` (в `config.yaml` — `false`) |
-| Бандит Томпсона `select_domain_thompson` | **выключен** | вызывается только при `selection: thompson`; в конфиге `round_robin` |
+| `hawkes_matrix`, `effective_stability` (S_eff), `review_interval_days` (FSRS) | **не используются** | формулы и тесты есть в `sota.py`; пайплайн зовёт только `check_hawkes_ready`/`record_hawkes_fire` (гейт включён, см. ниже) |
+| Бандит Томпсона `select_domain_thompson` | **включён** | `selection: thompson` + `bandit.enabled: true`; награда (`sota.reward_domain`) выдаётся после каждой публикации, поэтому бандит обучается, а не «шумит» |
+| Гейт Хоукса `check_hawkes_ready` | **включён** | `hawkes.enabled: true`; отказ гейта — **отложение** (`ok=True`, `deferred=True`), а не сбой: `cli run`/`cli publish` возвращают 0, CI не падает и не шлёт ложный алерт; `--force` гейт обходит |
 | A/B стилей карточки | **выключен** | `abtest.enabled: false` |
 | Cloudflare `edge` (R2/D1) | **не работает** | нет `CF_WORKER_URL`/`INGEST_SECRET`, `edge.d1_primary: false`; команда `cli edge` только отработает вхолостую |
 | RTMP-эфир (Telegram Live / YouTube Live) | **не запускался** | `rtmp_argv()` формирует корректную команду, но ключа нет → `cli radio --rtmp … --run` не выполнялся |
@@ -626,8 +627,13 @@ Discord, Mastodon и VK **не проверялись**: в среде нет и
 
 1. Добавить GitHub Secrets (`TG_*`) → включить реальный автопилот по расписанию
    (тогда же заработают викторины `quiz_poll` и алерт оператору).
-2. Включить `hawkes.enabled: true` и `selection: thompson` — формулы S_eff и
-   A₃ₓ₃ уже написаны и протестированы.
+2. ~~Включить `hawkes.enabled: true` и `selection: thompson`~~ — **сделано**
+   (`selection: thompson` + `bandit.enabled: true` + `hawkes.enabled: true`).
+   Заодно отказ гейта Хоукса сделан **мягким**: `Pipeline._deferred()` возвращает
+   `ok=True`/`deferred=True`, `cmd_run`/`cmd_publish` печатают «Публикация
+   отложена» и возвращают 0 — шаг `Run pipeline` в CI не падает и ложный алерт
+   `if: failure()` не срабатывает. Покрыто `tests/test_pipeline.py` (отложение,
+   мягкость в `run()`, обход `--force`).
 3. Проверить Threads/Bluesky/Discord/Mastodon/VK на тестовых аккаунтах.
 4. Решить судьбу Cloudflare-контура: дать ключи `CF_WORKER_URL`/`INGEST_SECRET`
    или убрать `cli edge` из документации.

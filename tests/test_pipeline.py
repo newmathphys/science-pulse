@@ -117,6 +117,47 @@ class PipelineTests(unittest.TestCase):
         added = self.pipeline.harvest()
         self.assertEqual(added, 0)
 
+    def _enable_hawkes(self):
+        self.config.raw["hawkes"] = {"enabled": True, "beta_per_hour": 0.38, "eps": 0.45}
+
+    def test_hawkes_gate_defers_instead_of_failing(self):
+        """Отказ гейта Hawkes — отложенная публикация (ok=True), а не сбой.
+
+        Иначе шаг `Run pipeline` в CI падал бы, а оператор получал ложный
+        алерт `if: failure()` — при штатном поведении «подождать».
+        """
+        self._enable_hawkes()
+        self.assertEqual(self.pipeline.harvest(), 3)
+        self.pipeline.sota.record_hawkes_fire()
+        result = self.pipeline.publish_next()
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["deferred"])
+        self.assertEqual(result["reason"], "hawkes")
+        self.assertIsNone(result["post"])
+        self.assertIn("Hawkes", result["error"])
+        # Очередь не сгорела, публикаций нет.
+        self.assertEqual(self.storage.count("ready"), 3)
+        self.assertEqual(self.storage.count("published"), 0)
+        self.assertEqual(self.publishers.calls, [])
+
+    def test_hawkes_gate_is_soft_in_run(self):
+        self._enable_hawkes()
+        self.pipeline.sota.record_hawkes_fire()
+        result = self.pipeline.run()
+        self.assertTrue(result["ok"])
+        self.assertTrue(result.get("deferred"))
+        self.assertEqual(self.storage.count("published"), 0)
+        self.assertEqual(self.publishers.calls, [])
+
+    def test_force_bypasses_hawkes_gate(self):
+        self._enable_hawkes()
+        self.pipeline.sota.record_hawkes_fire()
+        forced = self.pipeline.publish_next(force=True)
+        self.assertTrue(forced["ok"])
+        self.assertFalse(forced.get("deferred"))
+        self.assertEqual(forced["post"].domain, "math")
+        self.assertEqual(self.storage.count("published"), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

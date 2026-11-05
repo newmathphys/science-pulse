@@ -210,6 +210,26 @@ class Pipeline:
         every = max(1, settings["every_nth_post"])
         return counter % every == 0
 
+    @staticmethod
+    def _deferred(reason: str, detail: str, **extra: Any) -> Dict[str, Any]:
+        """Отложенная публикация — это НЕ сбой.
+
+        Гейт (Hawkes) может попросить подождать: планировщик просто вернётся
+        позже. Возвращаем `ok=True` + `deferred=True`, чтобы шаг CI не падал и
+        оператор не получал ложный алерт; причина остаётся в `error`/`reason`.
+        """
+        payload: Dict[str, Any] = {
+            "ok": True,
+            "deferred": True,
+            "reason": reason,
+            "error": detail,
+            "post": None,
+            "card": None,
+            "results": [],
+        }
+        payload.update(extra)
+        return payload
+
     def publish_next(
         self,
         dry_run: bool = False,
@@ -233,7 +253,13 @@ class Pipeline:
                 eps=float(hawkes.get("eps", 0.45)),
             )
             if not hawkes_state["ready"]:
-                return {"ok": False, "error": f"Hawkes: остаточная волна {hawkes_state['residual_wave']}"}
+                # Гейт Hawkes — это ОТЛОЖЕНИЕ, а не сбой: планировщик вернётся
+                # позже (волна затухнет или пройдёт 6 часов). `--force` обходит.
+                return self._deferred(
+                    "hawkes",
+                    f"Hawkes: остаточная волна {hawkes_state['residual_wave']}",
+                    hours_since_last=hawkes_state.get("hours_since_last"),
+                )
 
         if post_id:
             post = self.storage.get_post(post_id)

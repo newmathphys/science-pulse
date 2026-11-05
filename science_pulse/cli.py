@@ -95,6 +95,10 @@ def cmd_publish(args: argparse.Namespace) -> int:
         post_id=args.post_id,
         video=True if getattr(args, "video", False) else (False if getattr(args, "no_video", False) else None),
     )
+    if result.get("deferred"):
+        _checkpoint(pipeline)
+        print(f"Публикация отложена ({result.get('reason')}): {result.get('error')}")
+        return 0
     if not result.get("ok"):
         _checkpoint(pipeline)
         print(f"Не опубликовано: {result.get('error')}", file=sys.stderr)
@@ -169,6 +173,10 @@ def cmd_run(args: argparse.Namespace) -> int:
         harvest_if_low=not args.no_harvest,
         build_site=not args.no_site,
     )
+    if result.get("deferred"):
+        _checkpoint(pipeline)
+        print(f"Публикация отложена ({result.get('reason')}): {result.get('error')}")
+        return 0
     if not result.get("ok"):
         _checkpoint(pipeline)
         print(f"Запуск не удался: {result.get('error')}", file=sys.stderr)
