@@ -100,10 +100,24 @@ def _sonify_cs(t: np.ndarray, post: Any) -> np.ndarray:
 SONIFIERS = {"math": _sonify_math, "physics": _sonify_physics, "cs": _sonify_cs}
 
 
+def _sonify_chirp(t: np.ndarray, post: Any) -> np.ndarray:
+    """Акустический чирп слияния чёрных дыр: разгон частоты 35 → 250 Гц (GW150914)."""
+    duration = float(t[-1]) if t.size else 1.0
+    progress = t / max(duration, 1e-9)
+    frequency = 35.0 * (250.0 / 35.0) ** progress ** 2.2
+    phase = 2.0 * np.pi * np.cumsum(frequency) / SAMPLE_RATE
+    amplitude = (frequency / 35.0) ** (2.0 / 3.0) * np.exp(-((1.0 - progress) ** 3) * 6.0)
+    return amplitude * np.sin(phase)
+
+
 def sonify(post: Any, out_wav: str | Path, seconds: float = DEFAULT_SECONDS) -> Dict[str, Any]:
     """Сонофицирует пост в WAV (детерминированно). Возвращает описание."""
     domain = getattr(post, "domain", "math")
-    sonifier = SONIFIERS.get(domain, _sonify_math)
+    simulation = str((getattr(post, "meta", {}) or {}).get("simulation") or "")
+    if simulation == "ligo_chirp":
+        sonifier = _sonify_chirp
+    else:
+        sonifier = SONIFIERS.get(domain, _sonify_math)
     n = int(SAMPLE_RATE * seconds)
     t = np.arange(n) / SAMPLE_RATE
     signal = sonifier(t, post)

@@ -21,6 +21,365 @@ from typing import Any, Dict, List
 import numpy as np
 
 
+def cern_dimuon_peak(events: int = 6000, seed: int = 5, mass_gev: float = 91.19,
+                     width_gev: float = 2.5) -> Dict[str, Any]:
+    """Инвариантная масса димюонов: из фона вырастает резонанс Z-бозона.
+
+    Масса пары мюонов считается релятивистски:
+    `M = √((E₁+E₂)² − |p₁+p₂|²)`, а пик описывается распределением
+    Брейта — Вигнера `BW(m) ∝ (Γ/2)² / ((m−m₀)² + (Γ/2)²)`.
+    """
+    rng = np.random.default_rng(seed)
+    # Фон Дрелл–Яна: падающий спектр + примесь J/ψ-мезона (3.1 ГэВ).
+    background = 40.0 + rng.exponential(12.0, events)
+    jpsi = rng.normal(3.1, 0.09, events // 12)
+    signal = rng.normal(mass_gev, width_gev, events // 9)
+    masses = np.concatenate([background, jpsi, signal])
+    masses = masses[(masses > 1.0) & (masses < 160.0)]
+
+    bins = np.linspace(1.0, 160.0, 80)
+    hist, edges = np.histogram(masses, bins=bins)
+    centers = 0.5 * (edges[:-1] + edges[1:])
+    half = width_gev / 2.0
+    breit_wigner = hist.max() * (half ** 2) / ((centers - mass_gev) ** 2 + half ** 2)
+    window = np.abs(centers - mass_gev) < 12.0
+    background_level = float(np.median(hist[(centers > 110.0) | (centers < 70.0)]))
+    return {
+        "masses": masses,
+        "centers": centers,
+        "hist": hist.astype(float),
+        "breit_wigner": breit_wigner,
+        "peak_mass": float(centers[int(np.argmax(np.where(window, hist, 0)))]),
+        "true_mass": float(mass_gev),
+        "width_gev": float(width_gev),
+        "background_level": background_level,
+        "n_events": int(masses.size),
+        "n_signal": int(events // 9),
+        "window": window,
+    }
+
+
+def ligo_chirp(m1: float = 36.0, m2: float = 29.0, seconds: float = 1.0,
+               sample_rate: int = 4096, seed: int = 13,
+               f_start: float = 35.0, f_end: float = 250.0) -> Dict[str, Any]:
+    """Гравитационно-волновой чирп слияния чёрных дыр (GW150914) + фильтр.
+
+    Модель: частота растёт как `f(t) ∝ (t_c − t)^(−3/8)`, амплитуда — как
+    `f^(2/3)`, деформация `h(t) = A(t)·cos Φ(t)`. Шум срезается полосовым
+    фильтром Баттерворта (`scipy.signal.butter` + `filtfilt`).
+    """
+    rng = np.random.default_rng(seed)
+    n = int(sample_rate * seconds)
+    t = np.arange(n) / sample_rate
+    progress = np.linspace(0.0, 1.0, n)
+    frequency = f_start * (f_end / f_start) ** progress ** 2.2      # разгон частоты
+    phase = 2.0 * np.pi * np.cumsum(frequency) / sample_rate
+    amplitude = (frequency / f_start) ** (2.0 / 3.0) * np.exp(-((1.0 - progress) ** 3) * 6.0)
+    strain = amplitude * np.cos(phase)
+    noise = rng.normal(0.0, 0.6, n)
+    raw = strain + noise
+
+    filtered = raw
+    cutoff_note = "scipy.signal.butter недоступен — сигнал без фильтра"
+    try:
+        from scipy.signal import butter, filtfilt
+
+        nyquist = sample_rate / 2.0
+        b, a = butter(4, [f_start / nyquist, min(0.95, f_end * 1.4 / nyquist)], btype="band")
+        filtered = filtfilt(b, a, raw)
+        cutoff_note = f"полосовой фильтр Баттерворта 4-го порядка {f_start:.0f}–{f_end * 1.4:.0f} Гц"
+    except Exception:  # pragma: no cover - scipy отсутствует
+        pass
+
+    spectrogram = None
+    try:
+        from scipy.signal import spectrogram
+
+        spec_f, spec_t, spec_power = spectrogram(filtered, fs=sample_rate, nperseg=256, noverlap=200)
+        spectrogram = {
+            "freq": spec_f,
+            "time": spec_t,
+            "power": spec_power,
+        }
+    except Exception:  # pragma: no cover - scipy отсутствует
+        spectrogram = None
+
+    chirp_mass = (m1 * m2) ** 0.6 / (m1 + m2) ** 0.2
+    radiated = 0.05 * (m1 + m2)
+    return {
+        "t": t,
+        "frequency": frequency,
+        "strain": strain,
+        "raw": raw,
+        "filtered": filtered,
+        "spectrogram": spectrogram,
+        "m1": float(m1),
+        "m2": float(m2),
+        "chirp_mass": float(chirp_mass),
+        "radiated_m_sun": float(radiated),
+        "f_start": float(f_start),
+        "f_end": float(f_end),
+        "sample_rate": int(sample_rate),
+        "filter_note": cutoff_note,
+    }
+
+
+def voronoi_delaunay_laplacian(points: int = 26, seed: int = 17) -> Dict[str, Any]:
+    """Двойственная сетка Вороного—Делоне и спектр Лапласиана графа `L = D − A`.
+
+    Второе собственное значение (`λ₂`, число Фидлера) — мера связности сети:
+    чем больше `λ₂`, тем труднее разбить граф на две части.
+    """
+    from scipy.spatial import Delaunay, Voronoi
+
+    rng = np.random.default_rng(seed)
+    pts = rng.uniform(0.0, 1.0, size=(points, 2))
+    voronoi = Voronoi(pts)
+    triangulation = Delaunay(pts)
+
+    edges = set()
+    for simplex in triangulation.simplices:
+        for index in range(3):
+            a, b = int(simplex[index]), int(simplex[(index + 1) % 3])
+            edges.add((min(a, b), max(a, b)))
+
+    adjacency = np.zeros((points, points))
+    for a, b in edges:
+        adjacency[a, b] = adjacency[b, a] = 1.0
+    degree = np.diag(adjacency.sum(axis=1))
+    laplacian = degree - adjacency
+    eigenvalues = np.linalg.eigvalsh(laplacian)
+
+    segments = [
+        [voronoi.vertices[v1], voronoi.vertices[v2]]
+        for v1, v2 in voronoi.ridge_vertices
+        if v1 >= 0 and v2 >= 0
+    ]
+    return {
+        "points": pts,
+        "vertices": voronoi.vertices,
+        "segments": np.asarray(segments, dtype=float) if segments else np.zeros((0, 2, 2)),
+        "simplices": triangulation.simplices,
+        "edges": sorted(edges),
+        "eigenvalues": eigenvalues,
+        "fiedler": float(eigenvalues[1]) if eigenvalues.size > 1 else 0.0,
+        "algebraic_connectivity": float(eigenvalues[1]) if eigenvalues.size > 1 else 0.0,
+        "n_edges": len(edges),
+        "laplacian": laplacian,
+    }
+
+
+def _dpll(clauses: Any, signs: Any, n: int, limit: int = 20000) -> tuple:
+    """Простой DPLL с распространением единичных дизъюнктов и счётом узлов."""
+    literals = [
+        [(int(var), bool(sign)) for var, sign in zip(clause, sign_row)]
+        for clause, sign_row in zip(clauses, signs)
+    ]
+    nodes = [0]
+
+    def solve(assignment: dict) -> bool:
+        nodes[0] += 1
+        if nodes[0] > limit:
+            return False
+        pending = []
+        for clause in literals:
+            satisfied = False
+            unresolved = []
+            for var, sign in clause:
+                if var in assignment:
+                    if assignment[var] == sign:
+                        satisfied = True
+                        break
+                else:
+                    unresolved.append((var, sign))
+            if satisfied:
+                continue
+            if not unresolved:
+                return False
+            pending.append(unresolved)
+        if not pending:
+            return True
+        for unresolved in pending:
+            if len(unresolved) == 1:
+                var, sign = unresolved[0]
+                branch = dict(assignment)
+                branch[var] = sign
+                return solve(branch)
+        var, sign = min(pending, key=len)[0]
+        for value in (sign, not sign):
+            branch = dict(assignment)
+            branch[var] = value
+            if solve(branch):
+                return True
+        return False
+
+    return solve({}), nodes[0]
+
+
+def sat_phase_transition(n: int = 11, samples: int = 10, seed: int = 23, ratios: Any = None) -> Dict[str, Any]:
+    """Фазовый переход в 3-SAT: при `α = m/n ≈ 4.26` выполнимость обрушивается.
+
+    Ниже порога почти все формулы выполнимы, выше — почти все противоречивы,
+    а вычислительная работа DPLL максимальна ровно в критической точке.
+    """
+    rng = np.random.default_rng(seed)
+    alphas = np.asarray(ratios if ratios is not None else np.arange(2.0, 6.01, 0.5), dtype=float)
+    satisfiable = []
+    effort = []
+    for alpha in alphas:
+        m = max(1, int(round(float(alpha) * n)))
+        solved = 0
+        nodes_total = 0
+        for _ in range(samples):
+            clauses = [tuple(int(v) for v in rng.choice(n, size=3, replace=False)) for _ in range(m)]
+            signs = [tuple(int(v) for v in rng.integers(0, 2, size=3)) for _ in range(m)]
+            ok, nodes = _dpll(clauses, signs, n)
+            solved += 1 if ok else 0
+            nodes_total += nodes
+        satisfiable.append(solved / samples)
+        effort.append(nodes_total / samples)
+    return {
+        "alpha": alphas,
+        "satisfiable": np.asarray(satisfiable, dtype=float),
+        "effort": np.asarray(effort, dtype=float),
+        "alpha_critical": 4.26,
+        "peak_alpha": float(alphas[int(np.argmax(effort))]) if effort else 0.0,
+        "n": int(n),
+        "samples": int(samples),
+    }
+
+
+def tsp_route(cities: int = 14, seed: int = 29) -> Dict[str, Any]:
+    """Задача коммивояжёра: жадный обход + улучшение 2-opt."""
+    rng = np.random.default_rng(seed)
+    pts = rng.uniform(0.0, 1.0, size=(cities, 2))
+
+    def length(tour: Any) -> float:
+        ordered = np.asarray(tour)
+        return float(np.sum(np.linalg.norm(np.diff(pts[ordered + [ordered[0]]], axis=0), axis=1)))
+
+    tour = [0]
+    remaining = set(range(1, cities))
+    while remaining:
+        last = tour[-1]
+        nxt = min(remaining, key=lambda index: float(np.linalg.norm(pts[index] - pts[last])))
+        tour.append(nxt)
+        remaining.discard(nxt)
+    initial = length(tour)
+
+    improved = True
+    while improved:
+        improved = False
+        for i in range(1, cities - 1):
+            for j in range(i + 1, cities):
+                candidate = tour[:i] + tour[i:j + 1][::-1] + tour[j + 1:]
+                if length(candidate) < length(tour) - 1e-12:
+                    tour = candidate
+                    improved = True
+    final = length(tour)
+    return {
+        "cities": pts,
+        "tour": np.asarray(tour + [tour[0]], dtype=int),
+        "length": final,
+        "initial_length": initial,
+        "improvement_pct": round(100.0 * (initial - final) / max(initial, 1e-9), 2),
+        "order": np.asarray(tour, dtype=int),
+    }
+
+
+def seismic_triangulation(delays: Any = None, p_km_s: float = 6.0, s_km_s: float = 3.5) -> Dict[str, Any]:
+    """Триангуляция эпицентра по разнице прихода P- и S-волн.
+
+    `d = Δt · v_P·v_S / (v_P − v_S)`: продольная волна приходит раньше, и по
+    запаздыванию поперечной восстанавливается расстояние до станции.
+    """
+    values = np.asarray(delays if delays is not None else [2.0, 5.0, 10.0, 20.0, 30.0], dtype=float)
+    distance = values * (p_km_s * s_km_s) / (p_km_s - s_km_s)
+    return {
+        "delays": values,
+        "distance_km": distance,
+        "p_km_s": float(p_km_s),
+        "s_km_s": float(s_km_s),
+        "formula": "d = Δt · v_P·v_S/(v_P − v_S)",
+    }
+
+
+def sparse_cg_convergence(n: int = 200, seed: int = 31, iterations: int = 200) -> Dict[str, Any]:
+    """Разреженная матрица и метод сопряжённых градиентов против градиентного спуска.
+
+    Берётся трёхдиагональная матрица (дискретный лапласиан), хранимая в формате
+    CSR: `nnz ≪ n²`. Сходимость CG экспоненциальна по числу обусловленности,
+    а у обычного градиентного спуска — линейна и медленна.
+    """
+    from scipy.sparse import diags
+    from scipy.sparse.linalg import cg
+
+    main = 2.0 * np.ones(n)
+    off = -1.0 * np.ones(n - 1)
+    matrix = diags([off, main, off], [-1, 0, 1], format="csr")
+    rhs = np.ones(n)
+
+    cg_residuals: List[float] = []
+
+    def record(current: Any) -> None:
+        cg_residuals.append(float(np.linalg.norm(matrix @ current - rhs)))
+
+    cg(matrix, rhs, rtol=1e-10, maxiter=iterations, callback=record)
+    if not cg_residuals:
+        cg_residuals = [float(np.linalg.norm(rhs))]
+
+    gradient_residuals: List[float] = []
+    solution = np.zeros(n)
+    step = 1.0 / 4.0
+    for _ in range(iterations):
+        gradient = matrix @ solution - rhs
+        solution = solution - step * gradient
+        gradient_residuals.append(float(np.linalg.norm(gradient)))
+
+    rows, cols = matrix.nonzero()
+    return {
+        "shape": (int(n), int(n)),
+        "nnz": int(matrix.nnz),
+        "density": float(matrix.nnz / (n * n)),
+        "rows": rows,
+        "cols": cols,
+        "cg_residual": np.asarray(cg_residuals, dtype=float),
+        "gradient_residual": np.asarray(gradient_residuals, dtype=float),
+        "cg_steps": len(cg_residuals),
+        "iterations": int(iterations),
+    }
+
+
+    """Триангуляция эпицентра по разнице прихода P- и S-волн.
+
+    `d = Δt · v_P·v_S / (v_P − v_S)`: продольная волна приходит раньше, и по
+    запаздыванию поперечной восстанавливается расстояние до станции.
+    """
+    values = np.asarray(delays if delays is not None else [2.0, 5.0, 10.0, 20.0, 30.0], dtype=float)
+    distance = values * (p_km_s * s_km_s) / (p_km_s - s_km_s)
+    return {
+        "delays": values,
+        "distance_km": distance,
+        "p_km_s": float(p_km_s),
+        "s_km_s": float(s_km_s),
+        "formula": "d = Δt · v_P·v_S/(v_P − v_S)",
+    }
+
+    """Низкочастотный детерминированный шум: сумма нескольких синусоид."""
+    grid = np.linspace(0.0, 2.0 * np.pi, size)
+    xx, yy = np.meshgrid(grid, grid)
+    field = np.zeros((size, size))
+    amplitude = 1.0
+    total = 0.0
+    for _ in range(octaves):
+        fx, fy = (int(v) for v in rng.integers(1, 5, size=2))
+        px, py = (float(v) for v in rng.uniform(0.0, 2.0 * np.pi, size=2))
+        field += amplitude * np.sin(fx * xx + px) * np.cos(fy * yy + py)
+        total += amplitude
+        amplitude *= 0.55
+    return field / max(total, 1e-9)
+
+
 def _smooth_noise(rng: Any, size: int, octaves: int = 3) -> np.ndarray:
     """Низкочастотный детерминированный шум: сумма нескольких синусоид."""
     grid = np.linspace(0.0, 2.0 * np.pi, size)

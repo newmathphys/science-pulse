@@ -100,6 +100,9 @@ def _build_earthquake(http: Optional[Callable[[str], Any]] = None) -> Dict[str, 
     coordinates = (features[0].get("geometry") or {}).get("coordinates") or []
     magnitude = float(properties.get("mag") or 0.0)
     depth = float(coordinates[2]) if len(coordinates) > 2 else 10.0
+    # Триангуляция P/S: для станции над эпицентром путь ≈ глубине очага,
+    # поэтому запаздывание S-волны Δt = d·(1/v_S − 1/v_P) при v_P = 6, v_S = 3.5 км/с.
+    delay = depth * (1.0 / 3.5 - 1.0 / 6.0)
     return {
         "sensor": "earthquake",
         "live": True,
@@ -107,24 +110,38 @@ def _build_earthquake(http: Optional[Callable[[str], Any]] = None) -> Dict[str, 
         "depth_km": round(depth, 1),
         "place": str(properties.get("place") or "—"),
         "energy_j": 10 ** (4.8 + 1.5 * magnitude),
-        "formula": "lg E = 4.8 + 1.5·M",
+        "p_s_delay_s": round(delay, 2),
+        "p_s_distance_km": round(delay * (6.0 * 3.5) / (6.0 - 3.5), 1),
+        "formula": "lg E = 4.8 + 1.5·M;  d = Δt·v_P·v_S/(v_P − v_S)",
         "source": "USGS Earthquakes GeoJSON",
     }
 
 
 def _build_space_weather(http: Optional[Callable[[str], Any]] = None) -> Dict[str, Any]:
-    """Текущий Kp-индекс геомагнитной активности (NOAA SWPC)."""
+    """Текущий Kp-индекс геомагнитной активности (NOAA SWPC) + вектор Bz."""
     payload = _fetch("https://services.swpc.noaa.gov/json/planetary_k_index_1m.json", http)
     if not isinstance(payload, list) or not payload:
         return dict(FALLBACKS["space_weather"])
     last = payload[-1] or {}
     kp = float(last.get("estimated_kp") or last.get("kp_index") or 0.0)
+    # Вектор межпланетного магнитного поля: Bz < 0 → магнитная буря эффективнее.
+    # Последние строки часто пустые, поэтому ищем с конца первую с числом.
+    bz = None
+    mag = _fetch("https://services.swpc.noaa.gov/products/solar-wind/mag-1-day.json", http)
+    if isinstance(mag, list) and len(mag) > 1:
+        for row in reversed(mag[1:]):
+            try:
+                bz = float(row[3])
+            except (IndexError, TypeError, ValueError):
+                continue
+            break
     return {
         "sensor": "space_weather",
         "live": True,
         "kp": round(kp, 2),
         "level": _kp_class(kp),
         "time_tag": str(last.get("time_tag") or ""),
+        "bz_nt": bz,
         "formula": "F = q(v × B)",
         "source": "NOAA SWPC planetary_k_index_1m",
     }
@@ -292,9 +309,12 @@ def live_line(post: Any, http: Optional[Callable[[str], Any]] = None) -> str:
     mark = "" if data.get("live") else "(офлайн) "
     if name == "earthquake":
         return (f"{mark}сегодня M = {data['magnitude']} на глубине {data['depth_km']} км → "
-                f"E = 10^(4.8+1.5·M) ≈ {data['energy_j']:.2e} Дж")
+                f"E = 10^(4.8+1.5·M) ≈ {data['energy_j']:.2e} Дж; "
+                f"Δt(S−P) ≈ {data.get('p_s_delay_s', 0):.1f} с")
     if name == "space_weather":
-        return f"{mark}Kp = {data['kp']} — {data['level']} (сила Лоренца F = q(v × B))"
+        bz = data.get("bz_nt")
+        tail = f", Bz = {bz:.1f} нТл" if isinstance(bz, (int, float)) else ""
+        return f"{mark}Kp = {data['kp']} — {data['level']}{tail} (сила Лоренца F = q(v × B))"
     if name == "gravitational_waves":
         return (f"{mark}{data['name']}: M₁ = {data['mass_1']} M☉, M₂ = {data['mass_2']} M☉ → "
                 f"E = Δm·c² ≈ {data['energy_j']:.2e} Дж, r_s ≈ {data['schwarzschild_km']:.0f} км")

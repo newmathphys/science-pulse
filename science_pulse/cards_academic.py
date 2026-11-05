@@ -27,6 +27,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from PIL import Image, ImageDraw, ImageFont
 
+import numpy as np
+
 from .models import CardArtifact, Post, DOMAIN_LABELS
 
 LOGGER = logging.getLogger(__name__)
@@ -50,7 +52,8 @@ ARCHETYPES = (
     "matrix_grid",
     "prob_tree",
 )
-SIMULATIONS = ("insar", "ndvi", "geodesics", "tunneling", "lorenz", "lj")
+SIMULATIONS = ("insar", "ndvi", "geodesics", "tunneling", "lorenz", "lj",
+               "cern_dimuon", "ligo_chirp", "voronoi_laplacian", "sat_tsp", "sparse_cg", "seismic_ps")
 
 _FONT_DIRS = [
     "/usr/share/fonts/TTF",
@@ -458,7 +461,209 @@ def _chart_diptych(post: Post, out_left: str | Path, out_right: str | Path) -> T
         return _diptych_lj(out_left, out_right)
     if kind == "ndvi":
         return _diptych_ndvi(out_left, out_right)
+    if kind == "cern_dimuon":
+        return _diptych_cern(out_left, out_right)
+    if kind == "ligo_chirp":
+        return _diptych_ligo(out_left, out_right)
+    if kind == "voronoi_laplacian":
+        return _diptych_voronoi(out_left, out_right)
+    if kind == "sat_tsp":
+        return _diptych_sat_tsp(out_left, out_right)
+    if kind == "sparse_cg":
+        return _diptych_sparse_cg(out_left, out_right)
+    if kind == "seismic_ps":
+        return _diptych_seismic(out_left, out_right)
     return _diptych_insar(out_left, out_right)
+
+
+def _diptych_pair(out_left: Path, out_right: Path, left: Any, right: Any,
+                  title_left: str, title_right: str) -> Tuple[str, str]:
+    """Общий каркас диптиха: две панели 4.3×3.9 дюйма с одинаковым оформлением."""
+    import matplotlib.pyplot as plt
+
+    for draw, target in ((left, out_left), (right, out_right)):
+        fig, ax = plt.subplots(figsize=(4.3, 3.9), dpi=180)
+        draw(fig, ax)
+        fig.tight_layout(pad=0.4)
+        fig.savefig(target)
+        plt.close(fig)
+    return title_left, title_right
+
+
+def _diptych_cern(out_left: Path, out_right: Path) -> Tuple[str, str]:
+    from . import simulate
+
+    data = simulate.cern_dimuon_peak()
+
+    def left(fig: Any, ax: Any) -> None:
+        ax.step(data["centers"], data["hist"], where="mid", color="#2F4858", lw=1.4, label="события")
+        ax.plot(data["centers"], data["breit_wigner"], color="#B23A2E", lw=2.0,
+                label="Брейт — Вигнер")
+        ax.axvline(data["true_mass"], color="#6B7280", ls=":", lw=1.2)
+        ax.set_xlabel("инвариантная масса, ГэВ")
+        ax.set_ylabel("число событий")
+        ax.set_title("Пик Z-бозона из фона", fontsize=11)
+        ax.legend(frameon=False, fontsize=10)
+        ax.spines[["top", "right"]].set_visible(False)
+
+    def right(fig: Any, ax: Any) -> None:
+        window = data["window"]
+        ax.errorbar(data["centers"][window], data["hist"][window],
+                    yerr=np.sqrt(np.maximum(data["hist"][window], 1.0)),
+                    fmt="o", ms=3.0, color="#2F4858", lw=1.0, label="данные")
+        ax.plot(data["centers"][window], data["breit_wigner"][window], color="#B23A2E", lw=2.0,
+                label=f"BW: m₀ = {data['true_mass']:.1f} ГэВ, Γ = {data['width_gev']} ГэВ")
+        ax.set_xlabel("масса, ГэВ")
+        ax.set_title("Резонанс крупным планом", fontsize=11)
+        ax.legend(frameon=False, fontsize=10)
+        ax.spines[["top", "right"]].set_visible(False)
+
+    return _diptych_pair(out_left, out_right, left, right, "Инвариантная масса димюонов", "Резонанс Брейта — Вигнера")
+
+
+def _diptych_ligo(out_left: Path, out_right: Path) -> Tuple[str, str]:
+    from . import simulate
+
+    data = simulate.ligo_chirp()
+
+    def left(fig: Any, ax: Any) -> None:
+        ax.plot(data["t"], data["raw"], color="#9AA5B1", lw=0.7, label="шум + сигнал")
+        ax.plot(data["t"], data["filtered"], color="#1D3557", lw=1.3, label="фильтр Баттерворта")
+        ax.set_xlabel("время, с")
+        ax.set_ylabel("деформация h(t)")
+        ax.set_title(f"GW150914: {data['m1']:.0f} + {data['m2']:.0f} M⊙", fontsize=11)
+        ax.legend(frameon=False, fontsize=10)
+        ax.spines[["top", "right"]].set_visible(False)
+
+    def right(fig: Any, ax: Any) -> None:
+        spec = data["spectrogram"]
+        if spec:
+            ax.pcolormesh(spec["time"], spec["freq"], 10 * np.log10(spec["power"] + 1e-12),
+                          shading="auto", cmap="magma")
+            ax.set_ylim(0, data["f_end"] * 1.6)
+            ax.set_ylabel("частота, Гц")
+        else:
+            ax.plot(data["t"], data["frequency"], color="#B23A2E", lw=2.0)
+        ax.set_xlabel("время, с")
+        ax.set_title("Чирп: разгон частоты", fontsize=11)
+
+    return _diptych_pair(out_left, out_right, left, right, "Сигнал слияния и фильтр", "Спектрограмма чирпа")
+
+
+def _diptych_voronoi(out_left: Path, out_right: Path) -> Tuple[str, str]:
+    from . import simulate
+
+    data = simulate.voronoi_delaunay_laplacian()
+
+    def left(fig: Any, ax: Any) -> None:
+        for segment in data["segments"]:
+            ax.plot(segment[:, 0], segment[:, 1], color="#9AA5B1", lw=0.8)
+        ax.triplot(data["points"][:, 0], data["points"][:, 1], data["simplices"],
+                   color="#1D3557", lw=1.0)
+        ax.plot(data["points"][:, 0], data["points"][:, 1], "o", ms=4.0, color="#B23A2E")
+        ax.set_title("Вороной + Делоне", fontsize=11)
+        ax.set_xticks([])
+        ax.set_yticks([])
+
+    def right(fig: Any, ax: Any) -> None:
+        values = data["eigenvalues"]
+        ax.plot(np.arange(values.size), values, "o-", ms=4.0, color="#1D3557")
+        ax.axhline(data["fiedler"], color="#B23A2E", ls="--", lw=1.4,
+                   label=f"λ₂ (Фидлер) = {data['fiedler']:.3f}")
+        ax.set_xlabel("номер собственного значения")
+        ax.set_ylabel("λ")
+        ax.set_title("Спектр лапласиана L = D − A", fontsize=11)
+        ax.legend(frameon=False, fontsize=10)
+        ax.spines[["top", "right"]].set_visible(False)
+
+    return _diptych_pair(out_left, out_right, left, right, "Диаграмма Вороного и Делоне", "Связность графа λ₂")
+
+
+def _diptych_sat_tsp(out_left: Path, out_right: Path) -> Tuple[str, str]:
+    from . import simulate
+
+    data = simulate.sat_phase_transition()
+    route = simulate.tsp_route()
+
+    def left(fig: Any, ax: Any) -> None:
+        ax.plot(data["alpha"], data["satisfiable"], "o-", color="#1D3557", ms=4.0,
+                label="доля выполнимых")
+        ax.axvline(data["alpha_critical"], color="#B23A2E", ls="--", lw=1.4,
+                   label=f"α_c ≈ {data['alpha_critical']}")
+        twin = ax.twinx()
+        twin.plot(data["alpha"], data["effort"], "s--", color="#9AA5B1", ms=3.0, label="усилия DPLL")
+        twin.set_ylabel("узлы поиска", color="#6B7280")
+        ax.set_xlabel("α = m/n")
+        ax.set_ylabel("доля выполнимых")
+        ax.set_title("Фазовый переход 3-SAT", fontsize=11)
+        ax.legend(frameon=False, fontsize=9, loc="lower left")
+        ax.spines[["top"]].set_visible(False)
+
+    def right(fig: Any, ax: Any) -> None:
+        cities = route["cities"]
+        tour = route["order"]
+        ax.plot(cities[tour, 0], cities[tour, 1], "-", color="#1D3557", lw=1.4)
+        ax.plot(cities[:, 0], cities[:, 1], "o", ms=4.0, color="#B23A2E")
+        ax.set_title(f"TSP: {route['length']:.2f} (жадно {route['initial_length']:.2f})", fontsize=11)
+        ax.set_xticks([])
+        ax.set_yticks([])
+
+    return _diptych_pair(out_left, out_right, left, right, "Порог выполнимости α ≈ 4.26", "Маршрут коммивояжёра")
+
+
+def _diptych_sparse_cg(out_left: Path, out_right: Path) -> Tuple[str, str]:
+    from . import simulate
+
+    data = simulate.sparse_cg_convergence()
+
+    def left(fig: Any, ax: Any) -> None:
+        ax.plot(data["cols"], data["rows"], ",", color="#1D3557")
+        ax.invert_yaxis()
+        ax.set_xlabel("столбец")
+        ax.set_ylabel("строка")
+        ax.set_title(f"CSR: nnz = {data['nnz']} ({data['density'] * 100:.2f}%)", fontsize=11)
+
+    def right(fig: Any, ax: Any) -> None:
+        ax.semilogy(np.arange(1, data["cg_residual"].size + 1), data["cg_residual"],
+                    color="#1D3557", lw=1.6, label="сопряжённые градиенты")
+        ax.semilogy(np.arange(1, data["gradient_residual"].size + 1), data["gradient_residual"],
+                    color="#B23A2E", lw=1.4, ls="--", label="градиентный спуск")
+        ax.set_xlabel("итерация")
+        ax.set_ylabel("‖Ax − b‖₂")
+        ax.set_title("Сходимость решателей", fontsize=11)
+        ax.legend(frameon=False, fontsize=10)
+        ax.spines[["top", "right"]].set_visible(False)
+
+    return _diptych_pair(out_left, out_right, left, right, "Структура разреженной матрицы", "CG против градиентного спуска")
+
+
+def _diptych_seismic(out_left: Path, out_right: Path) -> Tuple[str, str]:
+    from . import simulate
+
+    data = simulate.seismic_triangulation()
+
+    def left(fig: Any, ax: Any) -> None:
+        ax.plot(data["delays"], data["distance_km"], "o-", color="#1D3557", ms=4.0)
+        for delay, distance in zip(data["delays"], data["distance_km"]):
+            ax.annotate(f"{distance:.0f} км", (delay, distance), textcoords="offset points",
+                        xytext=(4, -8), fontsize=8, color="#6B7280")
+        ax.set_xlabel("Δt между S- и P-волнами, с")
+        ax.set_ylabel("расстояние до эпицентра, км")
+        ax.set_title(data["formula"], fontsize=10)
+        ax.spines[["top", "right"]].set_visible(False)
+
+    def right(fig: Any, ax: Any) -> None:
+        t = np.linspace(0.0, 30.0, 400)
+        p_km_s, s_km_s = data["p_km_s"], data["s_km_s"]
+        ax.plot(t, t * p_km_s, color="#1D3557", lw=1.6, label=f"P-волна {p_km_s:.1f} км/с")
+        ax.plot(t, t * s_km_s, color="#B23A2E", lw=1.6, label=f"S-волна {s_km_s:.1f} км/с")
+        ax.set_xlabel("время, с")
+        ax.set_ylabel("пройденный путь, км")
+        ax.set_title("Обгон P-волной S-волны", fontsize=11)
+        ax.legend(frameon=False, fontsize=10)
+        ax.spines[["top", "right"]].set_visible(False)
+
+    return _diptych_pair(out_left, out_right, left, right, "Триангуляция по P/S-волнам", "Разные скорости волн")
 
 
 def _chart_timeline(post: Post, out_png: str | Path) -> List[Dict[str, Any]]:
