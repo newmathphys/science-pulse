@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Максвелл: уравнения электромагнитного поля · Science Pulse</title>
+<meta name="description" content="Детерминированная научная лента: математика, физика, информатика.">
+<meta name="theme-color" content="#FAF8F4">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" type="image/png" href="../icon-192.png">
+<link rel="apple-touch-icon" href="../icon-192.png">
+<link rel="alternate" type="application/x-bibtex" href="../bibtex.bib" title="BibTeX">
+<link rel="stylesheet" href="../assets/style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+  onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\\[', right: '\\]', display: true}, {left: '$', right: '$', display: false}, {left: '\\(', right: '\\)', display: false}]});"></script>
+
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="brand"><h1><a href="../index.html" style="color:inherit">Science Pulse</a></h1><span>системный атлас точных наук</span></div>
+  <div class="stats"><span>постов: 4</span><span>3 дисциплины</span><span>4 публикации в сутки</span><span>0 LLM</span></div>
+</header>
+
+<article>
+  <a href="../index.html">← ко всем разборам</a>
+  <p class="meta"><a href="../radio.html">Слушать этот параграф в эфире Science Pulse FM</a>
+  · <a href="../podcast.xml">подкаст (RSS)</a></p>
+  <div class="journal">
+    <aside class="side"><h2>Паспорт параграфа</h2><ul class="spec"><li><b>ПАРАГРАФ</b><span>§ 4.5 · Ступень 4 · Рождение вычислений</span></li><li><b>ДИСЦИПЛИНА</b><span>ФИЗИКА</span></li><li><b>АВТОР / ЭПОХА</b><span>Джеймс Клерк Максвелл · 1865 г. • Лондон</span></li><li><b>ПЕРВОИСТОЧНИК</b><span>Фундамент Науки · Джеймс Клерк Максвелл</span></li><li><b>ИНВАРИАНТ</b><span><code>∇·E = ρ/ε₀,   ∇×B = μ₀J + μ₀ε₀ ∂E/∂t</code></span></li><li><b>ВЕРИФИКАЦИЯ</b><span>Эталон CODATA: c = 299792458 м/с</span></li></ul></aside>
+    <div class="main">
+      <div class="badge physics">ФИЗИКА</div>
+      <h1>Максвелл: уравнения электромагнитного поля</h1>
+      <p class="lead">Как четыре уравнения предсказали радиоволны и скорость света?</p>
+      <p class="stamp next">Параграф развёрнут полностью и выйдет в ближайшем слоте эфира (09:00 · 13:00 · 17:00 · 21:00 MSK).</p>
+      <div class="depth-nav"><button class="depth-btn" data-depth="0">z = 0 · Граница / Импульс</button><button class="depth-btn" data-depth="1">z = 1 · Интуиция и генезис</button><button class="depth-btn" data-depth="2">z = 2 · Формализм</button><button class="depth-btn" data-depth="3">z = 3 · Симуляция</button><button class="depth-btn" data-depth="4">z = 4 · Сертификат истины</button><button class="depth-btn" data-depth="all">Все слои</button></div>
+      
+      <section class="depth" data-depth="0"><h2>z = 0 · Граница / Импульс</h2><img class="article-card" src="../cards/1c18580c1b784529.png" alt="Максвелл: уравнения электромагнитного поля"></section><section class="depth" data-depth="1"><h2>z = 1 · Интуиция и генезис</h2><p>I. Исторический контекст и постановка задачи</p><p>1865 г. • Лондон · Джеймс Клерк Максвелл.</p><p>Ключевой вопрос: Как четыре уравнения предсказали радиоволны и скорость света?</p><p>Максвелл объединил электричество, магнетизм и оптику в единую теорию поля. Из его уравнений следует, что переменное электрическое поле порождает магнитное, и наоборот. В вакууме возмущения распространяются со скоростью c = 1/√(ε₀μ₀), совпадающей со скоростью света. Так была предсказана электромагнитная природа света и существование радиоволн. Уравнения Максвелла лежат в основе антенн, радаров, лазеров, оптоволокна и всей современной связи.</p><p>Максвелл объединил электричество, магнетизм и оптику в единую теорию поля. Из его уравнений следует, что переменное электрическое поле порождает магнитное, и наоборот. В вакууме возмущения распространяются со скоростью c = 1/√(ε₀μ₀), совпадающей со скоростью света. Так была предсказана электромагнитная природа света и существование радиоволн. Уравнения Максвелла лежат в основе антенн, радаров, лазеров, оптоволокна и всей современной связи.</p><p>V. Инженерное применение в XXI веке</p><p>радиосвязь, Wi-Fi, лазеры, радары Sentinel</p></section><section class="depth" data-depth="2"><h2>z = 2 · Формализм</h2><div class="formula">\[ \nabla \cdot \mathbf{E} = \frac{\rho}{\varepsilon_0}, \quad \nabla \times \mathbf{B} = \mu_0\mathbf{J} + \mu_0\varepsilon_0\frac{\partial \mathbf{E}}{\partial t} \]</div><p>II. Аналитическая модель и экспликация величин</p><p>Формула: ∇·E = ρ/ε₀,   ∇×B = μ₀J + μ₀ε₀ ∂E/∂t</p><p>где: c, epsilon_0, mu_0</p></section><section class="depth" data-depth="3"><h2>z = 3 · Симуляция</h2><p class="mono">Профиль сонификации: ⠀⠀⡀⡄⡇</p><section class="sandbox" data-sandbox="physics"><h2>Интерактивная лаборатория</h2><canvas id="sandbox-canvas" width="680" height="280"></canvas><div class="ctl"><label>A (масштаб) <input id="param-a" type="range" min="0.2" max="3.0" step="0.1" value="1.0"> <span id="val-a">1.0</span></label><label>k (частота) <input id="param-b" type="range" min="0.5" max="4.0" step="0.1" value="1.0"> <span id="val-b">1.0</span></label><label>x <input id="sandbox-x" type="number" value="1.0" step="0.1"></label><span>y(x) = <output id="sandbox-y">—</output></span><button id="sandbox-audio" class="mini-action" type="button">Услышать частоту формулы</button><button id="sandbox-svg" class="mini-action" type="button">Экспорт графика в SVG</button></div><script>
+(function () {
+  const box = document.querySelector('.sandbox');
+  if (!box) return;
+  const canvas = document.getElementById('sandbox-canvas');
+  if (!canvas || !canvas.getContext) return;
+  const ctx = canvas.getContext('2d');
+  const out = document.getElementById('sandbox-y');
+  const domain = box.dataset.sandbox || 'math';
+  const userFn = null;
+  const aEl = document.getElementById('param-a');
+  const bEl = document.getElementById('param-b');
+  const xEl = document.getElementById('sandbox-x');
+  const va = document.getElementById('val-a');
+  const vb = document.getElementById('val-b');
+  const W = canvas.width, H = canvas.height, XMIN = -3.2, XMAX = 3.2, YMAX = 1.7;
+  const toPx = x => (x - XMIN) / (XMAX - XMIN) * W;
+  const toPy = y => H / 2 - (y / YMAX) * (H / 2);
+  function f(x, A, k) {
+    if (userFn) { try { const v = userFn(x, A, k); if (isFinite(v)) return v; } catch (e) {} }
+    if (domain === 'physics') return A * Math.exp(-x * x / 4) * Math.cos(k * x);
+    if (domain === 'cs') return A * Math.max(2, x) * Math.log2(Math.max(2, x)) / 12;
+    return A * Math.sin(k * x);
+  }
+  function axes() {
+    ctx.fillStyle = '#F3F0EA'; ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = '#D6D1C7'; ctx.lineWidth = 1;
+    for (let gx = -3; gx <= 3; gx++) { ctx.beginPath(); ctx.moveTo(toPx(gx), 0); ctx.lineTo(toPx(gx), H); ctx.stroke(); }
+    for (let gy = -1.5; gy <= 1.5; gy += 0.5) { ctx.beginPath(); ctx.moveTo(0, toPy(gy)); ctx.lineTo(W, toPy(gy)); ctx.stroke(); }
+    ctx.strokeStyle = '#111827'; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(0, toPy(0)); ctx.lineTo(W, toPy(0)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(toPx(0), 0); ctx.lineTo(toPx(0), H); ctx.stroke();
+  }
+  function curve(fn, color, width) {
+    ctx.strokeStyle = color; ctx.lineWidth = width; ctx.beginPath();
+    let first = true;
+    for (let i = 0; i <= 340; i++) {
+      const xv = XMIN + (i / 340) * (XMAX - XMIN);
+      const yv = fn(xv);
+      if (!isFinite(yv)) { first = true; continue; }
+      const px = toPx(xv), py = toPy(yv);
+      first ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+      first = false;
+    }
+    ctx.stroke();
+  }
+  function draw() {
+    const A = parseFloat(aEl.value) || 1, k = parseFloat(bEl.value) || 1;
+    const x = parseFloat(xEl.value) || 0;
+    axes();
+    if (domain === 'cs') curve(n => k * n * n / 40, '#9F1239', 2);
+    curve(xv => f(xv, A, k), '#1E3A8A', 2.6);
+    const yx = f(x, A, k);
+    ctx.fillStyle = '#065F46';
+    ctx.beginPath(); ctx.arc(toPx(x), toPy(yx), 5, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#9F1239'; ctx.setLineDash([4, 3]); ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(toPx(x), toPy(0)); ctx.lineTo(toPx(x), toPy(yx)); ctx.stroke();
+    ctx.setLineDash([]);
+    if (out) out.textContent = (Math.round(yx * 1000) / 1000).toString();
+    if (va) va.textContent = A.toFixed(1);
+    if (vb) vb.textContent = k.toFixed(1);
+  }
+  [aEl, bEl, xEl].forEach(el => { if (el) el.addEventListener('input', draw); });
+  draw();
+
+  // Клиентский синтезатор (WebAudio API): озвучивает текущую кривую f(x)
+  // прямо в браузере, без скачивания файлов.
+  const audioBtn = document.getElementById('sandbox-audio');
+  let audioCtx = null, tone = null;
+  function stopTone() {
+    if (tone) { try { tone.stop(); } catch (error) {} tone = null; }
+  }
+  function playTone() {
+    const Ctor = window.AudioContext || window.webkitAudioContext;
+    if (!Ctor) return;
+    audioCtx = audioCtx || new Ctor();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const A = parseFloat(aEl.value) || 1, k = parseFloat(bEl.value) || 1;
+    stopTone();
+    tone = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    tone.type = domain === 'physics' ? 'sine' : (domain === 'cs' ? 'square' : 'triangle');
+    tone.frequency.value = Math.max(60, Math.min(1400, 220 * A * k));
+    gain.gain.value = 0.07;
+    tone.connect(gain); gain.connect(audioCtx.destination);
+    tone.start();
+    setTimeout(stopTone, 1200);
+  }
+  if (audioBtn) audioBtn.addEventListener('click', playTone);
+
+  // Экспорт векторного графика: чистый SVG (для сайта и печати).
+  const svgBtn = document.getElementById('sandbox-svg');
+  function downloadSvg() {
+    const A = parseFloat(aEl.value) || 1, k = parseFloat(bEl.value) || 1;
+    const pts = [];
+    for (let i = 0; i <= 340; i++) {
+      const xv = XMIN + (i / 340) * (XMAX - XMIN);
+      const yv = f(xv, A, k);
+      if (!isFinite(yv)) continue;
+      pts.push([toPx(xv), toPy(yv)]);
+    }
+    const path = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(2) + ' ' + p[1].toFixed(2)).join(' ');
+    const grid = [];
+    for (let gx = -3; gx <= 3; gx++) {
+      grid.push('<line x1="' + toPx(gx) + '" y1="0" x2="' + toPx(gx) + '" y2="' + H + '" stroke="#D6D1C7"/>');
+    }
+    for (let gy = -1.5; gy <= 1.5; gy += 0.5) {
+      grid.push('<line x1="0" y1="' + toPy(gy) + '" x2="' + W + '" y2="' + toPy(gy) + '" stroke="#D6D1C7"/>');
+    }
+    const svg = '<?xml version="1.0" encoding="UTF-8"?>'
+      + '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '">'
+      + '<rect width="' + W + '" height="' + H + '" fill="#F3F0EA"/>'
+      + grid.join('')
+      + '<line x1="0" y1="' + toPy(0) + '" x2="' + W + '" y2="' + toPy(0) + '" stroke="#111827" stroke-width="1.4"/>'
+      + '<line x1="' + toPx(0) + '" y1="0" x2="' + toPx(0) + '" y2="' + H + '" stroke="#111827" stroke-width="1.4"/>'
+      + '<path d="' + path + '" fill="none" stroke="#1E3A8A" stroke-width="2.6"/>'
+      + '</svg>';
+    const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'science-pulse-graph.svg';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+  }
+  if (svgBtn) svgBtn.addEventListener('click', downloadSvg);
+})();
+</script></section><details class="flash"><summary>Просветительская задача для самопроверки</summary><p><b>Чему равна скорость света из уравнения Максвелла c = 1/√(ε₀μ₀)?</b></p><p><i>Подсказка: Подставьте эталонные ε₀ и μ₀ (CODATA).</i></p><p>Ответ: c = 299792458 м/с (1/√(ε₀μ₀), ε₀ = 8.8541878128·10⁻¹², μ₀ = 1.25663706212·10⁻⁶). Ответ вычислен ядром точно (арифметика Python, без округлений).</p></details><p>III. Вычислительная верификация</p><p>Эталон CODATA: c = 299792458 м/с</p><p>Задача для самопроверки: Чему равна скорость света из уравнения Максвелла c = 1/√(ε₀μ₀)?</p><p>Ответ ядра: c = 299792458 м/с (1/√(ε₀μ₀), ε₀ = 8.8541878128·10⁻¹², μ₀ = 1.25663706212·10⁻⁶). Ответ вычислен ядром точно (арифметика Python, без округлений).</p><p>Песочница кода: кода нет</p><p>Печать версии (merkle v1): 04a7f67e063ef2f52d628753ced5dba9…</p></section><section class="depth" data-depth="4"><h2>z = 4 · Сертификат истины</h2><h2>Вычислительный паспорт</h2><ul><li><b>Точный расчёт:</b> <code>Эталон CODATA: c = 299792458 м/с</code></li><li><b>Код:</b> верно кода нет</li><li><b>Печать (merkle v1):</b> <code>04a7f67e063ef2f52d628753ced5dba9…</code></li></ul><p>IV. Связи в дереве фундамента науки</p><p>Опирается на: bernoulli_flow.</p><p>Родословная первоисточников: первоисточник — Дж. Максвелл, «Трактат об электричестве и магнетизме» (1873); академический свод — NIST CODATA · Particle Data Group; цифровой узел — Фундамент Науки · Джеймс Клерк Максвелл. Библиография: https://ru.wikipedia.org/wiki/Уравнения_Максвелла.</p></section>
+    </div>
+    <aside class="side">
+      <h2>Вычислительный паспорт</h2><ul><li><b>Точный расчёт:</b> <code>Эталон CODATA: c = 299792458 м/с</code></li><li><b>Код:</b> верно кода нет</li><li><b>Печать (merkle v1):</b> <code>04a7f67e063ef2f52d628753ced5dba9…</code></li></ul>
+      <h2>Родословная первоисточников</h2><ul><li><b>Первоисточник:</b> Дж. Максвелл, «Трактат об электричестве и магнетизме» (1873)</li><li><b>Академический свод:</b> NIST CODATA · Particle Data Group</li><li><b>Цифровой узел:</b> <a href="https://ru.wikipedia.org/wiki/Уравнения_Максвелла" rel="noopener">Фундамент Науки · Джеймс Клерк Максвелл</a></li><li><b>Библиография:</b> https://ru.wikipedia.org/wiki/Уравнения_Максвелла</li></ul>
+      <div class="tags"><span>максвелл</span><span>поля</span><span>света</span><span>скоростью</span><span>уравнения</span><span>ε₀μ₀</span><span>антенн</span><span>была</span></div>
+      <p>Первоисточник: <a href="https://ru.wikipedia.org/wiki/Уравнения_Максвелла" rel="noopener">https://ru.wikipedia.org/wiki/Уравнения_Максвелла</a></p>
+      <p style="color:var(--ink-2)">Источник: Фундамент Науки · Джеймс Клерк Максвелл · foundation · качество 0.75</p>
+      <h2>Используется в новых темах</h2><ul><li><a href="da50b9ddca2fc4ef.html">Шрёдингер: волновое уравнение и рождение квантовой механики</a></li><li><a href="5b2547e132b7f8e7.html">Туннелирование и альфа-распад: квантовый выход сквозь стену</a></li><li><a href="d9e524f3d70cf56b.html">Планк: квант энергии и рождение квантовой физики</a></li></ul>
+      <h2>Связанные разборы</h2><ul><li><a href="0212a505f66fee75.html">Ньютон: закон всемирного тяготения</a></li><li><a href="b063d20371654588.html">Пифагор: теорема о метрике евклидова пространства</a></li><li><a href="d9e524f3d70cf56b.html">Планк: квант энергии и рождение квантовой физики</a></li><li><a href="65ab528d3d7fd470.html">Шварцшильд: метрика чёрной дыры и линзирование света</a></li><li><a href="46bb6dd46865ca77.html">Эйнштейн: относительность времени, массы и гравитации</a></li></ul>
+    </aside>
+  </div>
+</article>
+<script>
+(function () {
+  const buttons = Array.from(document.querySelectorAll('.depth-btn'));
+  const sections = Array.from(document.querySelectorAll('.depth'));
+  if (!buttons.length || !sections.length) return;
+  function show(depth) {
+    buttons.forEach((b) => b.classList.toggle('active', b.dataset.depth === depth));
+    sections.forEach((s) => s.classList.toggle('visible', depth === 'all' || s.dataset.depth === depth));
+  }
+  buttons.forEach((b) => b.addEventListener('click', () => show(b.dataset.depth)));
+  show('0');
+})();
+</script>
+
+<footer>Science Pulse · источники: Stack Exchange, OEIS, Wikipedia, arXiv, Rosetta Code, GitHub raw, Numbers API, SymPy/CODATA. Без LLM в контенте.</footer>
+</div>
+<script>if ('serviceWorker' in navigator) { window.addEventListener('load', () => navigator.serviceWorker.register('../sw.js').catch(() => {})); }</script>
+</body>
+</html>

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Флешкарты · Science Pulse</title>
+<meta name="description" content="Детерминированная научная лента: математика, физика, информатика.">
+<meta name="theme-color" content="#FAF8F4">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="alternate" type="application/x-bibtex" href="bibtex.bib" title="BibTeX">
+<link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+  onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\\[', right: '\\]', display: true}, {left: '$', right: '$', display: false}, {left: '\\(', right: '\\)', display: false}]});"></script>
+
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="brand"><h1><a href="index.html" style="color:inherit">Science Pulse</a></h1><span>системный атлас точных наук</span></div>
+  <div class="stats"><span>постов: 4</span><span>3 дисциплины</span><span>4 публикации в сутки</span><span>0 LLM</span></div>
+</header>
+<article><div class="badge">ФЛЕШКАРТЫ</div><h1>Карточки для повторения</h1><p class="lead">Вопрос → ответ по 4 разборам. Нажмите на карточку, чтобы увидеть ответ.</p><details class="flash">
+  <summary>Как идея считать нулями и единицами превратилась в логические вентили процессора?</summary>
+  <p><b>Лейбниц и Буль: двоичный код и логика на кремнии</b> <span class="meta">ИНФОРМАТИКА</span></p>
+  <p><code>x \in \{0, 1\}, \quad a \land b, \; a \lor b, \; \lnot a</code></p>
+  <p>Лейбниц заметил, что любое число можно записать двумя знаками — 0 и 1, и что такая запись делает вычисления простыми и надёжными. Через полтора века Джордж Буль описал логику алгебраическими уравнениями: «истина» и «ложь» стали 1 и 0, а операции И, ИЛИ, НЕ — сложением и умножением. Булева алгебра сначала казалась чист…</p>
+  <p><a href="post/eb6fd65239d8bf7b.html">Полный разбор →</a></p>
+</details><details class="flash">
+  <summary>Какая сила удерживает на плаву стальной авианосец и управляет подъёмом стратосферного зонда?</summary>
+  <p><b>Архимед: закон гидростатики и рождение статики</b> <span class="meta">ФИЗИКА</span></p>
+  <p><code>F_A = \rho g V = \oint_{\partial V} p \, d\mathbf{S}</code></p>
+  <p>На тело, погружённое в жидкость или газ, действует выталкивающая сила, равная весу вытесненного объёма среды. Архимед получил первый точный количественный закон физики жидкостей. В современной формулировке сила Архимеда выводится как интеграл градиента гидростатического давления по замкнутой поверхности тела. На этом…</p>
+  <p><a href="post/2cc2003206469ece.html">Полный разбор →</a></p>
+</details><details class="flash">
+  <summary>Как метод деления отрезков из «Начал» стал фундаментом RSA и современной криптографии?</summary>
+  <p><b>Евклид: алгоритм НОД — древнейший рабочий алгоритм</b> <span class="meta">ИНФОРМАТИКА</span></p>
+  <p><code>\gcd(a, b) = \gcd(b, a \bmod b), \quad T(n) = \mathcal{O}(\log n)</code></p>
+  <p>Евклид описал способ нахождения наибольшего общего делителя двух целых чисел без полного перебора делителей. Ключевой шаг — замена большего числа остатком от деления: gcd(a, b) = gcd(b, a mod b). Алгоритм завершается за логарифмическое число шагов O(log min(a, b)). Расширенная версия находит коэффициенты Безу и обратн…</p>
+  <p><a href="post/daa96f8f158c6deb.html">Полный разбор →</a></p>
+</details><details class="flash">
+  <summary>Почему формула из VI века до н.э. сегодня работает в 3D-движках, GPS и машинном обучении?</summary>
+  <p><b>Пифагор: теорема о метрике евклидова пространства</b> <span class="meta">МАТЕМАТИКА</span></p>
+  <p><code>a^2 + b^2 = c^2 \quad \Longrightarrow \quad \|\mathbf{x}\|_2 = \sqrt{\sum_{i=1}^n x_i^2}</code></p>
+  <p>В прямоугольном треугольнике квадрат гипотенузы равен сумме квадратов катетов. Это первый великий инвариант геометрии: длина отрезка не зависит от поворота системы координат. Обобщение на n измерений задаёт евклидову норму вектора — L2-расстояние. В 2026 году по этой формуле считают расстояние между признаками в машин…</p>
+  <p><a href="post/b063d20371654588.html">Полный разбор →</a></p>
+</details><p><a href="index.html">← ко всем разборам</a></p></article>
+<footer>Science Pulse · источники: Stack Exchange, OEIS, Wikipedia, arXiv, Rosetta Code, GitHub raw, Numbers API, SymPy/CODATA. Без LLM в контенте.</footer>
+</div>
+<script>if ('serviceWorker' in navigator) { window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {})); }</script>
+</body>
+</html>

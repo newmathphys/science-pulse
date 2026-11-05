@@ -1,0 +1,36 @@
+# Science Pulse
+
+Детерминированная научная лента: математика, физика, информатика.
+Источники: Stack Exchange, OEIS, Wikipedia, arXiv, Rosetta Code, GitHub raw, Numbers API, SymPy/CODATA.
+
+## Posts
+- [Лейбниц и Буль: двоичный код и логика на кремнии](https://newmathphys.github.io/science-pulse/post/eb6fd65239d8bf7b.html) — cs
+- [Архимед: закон гидростатики и рождение статики](https://newmathphys.github.io/science-pulse/post/2cc2003206469ece.html) — physics
+- [Евклид: алгоритм НОД — древнейший рабочий алгоритм](https://newmathphys.github.io/science-pulse/post/daa96f8f158c6deb.html) — cs
+- [Пифагор: теорема о метрике евклидова пространства](https://newmathphys.github.io/science-pulse/post/b063d20371654588.html) — math
+- [Аль-Хорезми: алгебра как наука об уравнениях](https://newmathphys.github.io/science-pulse/post/f3ba0a10118b66cd.html) — math
+- [Ньютон: закон всемирного тяготения](https://newmathphys.github.io/science-pulse/post/0212a505f66fee75.html) — physics
+- [Галилей: свободное падение и язык эксперимента](https://newmathphys.github.io/science-pulse/post/c11673db77921fe1.html) — physics
+- [Эйлер: тождество, связывающее пять констант](https://newmathphys.github.io/science-pulse/post/a0adc2b75d9a159c.html) — math
+- [Ньютон и Лейбниц: производная как скорость изменения](https://newmathphys.github.io/science-pulse/post/bc6e7878c7e58a85.html) — math
+- [Ада Лавлейс: первый алгоритм и границы машины](https://newmathphys.github.io/science-pulse/post/3b4a815c0a7daf75.html) — cs
+- [Бернулли: закон сохранения энергии в потоке](https://newmathphys.github.io/science-pulse/post/bc4e1c5adfb21fc2.html) — physics
+- [Фурье: разложение сигнала на гармоники](https://newmathphys.github.io/science-pulse/post/55633bc7d11c3a61.html) — math
+- [Нётер: симметрия и законы сохранения](https://newmathphys.github.io/science-pulse/post/2c754839b43829ea.html) — math
+- [Гаусс: нормальное распределение и метод наименьших квадратов](https://newmathphys.github.io/science-pulse/post/2f07486de10e7b18.html) — math
+- [Хоар: быстрая сортировка и разделяй-и-властвуй](https://newmathphys.github.io/science-pulse/post/93cbd57074766fd6.html) — cs
+- [Максвелл: уравнения электромагнитного поля](https://newmathphys.github.io/science-pulse/post/1c18580c1b784529.html) — physics
+- [Больцман: энтропия как число состояний](https://newmathphys.github.io/science-pulse/post/c4233cddc505068c.html) — physics
+- [Риман: интеграл и геометрия искривлённого пространства](https://newmathphys.github.io/science-pulse/post/42d36b04286101c5.html) — math
+- [Тьюринг: машина, определившая границы вычислений](https://newmathphys.github.io/science-pulse/post/c78eb87834bbf3e2.html) — cs
+- [Шеннон: энтропия и рождение теории информации](https://newmathphys.github.io/science-pulse/post/68da699cbb1069e1.html) — cs
+- [Дейкстра: кратчайший путь и дисциплина структурного кода](https://newmathphys.github.io/science-pulse/post/77475162fe6cf262.html) — cs
+- [Шрёдингер: волновое уравнение и рождение квантовой механики](https://newmathphys.github.io/science-pulse/post/da50b9ddca2fc4ef.html) — physics
+- [Туннелирование и альфа-распад: квантовый выход сквозь стену](https://newmathphys.github.io/science-pulse/post/5b2547e132b7f8e7.html) — physics
+- [Планк: квант энергии и рождение квантовой физики](https://newmathphys.github.io/science-pulse/post/d9e524f3d70cf56b.html) — physics
+- [Гёдель: теоремы о неполноте и границы доказуемого](https://newmathphys.github.io/science-pulse/post/875447daa026b237.html) — math
+- [Молекулярная динамика и хаос: потенциал Леннард-Джонса и аттрактор Лоренца](https://newmathphys.github.io/science-pulse/post/96e399b46ce3fc69.html) — cs
+- [RSA: односторонняя функция, охраняющая интернет](https://newmathphys.github.io/science-pulse/post/d74d8f49c8df25d4.html) — cs
+- [Спутниковая интерферометрия: фазовые кольца InSAR и индекс NDVI](https://newmathphys.github.io/science-pulse/post/32873f816d03ddd7.html) — physics
+- [Шварцшильд: метрика чёрной дыры и линзирование света](https://newmathphys.github.io/science-pulse/post/65ab528d3d7fd470.html) — physics
+- [Эйнштейн: относительность времени, массы и гравитации](https://newmathphys.github.io/science-pulse/post/46bb6dd46865ca77.html) — physics
