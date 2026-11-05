@@ -73,11 +73,24 @@ def _rotation(weights: Dict[str, int], index: int) -> str:
 
 
 def mode_for_post(storage: Any, config: Any, post: Any, theme: str = "") -> str:
-    """Режим выпуска: явный `meta["post_mode"]` важнее всего, далее — эвристика."""
+    """Режим выпуска: явный `meta["post_mode"]` важнее всего, далее — эвристика.
+
+    Счётчик выпусков растёт на КАЖДОМ посте, а задача выпуска берётся на каждом
+    `challenge_every_nth`-м: иначе спецвыпуски (стенд/шпаргалка/фильм) не
+    двигают счётчик и обещанный интервал «не реже 4-го» растягивается до 7.
+    """
     meta = getattr(post, "meta", {}) or {}
     declared = str(meta.get("post_mode") or "").strip()
     if declared in MODES:
         return declared
+    conf = settings(config)
+    if not conf["enabled"]:
+        return "interactive_challenge"
+    counter = storage.kv_int(KV_COUNTER, 0) + 1 if storage is not None else 1
+    if storage is not None:
+        storage.kv_set(KV_COUNTER, str(counter))
+    if counter % conf["challenge_every_nth"] == 0:
+        return "interactive_challenge"
     if str(theme or "").strip().lower() == "moku3d":
         return "moku3d_film"
     if meta.get("simulation") or str(meta.get("visual_type") or "") == "diptych_insar":
@@ -89,14 +102,6 @@ def mode_for_post(storage: Any, config: Any, post: Any, theme: str = "") -> str:
             return "cheatsheet_save"
     except Exception:  # pragma: no cover - защитный контур
         pass
-    conf = settings(config)
-    if not conf["enabled"]:
-        return "interactive_challenge"
-    counter = storage.kv_int(KV_COUNTER, 0) + 1 if storage is not None else 1
-    if storage is not None:
-        storage.kv_set(KV_COUNTER, str(counter))
-    if counter % conf["challenge_every_nth"] == 0:
-        return "interactive_challenge"
     return _rotation(conf["weights"], counter)
 
 

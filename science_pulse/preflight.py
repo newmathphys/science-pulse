@@ -34,18 +34,24 @@ def preflight(pipeline: Any, domain: Optional[str] = None, with_media: bool = Tr
     if post is None:
         return {"ok": False, "checks": checks, "post": None}
 
-    # Карточка (рендер в память, без записи на диск)
+    # Карточка (рендер в память, без записи на диск) — тем же размером,
+    # которым её рисует публикация (`card.size`), иначе предполётная проверка
+    # расходится с реальностью.
     card = None
+    card_raw = dict((config.raw.get("card") or {}))
+    expected = int(card_raw.get("size", 1080) or 1080)
     try:
-        card = render_card(post, out_path=None)
-        ok = (card.width, card.height) == (1080, 1080) and len(card.data) > 15_000
+        card = render_card(post, out_path=None, size=expected,
+                           ssaa=int(card_raw.get("ssaa", 2)),
+                           engine=str(card_raw.get("engine", "auto")))
+        ok = (card.width, card.height) == (expected, expected) and len(card.data) > 15_000
         checks.append({"name": "card", "ok": ok, "detail": f"{card.width}×{card.height}, {len(card.data) // 1024} КБ"})
     except Exception as exc:
         checks.append({"name": "card", "ok": False, "detail": str(exc)[:120]})
 
     # Стандарты подписи
     caption = build_caption(post, limit=1020, html=True, site_url=config.site_base_url)
-    checker = StandardsChecker.load(storage)
+    checker = StandardsChecker.load(storage, config)
     report = checker.check(post, caption, card)
     if not report.ok:
         _post, healed, notes = checker.heal(post, caption)

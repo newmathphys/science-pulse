@@ -72,6 +72,20 @@ class PostModeTests(unittest.TestCase):
             modes.append(post_modes.mode_for_post(self.storage, self.config, make_post(f"n{index}", f"4.{index}")))
         self.assertIn("interactive_challenge", modes[2::3])
 
+    def test_challenge_cadence_holds_with_special_modes(self):
+        """Спецвыпуски (стенд/шпаргалка/фильм) не растягивают обещанный интервал."""
+        self.config.raw["post_modes"] = {"challenge_every_nth": 4}
+        modes = []
+        for index in range(12):
+            meta = {"simulation": "insar"} if index % 3 == 0 else {}
+            modes.append(post_modes.mode_for_post(
+                self.storage, self.config, make_post(f"c{index}", f"9.{index}", meta=meta)))
+        positions = [i + 1 for i, mode in enumerate(modes) if mode == "interactive_challenge"]
+        gaps = [b - a for a, b in zip(positions, positions[1:])]
+        self.assertTrue(positions, "задача выпуска должна выходить")
+        self.assertEqual(positions[0], 4, "первая задача — на 4-м выпуске")
+        self.assertTrue(all(gap <= 4 for gap in gaps), f"интервалы {gaps}")
+
     def test_pure_knowledge_dominates(self):
         modes = [post_modes.mode_for_post(self.storage, self.config, make_post(f"p{i}", f"5.{i}"))
                  for i in range(11)]

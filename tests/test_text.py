@@ -1,8 +1,11 @@
 import unittest
 
+from science_pulse.models import Post
+from science_pulse.post_proof import build_post_proof, format_proof_line
 from science_pulse.text import (
     clean_latex_for_telegram,
     fingerprint,
+    formula_kind,
     formula_to_unicode,
     hamming,
     lead_sentence,
@@ -77,6 +80,54 @@ class TextTests(unittest.TestCase):
     def test_lead_sentence(self):
         body = "Что в этом такого? Когда квантовая механика была открыта, физики получили новый язык описания мира."
         self.assertTrue(lead_sentence(body, 120).startswith("Когда квантовая"))
+
+
+class ReadableMathTests(unittest.TestCase):
+    """Сырой sympy-вывод не должен попадать читателю (`x**6`, `besselj(0, x)`)."""
+
+    def test_sympy_names_and_powers_are_humanized(self):
+        raw = "-(x**6*besselj(1, x) + 24*x**5*besselj(0, x))/x**6"
+        pretty = formula_to_unicode(raw, 140)
+        self.assertNotIn("**", pretty)
+        self.assertNotIn("besselj", pretty)
+        self.assertIn("J₁(x)", pretty)
+        self.assertIn("J₀(x)", pretty)
+        self.assertIn("x⁶", pretty)
+        self.assertIn("·", pretty)
+
+    def test_latex_formula_still_converted(self):
+        self.assertIn("x²", formula_to_unicode(r"x^2 + y^2 = z^2"))
+
+    def test_code_is_left_alone(self):
+        code = "def solve(self):\n    return self.value ** 2"
+        out = formula_to_unicode(code)
+        self.assertIn("def solve(self):", out)
+        self.assertIn("**", out, "степень в коде не превращается в знак умножения")
+        self.assertNotIn("·", out)
+
+    def test_kind_recognizes_python_power_as_math(self):
+        self.assertEqual(formula_kind("x**6 + 1"), "math")
+
+
+class ProofLineTests(unittest.TestCase):
+    """`nan` из разрывов не показывается как результат точного расчёта."""
+
+    def test_nan_points_are_skipped(self):
+        post = Post(id="nan1", domain="math", title="Разрыв в нуле",
+                    hook="Что будет при делении на ноль?",
+                    body="Функция 1/x имеет разрыв в нуле, поэтому точка x = 0 пропускается. " * 3,
+                    formula_latex=r"\frac{1}{x}", formula_plain="1/x", source_name="Тест")
+        line = format_proof_line(build_post_proof(post))
+        self.assertNotIn("nan", line.lower())
+        self.assertIn("x(1)", line)
+
+    def test_all_points_non_finite_gives_empty_line(self):
+        post = Post(id="nan2", domain="math", title="Логарифм нуля",
+                    hook="Где функция не определена?",
+                    body="Логарифм определён только для положительных чисел, остальное не считаем. " * 3,
+                    formula_latex=r"\log(x)/x", formula_plain="log(x)/x", source_name="Тест")
+        proof = build_post_proof(post)
+        self.assertNotIn("nan", str(proof.get("computed_example", "")).lower())
 
 
 if __name__ == "__main__":

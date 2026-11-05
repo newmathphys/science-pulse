@@ -125,6 +125,33 @@ class GeneratorTests(unittest.TestCase):
         self.assertTrue(challenge["question"].endswith("?"))
         self.assertTrue(challenge["answer"])
 
+    def test_no_canon_challenge_answers_nan(self):
+        """Регрессия: ответ «x(0) = nan» не может считаться проверяемой задачей."""
+        from science_pulse.sources.foundation import FoundationSource, ordered_nodes
+
+        config = Config(raw={"data_dir": "data", "dist_dir": "dist"}, root=Path("."))
+        source = FoundationSource(config)
+        bad = []
+        for index, node in enumerate(ordered_nodes()):
+            post = source.fetch(limit=1, cycle=index)[0]
+            answer = str(build_challenge(post).get("answer") or "")
+            if "nan" in answer.lower() or "inf" in answer.lower():
+                bad.append(node["id"])
+        self.assertEqual(bad, [], f"неопределённые ответы: {bad}")
+
+    def test_bernoulli_and_schrodinger_have_real_numbers(self):
+        """Бернулли и Шрёдингер получили настоящие вычисляемые следствия."""
+        from science_pulse.challenge import CANON_COMPUTABLE
+
+        self.assertIn("bernoulli_flow", CANON_COMPUTABLE)
+        self.assertIn("schrodinger", CANON_COMPUTABLE)
+        bernoulli = CANON_COMPUTABLE["bernoulli_flow"]()
+        schrodinger = CANON_COMPUTABLE["schrodinger"]()
+        self.assertIn("152", bernoulli["answer"])          # 101325 + 2000 + 49050
+        self.assertIn("кПа", bernoulli["answer"])
+        self.assertIn("эВ", schrodinger["answer"])
+        self.assertIn("e-19", schrodinger["answer"])
+
     def test_all_canon_nodes_have_verified_challenge(self):
         """Регрессия: 30 из 30 узлов канона дают проверяемую числовую задачу."""
         from science_pulse.sources.foundation import FoundationSource, ordered_nodes

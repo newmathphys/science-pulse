@@ -650,7 +650,7 @@ def formula_kind(value: str) -> str:
         return "code"
     if "'" in raw or '"' in raw or raw.endswith(":"):
         return "code"
-    if re.search(r"[\^_]", raw):
+    if re.search(r"[\^_]", raw) or "**" in raw:
         return "math"
     if re.search(r"[A-Za-z0-9)\]]\s*=\s*[A-Za-z0-9(\[\\]", raw):
         return "math"
@@ -659,6 +659,36 @@ def formula_kind(value: str) -> str:
 
 def looks_like_math(value: str) -> bool:
     return formula_kind(value) == "math"
+
+
+_SUPERSCRIPTS = str.maketrans("0123456789-+", "⁰¹²³⁴⁵⁶⁷⁸⁹⁻⁺")
+_SUBSCRIPTS = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
+
+# SymPy-имена → человекочитаемая математика (для подписей и карточек).
+_SYMPY_NAMES = (
+    ("besselj", "J"), ("bessely", "Y"), ("besseli", "I"), ("besselk", "K"),
+    ("assoc_laguerre", "L"), ("laguerre", "L"),
+    ("assoc_legendre", "P"), ("legendre", "P"),
+    ("jacobi", "P"), ("gegenbauer", "C"), ("chebyshevu", "U"), ("chebyshevt", "T"),
+    ("hermite", "H"), ("sqrt", "√"), ("exp", "exp"),
+)
+
+
+def _readable_math(text: str) -> str:
+    """`x**6*besselj(0, x)` → `x⁶·J₀(x)` — читаемо для человека, без потери смысла."""
+    value = text
+    for name, pretty in _SYMPY_NAMES:
+        value = re.sub(
+            rf"\b{name}\(\s*(-?\d+)\s*,\s*([A-Za-z_]\w*)\s*\)",
+            lambda match, pretty=pretty: f"{pretty}{match.group(1).translate(_SUBSCRIPTS)}({match.group(2)})",
+            value,
+        )
+        value = re.sub(rf"\b{name}\(\s*([A-Za-z_]\w*)\s*\)", rf"{pretty}(\1)", value)
+    value = re.sub(r"(\*\*|\^)\s*(-?\d+)",
+                   lambda match: match.group(2).translate(_SUPERSCRIPTS), value)
+    value = value.replace("**", "^")
+    value = re.sub(r"(?<=[\w)\]])\*(?=[\w(\[])", "·", value)
+    return value
 
 
 def formula_to_unicode(formula: str, max_len: int = 160) -> str:
@@ -671,6 +701,7 @@ def formula_to_unicode(formula: str, max_len: int = 160) -> str:
     text = text.replace("**", "^")
     # `*` → `·` только как знак умножения между операндами (не `^*` в регулярках)
     text = re.sub(r"(?<=[\w)\]])[*](?=[\w(\[])", "·", text)
+    text = _readable_math(text)
     return truncate(normalize_whitespace(text), max_len)
 
 

@@ -5,7 +5,7 @@ import math
 from typing import Any, Dict, List
 
 from ..models import Post, make_id
-from ..text import truncate
+from ..text import formula_to_unicode, truncate
 from .base import Source
 
 LOGGER = logging.getLogger(__name__)
@@ -145,11 +145,28 @@ class OfflineBunkerSource(Source):
         plain = str(expr)
         pretty = sp.pretty(expr, use_unicode=True)
         constant_text = f"{constant_key} = {constant_value:.6e} {constant_unit}".strip()
-        explanation = (
-            f"{item['insight']}\n"
-            f"Производная: d/dx f(x) = {sp.sstr(derivative)[:110]}.\n"
-            f"Эталон CODATA: {constant_text} (±{constant_uncertainty:.1e})."
+        # Производная: без слепой обрезки посреди выражения (иначе читатель видит
+        # «не закрыта скобка» и контур качества заворачивает пост в карантин).
+        derivative_text = formula_to_unicode(sp.sstr(derivative), 120)
+        derivative_line = (
+            f"Производная: d/dx f(x) = {derivative_text}.\n" if len(derivative_text) <= 120
+            else "Производная вычисляется символьным ядром SymPy — запускаемый код ниже.\n"
         )
+        readable = formula_to_unicode(plain, 90)
+        readable_short = readable if len(readable) <= 90 else ""
+        # Тело поста должно оставаться содержательным: смысл + производная + честная
+        # рамка проверки. Случайную константу CODATA в тело не подставляем — она не
+        # связана с формулой (раньше выбиралась по индексу эпохи).
+        closing = (
+            f"Формула {readable_short} проверяется точным расчётом: значения считает SymPy, "
+            "эталонные константы берутся из CODATA. Обращения к языковой модели нет — "
+            "всё, что видит читатель, воспроизводится запуском кода ниже."
+            if readable_short else
+            "Формула проверяется точным расчётом: значения считает SymPy, эталонные "
+            "константы берутся из CODATA. Обращения к языковой модели нет — всё, что "
+            "видит читатель, воспроизводится запуском кода ниже."
+        )
+        explanation = f"{item['insight']}\n{derivative_line}{closing}"
 
         post = Post(
             id=make_id(self.name, f"{cycle_index}:{item['title']}"),

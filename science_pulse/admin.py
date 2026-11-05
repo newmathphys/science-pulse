@@ -988,7 +988,7 @@ class TelegramAdmin:
         """Пороги качества: показать или изменить (`set KEY VALUE`)."""
         from .standards import Standards, StandardsChecker
 
-        checker = StandardsChecker.load(self.storage)
+        checker = StandardsChecker.load(self.storage, self.config)
         if args and args[0] == "set":
             if len(args) < 3 or args[1] not in Standards.DEFAULTS:
                 return f"Формат: /standards set KEY VALUE. Ключи: {', '.join(Standards.DEFAULTS)}"

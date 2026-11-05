@@ -91,6 +91,20 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(third["post"].domain, "cs")
         self.assertEqual(self.storage.count("published"), 3)
 
+    def test_card_size_from_config_is_honored(self):
+        """Смена `card.size` не должна отправлять в карантин каждый пост."""
+        config = Config(raw={"data_dir": "data", "dist_dir": "dist",
+                             "card": {"size": 240, "ssaa": 1, "engine": "pillow"}},
+                        root=self.root)
+        config.ensure_dirs()
+        storage = Storage(config.db_path)
+        pipeline = Pipeline(config, storage, self.sources, FakePublishers(storage))
+        result = pipeline.publish_next()
+        self.assertTrue(result["ok"], result.get("error"))
+        self.assertEqual(result["card"].width, 240)
+        self.assertEqual(storage.count("published"), 1)
+        self.assertEqual(storage.count("rejected"), 0, "контур качества не должен заворачивать пост")
+
     def test_pause(self):
         self.storage.kv_set("paused", "1")
         result = self.pipeline.publish_next()

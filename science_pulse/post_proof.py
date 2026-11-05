@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import ast
 import hashlib
+import math
 import subprocess
 import sys
 import time
@@ -81,8 +82,12 @@ def _formula_line(post: Post) -> str:
         try:
             value = float(parsed.subs(substitutions).subs(variable, point))
         except Exception:
-            value = float("nan")
+            continue
+        if not math.isfinite(value):
+            continue  # деление на ноль и разрывы не показываем как «nan»
         values.append(f"{primary}({point}) = {value:.6g}")
+    if not values:
+        return ""
     return "Точный расчёт: " + ", ".join(values)
 
 

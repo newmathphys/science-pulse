@@ -56,6 +56,15 @@ class Standards:
         raw = dict((getattr(config, "raw", {}) or {}).get("standards") or {})
         values = dict(cls.DEFAULTS)
         values.update({key: value for key, value in raw.items() if key in cls.DEFAULTS})
+        # Ожидаемый размер карточки берём из `card.size`: иначе смена размера в
+        # конфиге расходится с контуром качества и в карантин уходит КАЖДЫЙ пост.
+        card = (getattr(config, "raw", {}) or {}).get("card") or {}
+        try:
+            size = int(card.get("size", 0) or 0)
+        except (TypeError, ValueError):
+            size = 0
+        if size > 0 and "card_size" not in raw:
+            values["card_size"] = size
         return cls(**values)
 
     def as_dict(self) -> Dict[str, Any]:
@@ -150,18 +159,26 @@ class StandardsChecker:
         self.standards = standards or Standards()
 
     @classmethod
-    def load(cls, storage: Any) -> "StandardsChecker":
-        """Пороги из kv (если оператор менял через `/standards set`)."""
+    def load(cls, storage: Any, config: Any = None) -> "StandardsChecker":
+        """Пороги: умолчания ← конфиг ← kv (оператор менял через `/standards set`).
+
+        `config` задаёт ожидаемый размер карточки из `card.size`, чтобы контур
+        качества не расходился с реально нарисованной карточкой.
+        """
         import json
 
-        values = dict(Standards.DEFAULTS)
+        base = Standards.from_config(config) if config is not None else Standards(**Standards.DEFAULTS)
+        values = dict(base.as_dict())
         raw = storage.kv_get("standards", "") if hasattr(storage, "kv_get") else ""
         if raw:
             try:
-                values.update(json.loads(raw))
+                stored = json.loads(raw)
+                if isinstance(stored, dict):
+                    values.update({key: value for key, value in stored.items()
+                                   if key in Standards.DEFAULTS})
             except ValueError:
                 pass
-        return cls(Standards(**{key: value for key, value in values.items() if key in Standards.DEFAULTS}))
+        return cls(Standards(**values))
 
     def save(self, storage: Any) -> None:
         import json

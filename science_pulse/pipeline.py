@@ -355,7 +355,7 @@ class Pipeline:
         from .publishers.base import build_caption
         from .standards import StandardsChecker
 
-        checker = StandardsChecker.load(self.storage)
+        checker = StandardsChecker.load(self.storage, self.config)
         baseline = build_caption(post, limit=1020, html=True, site_url=self.config.site_base_url)
         if dry_run:
             report = checker.check(post, baseline, card)

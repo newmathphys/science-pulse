@@ -626,6 +626,10 @@ def _numeric_proof_challenge(post: Post, seed: int) -> Optional[Dict[str, Any]]:
     example = str(proof.get("computed_example") or "").strip()
     if not example or not any(char.isdigit() for char in example):
         return None
+    if "nan" in example.lower() or "inf" in example.lower():
+        # Регрессия: раньше ответ вида «x(0) = nan, x(1) = nan» помечался
+        # проверенным. Неопределённость не может быть «проверяемой задачей».
+        return None
     formula = str(getattr(post, "formula_plain", "") or getattr(post, "formula_latex", "") or "").strip()
     return {
         "kind": "numeric_proof",
@@ -778,6 +782,35 @@ def _compute_lj_lorenz() -> Dict[str, str]:
     }
 
 
+def _compute_bernoulli() -> Dict[str, str]:
+    """Бернулли: полное давление как сумма статического, динамического и весового."""
+    rho, speed, height, pressure, gravity = 1000.0, 2.0, 5.0, 101325.0, 9.81
+    dynamic = rho * speed ** 2 / 2.0
+    hydrostatic = rho * gravity * height
+    total = pressure + dynamic + hydrostatic
+    return {
+        "question": ("Бернулли: вода (ρ = 1000 кг/м³) течёт со скоростью 2 м/с на высоте 5 м "
+                     "при статическом давлении 101 325 Па. Чему равно полное давление?"),
+        "hint": "p₀ = p + ρv²/2 + ρgh.",
+        "answer": (f"p₀ = {total:.0f} Па ≈ {total / 1000:.1f} кПа "
+                   f"(динамический напор {dynamic / 1000:.1f} кПа, гидростатический {hydrostatic / 1000:.1f} кПа)"),
+    }
+
+
+def _compute_schrodinger() -> Dict[str, str]:
+    """Шрёдингер: энергия нулевых колебаний гармонического осциллятора ħω/2."""
+    hbar = 1.054571817e-34
+    omega = 2.0 * math.pi * 1e15
+    energy = hbar * omega / 2.0
+    electron_volt = 1.602176634e-19
+    return {
+        "question": ("Шрёдингер: гармонический осциллятор с ω = 2π·10¹⁵ рад/с. "
+                     "Чему равна энергия нулевых колебаний ħω/2?"),
+        "hint": "E₀ = ħω/2.",
+        "answer": f"E₀ = {energy:.4e} Дж ≈ {energy / electron_volt:.3f} эВ",
+    }
+
+
 CANON_COMPUTABLE = {
     "archimedes": _compute_archimedes,
     "leibniz_boolean": _compute_leibniz_boolean,
@@ -791,6 +824,8 @@ CANON_COMPUTABLE = {
     "rsa_crypto": _compute_rsa,
     "maxwell": _compute_maxwell,
     "lj_lorenz": _compute_lj_lorenz,
+    "bernoulli_flow": _compute_bernoulli,
+    "schrodinger": _compute_schrodinger,
 }
 
 

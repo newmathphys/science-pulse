@@ -85,7 +85,7 @@ def build_rich_telegram_caption(post: Post, limit: int = 1024, site_url: str = "
     meta = getattr(post, "meta", {}) or {}
     modern = clean_latex_for_telegram(str(meta.get("modern_application") or ""))
 
-    formula = clean_latex_for_telegram(post.formula_plain or post.formula_latex or "")
+    formula = formula_to_unicode(clean_latex_for_telegram(post.formula_plain or post.formula_latex or ""), 140)
     code = (post.code or "").strip()
     source = clean_latex_for_telegram(post.source_name or "Science Pulse")
 
@@ -215,7 +215,7 @@ def build_caption(post: Post, limit: int = 1024, html: bool = True, site_url: st
     title = clean_latex_for_telegram(post.title)
     hook = clean_latex_for_telegram(post.hook or "")
     body = smart_sentence_truncate(post.body or "", 300, max(300, limit - 200))
-    formula = clean_latex_for_telegram(post.formula_plain or post.formula_latex or "")
+    formula = formula_to_unicode(clean_latex_for_telegram(post.formula_plain or post.formula_latex or ""), 140)
     parts = [post.label, title]
     if hook:
         parts.append(hook)
@@ -305,7 +305,7 @@ def build_full_description(post: Post, limit: int = 4096, site_url: str = "") ->
     title = clean_latex_for_telegram(post.title)
     hook = clean_latex_for_telegram(post.hook or "")
     body = clean_latex_for_telegram(post.body or "")
-    formula = clean_latex_for_telegram(post.formula_plain or post.formula_latex or "")
+    formula = formula_to_unicode(clean_latex_for_telegram(post.formula_plain or post.formula_latex or ""), 140)
     source = clean_latex_for_telegram(post.source_name or "Science Pulse")
 
     section = str(meta.get("section_num") or "").strip()

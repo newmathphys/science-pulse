@@ -848,7 +848,7 @@ def cmd_standards(args: argparse.Namespace) -> int:
     from .standards import Standards, StandardsChecker
 
     pipeline = _pipeline(args)
-    checker = StandardsChecker.load(pipeline.storage)
+    checker = StandardsChecker.load(pipeline.storage, pipeline.config)
     if args.set:
         key, value = args.set
         if key not in Standards.DEFAULTS:
