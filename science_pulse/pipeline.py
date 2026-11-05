@@ -287,6 +287,29 @@ class Pipeline:
             except Exception as exc:  # A/B не должен блокировать публикацию
                 LOGGER.warning("Не удалось записать style_variant: %s", exc)
 
+        # Дизайн выпуска: реестр тем (academic/3b1b/blueprint/moku3d). В режиме
+        # `auto` стиль выбирает бандит Томпсона, иначе — фиксация оператора.
+        from .themes import record_reward, theme_for_post
+
+        theme = theme_for_post(self.storage, self.config)
+        archetype = ""
+        try:
+            from .cards_academic import pick_visual_type
+
+            archetype = pick_visual_type(post)
+        except Exception:
+            archetype = ""
+        design = {
+            "theme": theme,
+            "archetype": archetype,
+            "format": "film" if theme == "moku3d" else "card",
+        }
+        post.meta["design_variant"] = design
+        try:
+            self.storage.set_post_meta(post.id, "design_variant", design)
+        except Exception as exc:  # дизайн не должен блокировать публикацию
+            LOGGER.warning("Не удалось записать design_variant: %s", exc)
+
         card_path = self.config.cards_dir / f"{post.id}.png"
         try:
             card = render_card(
@@ -296,6 +319,7 @@ class Pipeline:
                 ssaa=int(self.config.card.get("ssaa", 2)),
                 variant=variant,
                 engine=str(self.config.card.get("engine", "auto")),
+                theme=theme,
             )
         except Exception as exc:
             LOGGER.exception("Не удалось отрисовать карточку %s", post.id)
@@ -380,12 +404,14 @@ class Pipeline:
             bandit = self.config.raw.get("bandit") or {}
             if bandit.get("enabled"):
                 self.sota.reward_domain(post.domain, success=True)
+            record_reward(self.storage, theme, success=True)
         else:
             error = "; ".join(f"{r.platform}: {r.error}" for r in results if r.error)[:500]
             self.storage.mark_failed(post.id, error or "все площадки недоступны")
             bandit = self.config.raw.get("bandit") or {}
             if bandit.get("enabled"):
                 self.sota.reward_domain(post.domain, success=False)
+            record_reward(self.storage, theme, success=False)
 
         # N+1 warm staging: сразу после успешной публикации готовим следующий
         # пост (лонгрид + паспорт + карточка + приёмка), чтобы он вышел «тёплым».

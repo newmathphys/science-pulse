@@ -499,8 +499,41 @@ def render_card(
     theme_name: str = "neon",
     variant: str | None = None,
     engine: str = "auto",
+    theme: str | None = None,
 ) -> CardArtifact:
     target = Path(out_path) if out_path else Path(f"card_{post.id}.png")
+    # Явный дизайн из реестра тем (`themes.py`): academic / 3b1b / blueprint / moku3d.
+    resolved = str(theme or "").strip().lower()
+    if resolved == "blueprint":
+        try:
+            from .cards_blueprint import render_blueprint_card
+
+            blueprint = render_blueprint_card(post, target, size=size)
+        except Exception as exc:  # pragma: no cover - защитный контур
+            LOGGER.warning("blueprint недоступен (%s), fallback", exc)
+            blueprint = None
+        if blueprint:
+            return blueprint
+    if resolved in ("academic", "moku3d"):
+        try:
+            from .cards_academic import render_academic_card
+
+            academic = render_academic_card(post, target, size=size)
+        except Exception as exc:  # pragma: no cover - защитный контур
+            LOGGER.warning("Книжный движок недоступен (%s), fallback", exc)
+            academic = None
+        if academic:
+            return academic
+    if resolved == "3b1b":
+        try:
+            from .cards3b1b import render_studio_card
+
+            studio = render_studio_card(post, target, size=size)
+        except Exception as exc:  # pragma: no cover - защитный контур
+            LOGGER.warning("Студийный движок недоступен (%s), fallback", exc)
+            studio = None
+        if studio:
+            return studio
     # Книжный движок (академическая серия): явно или по meta["visual_type"]/["simulation"].
     if engine in ("auto", "academic", "book"):
         want_academic = (

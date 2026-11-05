@@ -89,10 +89,25 @@ class TelegramPublisher(Publisher):
         )
 
     def _publish_video(self, post: Post, card: CardArtifact, context: PublishContext, caption: str) -> Optional[PublishResult]:
-        """Публикует озвученное микро-видео; карточка остаётся для сайта и книги."""
-        from ..video import video_for_post
+        """Публикует видео выпуска; карточка остаётся для сайта и книги.
 
-        path = video_for_post(post, self.config)
+        Для дизайна `moku3d` приоритет у 5-актового фильма (`moku_film.py`),
+        иначе — у озвученного микро-видео (`video.py`).
+        """
+        path = None
+        design = (getattr(post, "meta", {}) or {}).get("design_variant") or {}
+        if isinstance(design, dict) and design.get("theme") == "moku3d":
+            try:
+                from ..moku_film import film_for_post
+
+                path = film_for_post(post, self.config)
+            except Exception as exc:
+                LOGGER.warning("Moku3D недоступен: %s", exc)
+                path = None
+        if not path:
+            from ..video import video_for_post
+
+            path = video_for_post(post, self.config)
         if path is None:
             return None  # мягкий fallback на статичную карточку
         if not self.send_video(path, caption):

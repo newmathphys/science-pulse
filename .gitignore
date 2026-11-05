@@ -18,6 +18,7 @@ data/*.db-shm
 data/audio/
 data/audiogram/
 data/video/
+data/films/
 
 # Случайные карточки в корне (артефакты ручных прогонов)
 /card_*.png

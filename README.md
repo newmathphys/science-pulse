@@ -70,6 +70,8 @@ python -m science_pulse.cli sources
 python -m science_pulse.cli metrics --collect  # метрики площадок
 python -m science_pulse.cli trending    # 🔥 радар мировых новостей (HN + GitHub)
 python -m science_pulse.cli doctor      # 🚦 светофор автономности (--send в чат)
+python -m science_pulse.cli theme       # дизайн выпуска: A/B-рейтинг (auto|academic|3b1b|blueprint|moku3d)
+python -m science_pulse.cli film        # 5-актовый фильм Moku3D (--post-id ID --domain math --send)
 python -m science_pulse.cli invariants  # проверка инвариантов состояния
 python -m science_pulse.cli formal      # машинная проверка Lean-доказательств
 python -m science_pulse.cli edge        # синхронизация R2/D1 (Cloudflare)
@@ -128,6 +130,8 @@ python -m science_pulse.cli radio --rtmp rtmps://dc4.rtmp.t.me/s/KEY --run  # п
 /platform <имя>      детали площадки (telegram/threads/bluesky/discord/mastodon/vk)
 /lang ru|en          язык описаний площадок
 /about               как работает пульт, где Mini App и где хранится состояние
+/theme [стиль]       дизайн выпуска; без аргумента — рейтинг A/B (алиас /ab)
+/film [ID]           5-актовый фильм Moku3D в этот чат
 /book                📕 собрать PDF-книгу проекта и прислать файл
 /voice               🔊 озвучить следующий пост и прислать голосовое
 /standards           📏 пороги качества (/standards set KEY VALUE)
@@ -472,7 +476,8 @@ PDF-книгу. Удобно, чтобы показать проект цели�
 | `docs/TRENDING.md` | радар мировых новостей: источники, индекс горячести, `/pick` |
 | `docs/TOKENS.md` | получение токенов и подключение площадок |
 | `docs/GRAPH.md` | граф знаний: PageRank и диск Пуанкаре |
-| `docs/ABTEST.md` | A/B стилей карточки |
+| `docs/ABTEST.md` | A/B: 4 дизайна, бандит Томпсона, `/theme`, `/ab` |
+| `docs/MOKU3D.md` | Moku3D: 5-актовый фильм из одного уравнения |
 | `docs/MINIAPP.md` | Mini App «Пульт» (статическая страница) |
 | `docs/TRANSLATION.md` | перевод без LLM (формулы и код не трогаются) |
 | `docs/INVARIANTS.md` | инварианты состояния (Lean-спецификация + проверки) |

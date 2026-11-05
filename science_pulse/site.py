@@ -617,6 +617,31 @@ class SiteBuilder:
             if source.resolve() != destination.resolve():
                 shutil.copyfile(source, destination)
 
+    def _copy_film(self, post: Post, films_dir: Path) -> str:
+        """Копирует 5-актовый фильм Moku3D в `dist/films/` (если он собран)."""
+        source = Path(self.config.data_dir) / "films" / f"{post.id}.mp4"
+        if not source.is_file():
+            return ""
+        films_dir.mkdir(parents=True, exist_ok=True)
+        destination = films_dir / f"{post.id}.mp4"
+        if source.resolve() != destination.resolve():
+            shutil.copyfile(source, destination)
+        return f"films/{post.id}.mp4"
+
+    def _film_html(self, post: Post, rel: str) -> str:
+        """Блок «Фильм Moku3D» на странице параграфа (одно уравнение — один фильм)."""
+        if not rel:
+            return ""
+        return (
+            '<section class="depth" data-depth="all">'
+            "<h2>Фильм Moku3D</h2>"
+            '<video controls preload="metadata" playsinline '
+            'style="width:100%;max-width:720px;border:1px solid var(--rule);border-radius:4px" '
+            f'src="../{_e(rel)}"></video>'
+            '<p class="mono">5 актов · одна строка смысла на акт · геометрия считается уравнением</p>'
+            "</section>"
+        )
+
     def _copy_audio(self, post: Post, audio_dir: Path) -> None:
         """Копирует озвучку поста (mp3 + субтитры vtt/srt) в dist/audio/."""
         for suffix in (".mp3", ".vtt", ".srt"):
@@ -1212,6 +1237,7 @@ class SiteBuilder:
             for key, label, body in depth_sections
         )
         sandbox_html = self._sandbox_html(post)
+        film_html = self._film_html(post, self._copy_film(post, posts_dir.parent / "films"))
         meta_pass = post.meta or {}
         section = str(meta_pass.get("section_num") or "").strip()
         step = meta_pass.get("step")
@@ -1260,6 +1286,7 @@ class SiteBuilder:
       <p class="lead">{_e(post.hook)}</p>
       {status_html}
       {depth_nav}
+      {film_html}
       {depth_html}
     </div>
     <aside class="side">

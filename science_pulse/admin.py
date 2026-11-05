@@ -41,6 +41,9 @@ HELP = """🎛 <b>Science Pulse — пульт</b>
 /about — как работает пульт, где Mini App и где хранится состояние
 /app — ссылка и кнопка Mini App «Пульт»
 /menu — добавить кнопку «Пульт» в меню чата (нужен HTTPS-адрес сайта)
+/theme [auto|academic|3b1b|blueprint|moku3d] — дизайн выпуска; без аргумента — рейтинг
+/ab — таблица эффективности дизайнов (A/B по живой аудитории)
+/film [ID] — 5-актовый фильм Moku3D в этот чат
 /book — 📕 собрать PDF-книгу проекта и прислать файл
 /voice — 🔊 озвучить следующий пост и прислать голосовое (edge-tts)
 /standards — 📏 пороги качества (и /standards set KEY VALUE)
@@ -296,6 +299,10 @@ class TelegramAdmin:
                 return self._menu_text()
             if command == "/site":
                 return self.config.site_base_url or "SP_SITE_BASE_URL не задан."
+            if command in ("/theme", "/ab"):
+                return self._theme_text(args)
+            if command == "/film":
+                return self._film_text(args)
             if command in ("/book", "/pdf"):
                 return self._book_text()
             if command in ("/voice", "/audio"):
@@ -629,7 +636,39 @@ class TelegramAdmin:
         ("kernel", "Паспорт ядра системы", "Kernel status"),
         ("lang", "Язык RU/EN", "Language RU/EN"),
         ("menu", "Кнопка «Пульт» в чате", "Pult button in chat"),
+        ("theme", "Дизайн выпуска и A/B-рейтинг", "Design theme & A/B"),
+        ("film", "Фильм Moku3D", "Moku3D film"),
     ]
+
+    def _theme_text(self, args: List[str]) -> str:
+        """`/theme` и `/ab`: рейтинг дизайнов и переключение стиля."""
+        from .themes import format_design_table, set_theme
+
+        if args:
+            ok, message = set_theme(self.storage, args[0])
+            if not ok:
+                return html.escape(message)
+            return html.escape(message) + "\n\n" + format_design_table(self.storage, self.config)
+        return format_design_table(self.storage, self.config)
+
+    def _film_text(self, args: List[str]) -> str:
+        """`/film`: 5-актовый фильм Moku3D в админ-чат (без публикации в канал)."""
+        from .moku_film import film_available, film_for_post
+
+        if not film_available():
+            return "Moku3D недоступен: не найден ffmpeg."
+        post = self.storage.get_post(args[0]) if args else None
+        if post is None:
+            post = self.pipeline.choose_next()
+        if post is None:
+            return "Очередь пуста — нечего экранировать."
+        path = film_for_post(post, self.config)
+        if not path:
+            return "Не удалось собрать фильм Moku3D."
+        caption = f"Moku3D · {html.escape(post.title)}"
+        if self.send_video(path, caption):
+            return f"Фильм отправлен: <code>{html.escape(str(path))}</code>"
+        return f"Фильм собран, но не отправлен: <code>{html.escape(str(path))}</code>"
 
     def send_photo(self, path: str | Path, caption: str = "") -> bool:
         """Отправляет картинку в админ-чат (для /preview и /render)."""

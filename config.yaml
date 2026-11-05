@@ -107,7 +107,10 @@ site:
 card:
   size: 1080
   ssaa: 2
-  theme: "neon"
+  # Дизайн выпуска: auto (умная A/B-ротация бандита) | academic (книга LaTeX) |
+  # 3b1b (тёмный чертёж) | blueprint (инженерная миллиметровка) | moku3d (5-актовый фильм).
+  # Оператор переключает на лету командой /theme в Пульта (приоритет у kv).
+  theme: "auto"
   # Движок карточек: auto (meta-сигнал) | typst (3Blue1Brown) | academic (книжная серия) | pillow.
   engine: "auto"
 

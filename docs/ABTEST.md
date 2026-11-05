@@ -86,6 +86,28 @@ A/B стилей карточки:
 - Реализовано два варианта вёрстки; расширение — добавьте стиль в
   `abtest.STYLES` и имя в `VARIANTS`/`config.yaml`.
 
+## Реестр дизайнов и умная ротация (`themes.py`)
+
+Помимо A/B вёрстки (`classic`/`compact`) есть реестр **дизайнов выпуска**:
+`academic` (книга LaTeX), `3b1b` (тёмный чертёж), `blueprint` (инженерная
+миллиметровка) и `moku3d` (5-актовый фильм, см. `docs/MOKU3D.md`).
+
+- `card.theme: auto` — дизайн каждого поста выбирает **бандит Томпсона**
+  (`themes.choose_theme`) по накопленной статистике; на этапе обучения
+  действует правило разнообразия: один стиль не идёт больше
+  `MAX_STREAK = 2` раз подряд.
+- `card.theme: <имя>` — жёсткая фиксация оператором.
+- Выбор пишется в `post.meta["design_variant"] = {theme, archetype, format}`;
+  после публикации пайплайн выдаёт награду (`record_reward`), а
+  `design_stats` строит рейтинг: посты, замеры, средний охват, реакции,
+  `engagement_score`, индекс относительно лидера и `WinRate` бандита.
+- Пульт: `/theme` (алиас `/ab`) — таблица эффективности; `/theme academic` —
+  закрепить стиль; `/theme auto` — вернуть ротацию. Переключение хранится в
+  `kv: card_theme_override` и имеет приоритет над `config.yaml`.
+- CLI: `python -m science_pulse.cli theme [auto|academic|3b1b|blueprint|moku3d]`.
+
+Проверка: `python -m unittest tests.test_visual_ab_bandit -v`.
+
 ## Проверка
 
 ```bash

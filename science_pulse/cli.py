@@ -659,6 +659,54 @@ def cmd_state(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_theme(args: argparse.Namespace) -> int:
+    """Дизайн выпуска: A/B-рейтинг и переключение стиля (academic/3b1b/…)."""
+    from .themes import format_design_table, set_theme
+
+    pipeline = _pipeline(args)
+    if getattr(args, "name", None):
+        ok, message = set_theme(pipeline.storage, args.name)
+        if not ok:
+            print(message, file=sys.stderr)
+            return 1
+        print(message)
+    print(format_design_table(pipeline.storage, pipeline.config, html=False))
+    _checkpoint(pipeline)
+    return 0
+
+
+def cmd_film(args: argparse.Namespace) -> int:
+    """5-актовый фильм Moku3D для поста (по умолчанию — следующий в очереди)."""
+    from .moku_film import film_available, film_for_post
+
+    pipeline = _pipeline(args)
+    if not film_available():
+        print("Moku3D недоступен: не найден ffmpeg.", file=sys.stderr)
+        return 1
+    post = pipeline.storage.get_post(args.post_id) if getattr(args, "post_id", None) else None
+    if post is None:
+        post = pipeline.choose_next(getattr(args, "domain", None))
+    if post is None:
+        print("Нет поста для экранизации.", file=sys.stderr)
+        return 1
+    path = film_for_post(post, pipeline.config)
+    if not path:
+        print("Не удалось собрать фильм Moku3D.", file=sys.stderr)
+        return 1
+    print(f"Фильм: {path} ({path.stat().st_size // 1024} КБ)")
+    if getattr(args, "send", False):
+        from .admin import TelegramAdmin
+
+        admin = TelegramAdmin(pipeline.config, pipeline)
+        if admin.send_video(path, f"Moku3D · {post.title}"):
+            print("Отправлено в админ-чат.")
+        else:
+            print("Не удалось отправить в админ-чат.", file=sys.stderr)
+            return 1
+    _checkpoint(pipeline)
+    return 0
+
+
 def cmd_formal(args: argparse.Namespace) -> int:
     from .formal import check_lean
 
@@ -1269,6 +1317,16 @@ def build_parser() -> argparse.ArgumentParser:
     recard.add_argument("--engine", choices=["auto", "typst", "academic", "pillow"], default="auto")
     recard.add_argument("--dry-run", action="store_true")
     recard.set_defaults(func=cmd_recard)
+
+    theme = subparsers.add_parser("theme", help="дизайн выпуска: A/B-рейтинг или переключение")
+    theme.add_argument("name", nargs="?", help="auto|academic|3b1b|blueprint|moku3d")
+    theme.set_defaults(func=cmd_theme)
+
+    film = subparsers.add_parser("film", help="5-актовый фильм Moku3D (moku_film)")
+    film.add_argument("--post-id", default=None, help="id поста (по умолчанию — следующий)")
+    film.add_argument("--domain", default=None, choices=["math", "physics", "cs"])
+    film.add_argument("--send", action="store_true", help="отправить фильм в админ-чат")
+    film.set_defaults(func=cmd_film)
 
     reset = subparsers.add_parser("reset", help="очистить состояние (опасно)")
     reset.add_argument("--yes", action="store_true")
