@@ -138,6 +138,24 @@ class RadioPageTests(unittest.TestCase):
         self.assertIn("440", RADIO_JS)
         self.assertEqual(list(AMBIENT_CHORD_HZ), [220.0, 330.0, 440.0])
 
+    def test_feed_audio_is_copied_into_dist(self):
+        """Фид не должен ссылаться на mp3, которых нет в dist (404 для подписчиков)."""
+        import re
+
+        post = make_post("a1", "2.1")
+        audio_dir = self.config.data_dir / "audio"
+        audio_dir.mkdir(parents=True, exist_ok=True)
+        (audio_dir / "a1.mp3").write_bytes(b"ID3" + b"0" * 5000)
+        dist = self.config.dist_dir
+        dist.mkdir(parents=True, exist_ok=True)
+        result = write_radio(dist, [post], self.config)
+        self.assertGreaterEqual(result["copied_audio"], 1, "аудио эпизода скопировано в dist")
+        xml = (dist / "podcast.xml").read_text(encoding="utf-8")
+        names = re.findall(r"/audio/([\w.]+\.mp3)", xml)
+        self.assertTrue(names, "в фиде есть эпизоды с аудио")
+        for name in names:
+            self.assertTrue((dist / "audio" / name).is_file(), f"нет файла {name}")
+
     def test_write_radio_creates_three_artifacts(self):
         dist = self.config.dist_dir
         dist.mkdir(parents=True, exist_ok=True)

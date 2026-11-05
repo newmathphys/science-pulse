@@ -1,0 +1,4 @@
+file '/home/mrbritneyxxx/Рабочий стол/ПРОЕКТТ SCM/data/audiogram/b063d20371654588.mp4'
+file '/home/mrbritneyxxx/Рабочий стол/ПРОЕКТТ SCM/data/radio_parts/interlude_000.mp4'
+file '/home/mrbritneyxxx/Рабочий стол/ПРОЕКТТ SCM/data/audiogram/2cc2003206469ece.mp4'
+file '/home/mrbritneyxxx/Рабочий стол/ПРОЕКТТ SCM/data/radio_parts/interlude_001.mp4'

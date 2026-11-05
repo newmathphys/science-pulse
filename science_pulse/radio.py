@@ -656,10 +656,37 @@ def radio_page_html(entries: Sequence[Dict[str, Any]], config: Config, has_mix: 
     return head + tail
 
 
+def publish_audio(entries: Sequence[Dict[str, Any]], dist: Path, config: Config) -> int:
+    """Копирует аудио эпизодов в `dist/audio/`, чтобы фид не ссылался на 404.
+
+    Сборщик сайта копирует озвучку опубликованных постов, но фид собирается и
+    командой `cli radio` — тогда файлов в `dist/` может ещё не быть, и подкаст
+    отдаёт битые ссылки. Копирование идемпотентно (по имени и размеру).
+    """
+    source_dir = Path(getattr(config, "data_dir", "data")) / "audio"
+    target_dir = Path(dist) / "audio"
+    copied = 0
+    for entry in entries:
+        audio = str(entry.get("audio") or "").strip()
+        if not audio:
+            continue
+        source = source_dir / Path(audio).name
+        if not source.is_file():
+            continue
+        target = target_dir / source.name
+        if target.is_file() and target.stat().st_size == source.stat().st_size:
+            continue
+        target_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+        copied += 1
+    return copied
+
+
 def write_radio(dist: Path, posts: Sequence[Post], config: Config) -> Dict[str, Any]:
     """Собирает веб-радиостанцию и подкаст-фид; возвращает карту артефактов."""
     dist = Path(dist)
     entries = radio_playlist(posts, config)
+    copied = publish_audio(entries, dist, config)
     has_mix = (dist / "radio_mix.mp4").is_file()
     (dist / "radio.html").write_text(
         radio_page_html(entries, config, has_mix=has_mix), encoding="utf-8"
@@ -679,6 +706,7 @@ def write_radio(dist: Path, posts: Sequence[Post], config: Config) -> Dict[str, 
         "playlist": str(dist / "radio.json"),
         "episodes": len(entries),
         "with_audio": sum(1 for item in entries if item.get("audio")),
+        "copied_audio": copied,
         "slot": current_slot(),
     }
 
