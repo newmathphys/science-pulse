@@ -49,6 +49,9 @@ nav.tabs a { border: 0; color: var(--ink-2); }
 nav.tabs a:hover, nav.tabs a.active { color: var(--ink); font-weight: 700; }
 .passport { display: flex; gap: 26px; flex-wrap: wrap; margin: 22px 0 8px; padding: 16px 20px; background: var(--paper-3); border: 1px solid var(--rule); border-radius: 4px; font-family: var(--mono); font-size: 13px; color: var(--ink-2); }
 .passport b { color: var(--ink); }
+.spec { list-style: none; margin: 8px 0 0; padding: 0; font-family: var(--mono); font-size: 13px; }
+.spec li { display: grid; grid-template-columns: 16ch 1fr; gap: 10px; padding: 5px 0; border-top: 1px solid var(--rule); color: var(--ink-2); }
+.spec li b { color: var(--ink); font-weight: 600; }
 .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 20px 0; }
 input[type=search] { flex: 1 1 260px; background: var(--paper-2); border: 1px solid var(--rule); color: var(--ink); border-radius: 4px; padding: 11px 14px; font-size: 15px; font-family: var(--serif); }
 button.filter { background: var(--paper-2); border: 1px solid var(--rule); color: var(--ink-2); padding: 9px 14px; border-radius: 999px; cursor: pointer; font-size: 14px; font-family: var(--serif); }
@@ -163,6 +166,20 @@ def _e(value: Any) -> str:
 
 def _json_for_script(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False).replace("</", "<\\/")
+
+
+# Маркетинговые эмодзи несовместимы со стилем mokujiro.com: чистим даже старый
+# кэш (`meta["longread_body"]`), собранный прежними версиями генератора.
+_MARKETING_EMOJI_RE = re.compile(
+    "[\U0001F000-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\uFE0F\u200D\u20E3\u23F3]"
+)
+
+
+def _strip_marketing_emoji(text: str) -> str:
+    """Убирает декоративные смайлики: остаётся строгая типографика."""
+    return "\n".join(
+        _MARKETING_EMOJI_RE.sub("", line).strip() for line in (text or "").splitlines()
+    )
 
 
 SERVICE_WORKER_JS = """// Science Pulse — офлайн-кэш статики (network-first, cache fallback).
@@ -438,7 +455,7 @@ SANDBOX_JS = """
   [aEl, bEl, xEl].forEach(el => { if (el) el.addEventListener('input', draw); });
   draw();
 
-  // 🔊 Клиентский синтезатор (WebAudio API): озвучивает текущую кривую f(x)
+  // Клиентский синтезатор (WebAudio API): озвучивает текущую кривую f(x)
   // прямо в браузере, без скачивания файлов.
   const audioBtn = document.getElementById('sandbox-audio');
   let audioCtx = null, tone = null;
@@ -463,7 +480,7 @@ SANDBOX_JS = """
   }
   if (audioBtn) audioBtn.addEventListener('click', playTone);
 
-  // 🖼 Экспорт векторного графика: чистый SVG (для сайта и печати).
+  // Экспорт векторного графика: чистый SVG (для сайта и печати).
   const svgBtn = document.getElementById('sandbox-svg');
   function downloadSvg() {
     const A = parseFloat(aEl.value) || 1, k = parseFloat(bEl.value) || 1;
@@ -768,11 +785,11 @@ class SiteBuilder:
         domain = item["domain"]
         is_published = post is not None and post.status == "published"
         if is_published:
-            state, stamp = "published", '<span class="stamp ok">✓ Открыто</span>'
+            state, stamp = "published", '<span class="stamp ok">Открыто</span>'
         elif item["id"] == staged:
-            state, stamp = "staged", '<span class="stamp next">⏳ Следующий выпуск</span>'
+            state, stamp = "staged", '<span class="stamp next">Следующий выпуск</span>'
         else:
-            state, stamp = "locked", '<span class="stamp lock">🔒 В программе курса</span>'
+            state, stamp = "locked", '<span class="stamp lock">В программе курса</span>'
         image = ""
         if post is not None:
             rel = f"cards/{post.id}.png"
@@ -840,7 +857,7 @@ class SiteBuilder:
             extra_cards = "".join(
                 f'<a class="card" data-domain="{_e(post.domain)}" data-search="{_e(" ".join([post.title, post.hook, post.body[:400], post.formula_plain, post.formula_latex, post.source_name]))}" '
                 f'href="post/{post.id}.html"><div class="body">'
-                f'<span class="badge {_e(post.domain)}">{post.emoji} {_e(DOMAIN_LABELS.get(post.domain, post.domain))}</span>'
+                f'<span class="badge {_e(post.domain)}">{_e(DOMAIN_LABELS.get(post.domain, post.domain))}</span>'
                 f"<h2>{_e(post.title)}</h2><span class=\"meta\">{_e(post.source_name)}</span></div></a>"
                 for post in extra[:12]
             )
@@ -861,7 +878,7 @@ class SiteBuilder:
   <a href="scientists.html">II. Учёные и эпохи</a>
   <a href="constants.html">III. Эталоны СИ (CODATA)</a>
   <a href="flashcards.html">IV. Тренажёр памяти</a>
-  <a href="radio.html">📻 Радио 24/7</a>
+  <a href="radio.html">Радио 24/7</a>
   <a href="llms.txt">V. Машиночитаемый слой</a>
 </nav>
 {self._poincare_html()}
@@ -888,7 +905,7 @@ class SiteBuilder:
                 text = enrich_post_longread(post)
             except Exception:
                 text = ""
-        return text
+        return _strip_marketing_emoji(text)
 
     @staticmethod
     def _split_longread(text: str) -> Dict[str, str]:
@@ -943,7 +960,7 @@ class SiteBuilder:
             except Exception:
                 return ""
         spark = braille_sparkline(values, width=24)
-        return f'<p class="mono">📈 {label}: {spark}</p>' if spark else ""
+        return f'<p class="mono">{label}: {spark}</p>' if spark else ""
 
     def _proof_html(self, post: Post) -> str:
         """Блок «Вычислительный паспорт»: CODATA-расчёт, проверка кода, merkle-печать."""
@@ -962,7 +979,7 @@ class SiteBuilder:
             rows.append(f'<li><b>Точный расчёт:</b> <code>{_e(str(proof["computed_example"]))}</code></li>')
         code_proof = proof.get("code_proof") or {}
         if code_proof:
-            mark = "✓" if code_proof.get("ok") else "✗"
+            mark = "верно" if code_proof.get("ok") else "не сходится"
             rows.append(f'<li><b>Код:</b> {mark} {_e(str(code_proof.get("summary", "")))}</li>')
         if proof.get("merkle_hash"):
             rows.append(f'<li><b>Печать (merkle v1):</b> <code>{_e(str(proof["merkle_hash"])[:32])}…</code></li>')
@@ -1057,15 +1074,15 @@ class SiteBuilder:
             '<label>k (частота) <input id="param-b" type="range" min="0.5" max="4.0" step="0.1" value="1.0"> <span id="val-b">1.0</span></label>'
             '<label>x <input id="sandbox-x" type="number" value="1.0" step="0.1"></label>'
             '<span>y(x) = <output id="sandbox-y">—</output></span>'
-            '<button id="sandbox-audio" class="mini-action" type="button">🔊 Услышать частоту формулы</button>'
-            '<button id="sandbox-svg" class="mini-action" type="button">🖼 Экспорт графика в SVG</button>'
+            '<button id="sandbox-audio" class="mini-action" type="button">Услышать частоту формулы</button>'
+            '<button id="sandbox-svg" class="mini-action" type="button">Экспорт графика в SVG</button>'
             "</div>"
             f"<script>{script}</script>"
             "</section>"
         )
 
     def _challenge_html(self, post: Post) -> str:
-        """🧠 Просветительская задача для самопроверки (с раскрытием ответа)."""
+        """Просветительская задача для самопроверки (с раскрытием ответа)."""
         from .challenge import build_challenge, challenge_reveal
 
         challenge = (post.meta or {}).get("challenge")
@@ -1080,13 +1097,13 @@ class SiteBuilder:
         hint = str(challenge.get("hint") or "").strip()
         hint_html = f"<p><i>Подсказка: {_e(hint)}</i></p>" if hint else ""
         return (
-            '<details class="flash"><summary>🧠 Просветительская задача для самопроверки</summary>'
+            '<details class="flash"><summary>Просветительская задача для самопроверки</summary>'
             f"<p><b>{_e(question)}</b></p>{hint_html}"
-            f"<p>✅ {_e(challenge_reveal(challenge))}</p></details>"
+            f"<p>{_e(challenge_reveal(challenge))}</p></details>"
         )
 
     def _lineage_html(self, post: Post) -> str:
-        """📜 Родословная первоисточников: первоисточник → свод → цифровой узел."""
+        """Родословная первоисточников: первоисточник → свод → цифровой узел."""
         from .enricher import build_source_lineage
 
         lineage = (post.meta or {}).get("source_lineage")
@@ -1099,18 +1116,18 @@ class SiteBuilder:
             return ""
         digital = lineage.get("digital_source") or {}
         rows = [
-            f'<li><b>📜 Первоисточник:</b> {_e(str(lineage.get("primary_work") or ""))}</li>',
-            f'<li><b>🏛 Академический свод:</b> {_e(str(lineage.get("canonical_archive") or ""))}</li>',
+            f'<li><b>Первоисточник:</b> {_e(str(lineage.get("primary_work") or ""))}</li>',
+            f'<li><b>Академический свод:</b> {_e(str(lineage.get("canonical_archive") or ""))}</li>',
         ]
         url = str(digital.get("url") or "")
         name = str(digital.get("name") or "")
         if name or url:
             link = f'<a href="{_e(url)}" rel="noopener">{_e(name or url)}</a>' if url else _e(name)
-            rows.append(f"<li><b>🌐 Цифровой узел:</b> {link}</li>")
+            rows.append(f"<li><b>Цифровой узел:</b> {link}</li>")
         refs = lineage.get("references") or []
         if refs:
             rows.append(
-                "<li><b>📚 Библиография:</b> "
+                "<li><b>Библиография:</b> "
                 + "; ".join(_e(str(item)) for item in refs[:3])
                 + "</li>"
             )
@@ -1178,7 +1195,7 @@ class SiteBuilder:
         status_html = (
             ""
             if post.status == "published"
-            else '<p class="stamp next">⏳ Параграф развёрнут полностью и выйдет в ближайшем '
+            else '<p class="stamp next">Параграф развёрнут полностью и выйдет в ближайшем '
                  "слоте эфира (09:00 · 13:00 · 17:00 · 21:00 MSK).</p>"
         )
         depth_nav = ""
@@ -1197,24 +1214,48 @@ class SiteBuilder:
         sandbox_html = self._sandbox_html(post)
         meta_pass = post.meta or {}
         section = str(meta_pass.get("section_num") or "").strip()
-        passport_items = []
-        if section:
-            passport_items.append(f"<li><b>§ {_e(section)}</b></li>")
-        if meta_pass.get("scientist"):
-            passport_items.append(f"<li>{_e(str(meta_pass['scientist']))}</li>")
-        if meta_pass.get("era"):
-            passport_items.append(f"<li><i>{_e(str(meta_pass['era']))}</i></li>")
-        passport_items.append(f"<li>{_e(DOMAIN_LABELS.get(post.domain, post.domain))}</li>")
-        passport_html = "<h2>Паспорт параграфа</h2><ul>" + "".join(passport_items) + "</ul>" + prereq_html
+        step = meta_pass.get("step")
+        step_title = str(meta_pass.get("step_title") or "").strip()
+        spec_rows: List[str] = []
+
+        def _spec(label: str, value: str) -> None:
+            if value:
+                spec_rows.append(f"<li><b>{label}</b><span>{value}</span></li>")
+
+        paragraph = " · ".join(part for part in (
+            f"§ {_e(section)}" if section else "",
+            f"Ступень {_e(str(step))}" if step else "",
+            _e(step_title),
+        ) if part)
+        _spec("ПАРАГРАФ", paragraph)
+        _spec("ДИСЦИПЛИНА", _e(DOMAIN_LABELS.get(post.domain, post.domain)))
+        author = " · ".join(part for part in (
+            _e(str(meta_pass.get("scientist") or "")),
+            _e(str(meta_pass.get("era") or "")),
+        ) if part)
+        _spec("АВТОР / ЭПОХА", author)
+        _spec("ПЕРВОИСТОЧНИК", _e(str(post.source_name or meta_pass.get("source_name") or "")))
+        formula_value = str(meta_pass.get("formula_plain") or post.formula_plain or post.formula_latex or "")
+        _spec("ИНВАРИАНТ", f"<code>{_e(formula_value)}</code>" if formula_value else "")
+        proof = meta_pass.get("proof") if isinstance(meta_pass.get("proof"), dict) else {}
+        _spec("ВЕРИФИКАЦИЯ", _e(str((proof or {}).get("computed_example") or "")))
+        links = " · ".join(
+            f'<a href="{_e(str(url))}">{_e(str(name))}</a>'
+            for name, url in (meta_pass.get("prereq_links") or [])[:3]
+        )
+        _spec("СВЯЗИ", ("← " + links) if links else "")
+        passport_html = (
+            '<h2>Паспорт параграфа</h2><ul class="spec">' + "".join(spec_rows) + "</ul>" + prereq_html
+        )
         content = f"""
 <article>
   <a href="../index.html">← ко всем разборам</a>
-  <p class="meta"><a href="../radio.html">📻 Слушать этот параграф в эфире Science Pulse FM</a>
+  <p class="meta"><a href="../radio.html">Слушать этот параграф в эфире Science Pulse FM</a>
   · <a href="../podcast.xml">подкаст (RSS)</a></p>
   <div class="journal">
     <aside class="side">{passport_html}</aside>
     <div class="main">
-      <div class="badge {_e(post.domain)}">{post.emoji} {_e(DOMAIN_LABELS.get(post.domain, post.domain))}</div>
+      <div class="badge {_e(post.domain)}">{_e(DOMAIN_LABELS.get(post.domain, post.domain))}</div>
       <h1>{_e(post.title)}</h1>
       <p class="lead">{_e(post.hook)}</p>
       {status_html}
@@ -1324,7 +1365,7 @@ class SiteBuilder:
         counts = self.storage.queue_counts()
         queue_line = " · ".join(f"{key}={value}" for key, value in counts.items()) or "пусто"
         platforms = " ".join(
-            f"{name}={'✓' if self.config.platform_enabled(name) else '—'}"
+            f"{name}={'готово' if self.config.platform_enabled(name) else 'нет'}"
             for name in ("telegram", "threads", "bluesky", "discord", "mastodon", "vk")
         )
         sources_line = " · ".join(
@@ -1332,10 +1373,10 @@ class SiteBuilder:
             for row in self.storage.source_states()
         ) or "нет данных"
         actions = [
-            ("run", "▶️ Опубликовать сейчас"),
-            ("harvest", "🛰 Добрать материалы"),
-            ("site", "🪐 Пересобрать сайт"),
-            ("status", "📊 Статус"),
+            ("run", "Опубликовать сейчас"),
+            ("harvest", "Добрать материалы"),
+            ("site", "Пересобрать сайт"),
+            ("status", "Статус"),
         ]
         buttons = "".join(
             f'<button class="mini-action" data-command="{cmd}"{" disabled" if not endpoint else ""}>{_e(label)}</button>'
@@ -1377,7 +1418,7 @@ class SiteBuilder:
         )
         content = f"""
 <article>
-  <div class="badge">🎛 ПУЛЬТ · MINI APP</div>
+  <div class="badge">ПУЛЬТ · MINI APP</div>
   <h1>Пульт Science Pulse</h1>
   <p class="lead">Публичный снимок состояния и кнопки команд. Токены остаются в Cloudflare Worker.</p>
   <div class="panel-box">
@@ -1391,8 +1432,8 @@ class SiteBuilder:
   <pre class="mini-log" id="mini-out">Готов.</pre>
   <h2>Площадки / Platforms</h2>
   <div class="mini-actions">
-    <button class="mini-action" data-lang="ru">🇷🇺 Русский</button>
-    <button class="mini-action" data-lang="en">🇬🇧 English</button>
+    <button class="mini-action" data-lang="ru">Русский</button>
+    <button class="mini-action" data-lang="en">English</button>
   </div>
   <div id="platforms"></div>
   <h2>Как это работает / How it works</h2>
@@ -1574,7 +1615,7 @@ renderPlatforms();
 </details>"""
             )
         content = (
-            '<article><div class="badge">🃏 ФЛЕШКАРТЫ</div>'
+            '<article><div class="badge">ФЛЕШКАРТЫ</div>'
             "<h1>Карточки для повторения</h1>"
             f'<p class="lead">Вопрос → ответ по {len(posts)} разборам. '
             "Нажмите на карточку, чтобы увидеть ответ.</p>"

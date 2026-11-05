@@ -19,7 +19,7 @@ LOGGER = logging.getLogger(__name__)
 
 # По одному посту на каждый визуальный архетип.
 TOUR_ARCHETYPES: tuple = (
-    ("pythagoras", "standard_plot", "график f(x) и производной"),
+    ("newton_gravity", "standard_plot", "график f(r): закон обратных квадратов"),
     ("euclid_gcd", "code_booktabs", "книжный листинг «Алгоритм 1.»"),
     ("insar_ndvi", "diptych_insar", "двухпанельный диптих: 2D-поле + разрез"),
     ("schwarzschild_light", "cheatsheet_table", "шпаргалка-таблица"),

@@ -20,19 +20,19 @@ LOGGER = logging.getLogger(__name__)
 def build_message(post: Post, context: PublishContext, rules: Any) -> str:
     """Собирает текст записи VK по правилам площадки (используется и в демо)."""
     message_parts = [
-        f"⚡ {truncate(post.plain_title, 220)}",
-        f"❓ {truncate(post.plain_hook, 200)}",
+        truncate(post.plain_title, 220),
+        truncate(post.plain_hook, 200),
         formula_to_unicode(truncate(post.body, 1200), 1200),
     ]
     formula = post.formula_latex or post.formula_plain
     if formula:
-        message_parts.append(f"📐 {truncate(formula, 200)}")
+        message_parts.append(f"Формула: {truncate(formula, 200)}")
     if rules.audio_mode("vk") == "link":
         link = audio_link(post, context.site_url)
         if link:
-            message_parts.append(f"🎧 Аудио-разбор: {link}")
+            message_parts.append(f"Аудио: {link}")
     if context.site_url:
-        message_parts.append(f"🪐 {context.site_url}")
+        message_parts.append(context.site_url)
     message_parts.append(post.hashtags)
     return truncate("\n\n".join(message_parts), rules.limit("vk", "max_caption_chars", 16384))
 

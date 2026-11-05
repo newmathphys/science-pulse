@@ -654,7 +654,7 @@ def challenge_line(challenge: Dict[str, Any]) -> str:
     question = str((challenge or {}).get("question") or "").strip()
     if not question:
         return ""
-    return f"🧠 <b>Задача на смекалку:</b> {question} Напишите ответ в комментариях 👇"
+    return f"<b>Задача.</b> {question} Ответ — в комментариях."
 
 
 def challenge_reveal(challenge: Dict[str, Any]) -> str:

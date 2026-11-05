@@ -124,5 +124,62 @@ class PublisherManagerTests(unittest.TestCase):
         self.assertTrue(results[0].skipped)
 
 
+class CaptionStyleTests(unittest.TestCase):
+    """Стиль mokujiro.com: в публичных подписях нет «маркетинговых» смайликов."""
+
+    MARKETING = "❓🏛💡🧮🔢🔬🧠🔗👇🧭📐⚛️💻🪐🎧📖🏷📜🔊🚀✅⏳🔒🃏📻📈📊"
+
+    def setUp(self):
+        self.post = Post(
+            id="style1",
+            domain="math",
+            title="Пифагор: теорема о метрике евклидова пространства",
+            hook="Почему формула из VI века до н.э. сегодня работает в GPS и 3D-движках?",
+            body=(
+                "Теорема Пифагора связывает катеты и гипотенузу прямоугольного треугольника. "
+                "Это первый великий инвариант геометрии: длина отрезка не зависит от поворота "
+                "системы координат, а обобщение на n измерений задаёт евклидову норму вектора. "
+            ) * 2,
+            formula_latex="a^2 + b^2 = c^2",
+            formula_plain="a² + b² = c²",
+            source_name="Евклид",
+            source_url="https://ru.wikipedia.org/wiki/Теорема_Пифагора",
+            meta={
+                "section_num": "1.1",
+                "era": "530 г. до н.э. • Античная Греция",
+                "scientist": "Пифагор Самосский",
+            },
+        )
+
+    def test_caption_has_no_marketing_emojis(self):
+        caption = build_rich_telegram_caption(self.post, 1024, "https://example.org")
+        for emoji in self.MARKETING:
+            self.assertNotIn(emoji, caption, f"эмодзи {emoji!r} не должно быть в подписи")
+
+    def test_caption_uses_mokujiro_fields(self):
+        caption = build_rich_telegram_caption(self.post, 1024, "https://example.org")
+        self.assertIn("§ 1.1 · МАТЕМАТИКА", caption)
+        self.assertIn("Инвариант:", caption)
+        self.assertIn("Первоисточник:", caption)
+        self.assertIn("Тренажёр:", caption)
+
+    def test_caption_chain_links_when_parent_published(self):
+        self.post.meta["prereq_links"] = [("§ 1.0 Пифагор", "https://t.me/newmathphys/29")]
+        caption = build_rich_telegram_caption(self.post, 1024, "https://example.org")
+        self.assertIn("← ", caption)
+        self.assertIn("§ 1.0 Пифагор", caption)
+        self.assertIn("Тренажёр", caption)
+
+    def test_short_text_and_frame_have_no_emojis(self):
+        from science_pulse.publishers.base import build_short_text, formula_frame
+
+        short = build_short_text(self.post, 500, "https://example.org")
+        frame = formula_frame(self.post)
+        self.assertIn("a² + b² = c²", frame)
+        for emoji in self.MARKETING:
+            self.assertNotIn(emoji, short, f"эмодзи {emoji!r} не должно быть в коротком тексте")
+            self.assertNotIn(emoji, frame, f"эмодзи {emoji!r} не должно быть в рамке формулы")
+
+
 if __name__ == "__main__":
     unittest.main()

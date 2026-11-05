@@ -535,6 +535,25 @@ def _table_data(post: Post) -> Tuple[List[str], List[List[str]]]:
     )
 
 
+NON_ARITHMETIC_RE = re.compile(
+    r"∇|\\nabla|∫|\\int|∮|\\oint|∑|\\sum|∏|\\prod|\blim\b|\bmod\b|\\pmod"
+)
+
+
+def _is_plottable(post: Post) -> bool:
+    """Можно ли построить честный график y = f(x) по формуле поста."""
+    expression = str(getattr(post, "formula_plain", "") or getattr(post, "formula_latex", "") or "")
+    if not expression.strip():
+        return False
+    try:
+        from .plotting import parse_expression
+
+        parse_expression(expression)
+        return True
+    except Exception:
+        return False
+
+
 def pick_visual_type(post: Post) -> str:
     """Выбирает визуальный архетип: явный `meta["visual_type"]` или эвристика."""
     meta = getattr(post, "meta", {}) or {}
@@ -574,6 +593,11 @@ def pick_visual_type(post: Post) -> str:
         return "cheatsheet_table"
     if re.search(r"\d{3,4}\s*г\.", text) and text.count("г.") >= 2:
         return "timeline_evolution"
+    # Неарифметическая формула (∇, ∫, ∮, ∑, ∏, lim, mod) не строится как честный
+    # график y = f(x): вместо «случайной» кривой показываем сводную карточку с
+    # самой формулой и её членами (детерминированно, без дефолтной синусоиды).
+    if has_formula and NON_ARITHMETIC_RE.search(formula_text) and not _is_plottable(post):
+        return "cheatsheet_table"
     return "standard_plot"
 
 

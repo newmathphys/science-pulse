@@ -82,6 +82,26 @@ class AcademicCardTests(unittest.TestCase):
             post = make_post(meta={"visual_type": archetype})
             self.assertEqual(pick_visual_type(post), archetype)
 
+    def test_non_arithmetic_formula_avoids_random_curve(self):
+        """∇/∫/∑/mod-формула не рисуется как случайная кривая f(x).
+
+        Для 15 неарифметических формул канона (Максвелл, Архимед, Фурье,
+        Пифагор в норме вектора) чертёж переключается на сводную карточку —
+        детерминированно, без дефолтной синусоиды.
+        """
+        post = make_post(
+            "nabla1",
+            title="Уравнения Максвелла",
+            formula_latex=r"\nabla \cdot \mathbf{E} = \frac{\rho}{\varepsilon_0}",
+            formula_plain="∇·E = ρ/ε₀",
+            source_name="Фундамент Науки · Максвелл",
+        )
+        self.assertEqual(pick_visual_type(post), "cheatsheet_table")
+        with tempfile.TemporaryDirectory() as tmp:
+            artifact = render_academic_card(post, Path(tmp) / "maxwell.png")
+            self.assertIsNotNone(artifact)
+            self.assertEqual((artifact.width, artifact.height), (1080, 1080))
+
     def test_pick_visual_type_simulation_implies_diptych(self):
         post = make_post(meta={"simulation": "tunneling"})
         self.assertEqual(pick_visual_type(post), "diptych_insar")

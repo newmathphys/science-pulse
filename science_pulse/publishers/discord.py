@@ -19,15 +19,15 @@ def build_embed(post: Post, context: PublishContext, rules: Any) -> Dict[str, An
     """Собирает embed Discord по правилам площадки (используется и в демо)."""
     embed_limit = rules.limit("discord", "max_embed_chars", 4096)
     description = (
-        f"**❓ {truncate(post.plain_hook, 200)}**\n\n"
+        f"**{truncate(post.plain_hook, 200)}**\n\n"
         f"{formula_to_unicode(truncate(post.body, 900), 900)}"
     )
     if post.formula_latex or post.formula_plain:
         description += f"\n\n```\n{truncate(post.formula_latex or post.formula_plain, 300)}\n```"
     if context.site_url:
-        description += f"\n\n🪐 [Открыть разбор]({context.site_url})"
+        description += f"\n\n[Открыть разбор]({context.site_url})"
     return {
-        "title": f"⚡ {truncate(post.plain_title, 240)}",
+        "title": truncate(post.plain_title, 240),
         "url": context.site_url or None,
         "color": COLORS.get(post.domain, 0x00F5D4),
         "description": truncate(description, max(500, embed_limit - 120)),

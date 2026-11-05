@@ -114,16 +114,16 @@ class BlueskyPublisher(Publisher):
         limit = rules.limit(self.name, "max_caption_chars", 300)
         mode = rules.audio_mode(self.name)
         formula = formula_to_unicode(post.formula_latex or post.formula_plain, 60)
-        parts = [f"⚡ {truncate(post.plain_title, 90)}"]
+        parts = [truncate(post.plain_title, 90)]
         if post.plain_hook:
-            parts.append(f"❓ {truncate(post.plain_hook, 90)}")
+            parts.append(truncate(post.plain_hook, 90))
         if formula:
-            parts.append(f"📐 {formula}")
+            parts.append(f"Формула: {formula}")
         # Bluesky не принимает аудиофайлы: доставляем ссылку на аудио-разбор.
         if mode == "link":
             link = audio_link(post, context.site_url)
             if link:
-                parts.append(f"🎧 {link}")
+                parts.append(f"Аудио: {link}")
         if context.site_url:
-            parts.append(f"🪐 {context.site_url}")
+            parts.append(context.site_url)
         return truncate("\n\n".join(parts), max(60, limit - 2))

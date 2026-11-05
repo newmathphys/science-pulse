@@ -58,13 +58,13 @@ class ThreadsPublisher(Publisher):
         if mode == "mp4":
             audiogram = audiogram_url(post, context.site_url)
             if audiogram and chunks:
-                chunks[0] = truncate(f"{chunks[0]}\n\n🎧 Видео-разбор: {audiogram}", limit)
+                chunks[0] = truncate(f"{chunks[0]}\n\nВидеоразбор: {audiogram}", limit)
         elif mode == "link":
             link = audio_link(post, context.site_url)
             if link:
-                chunks[-1] = truncate(f"{chunks[-1]}\n\n🎧 Слушать на сайте: {link}", limit)
+                chunks[-1] = truncate(f"{chunks[-1]}\n\nСлушать на сайте: {link}", limit)
         if context.site_url:
-            chunks[-1] = truncate(f"{chunks[-1]}\n\n🪐 {context.site_url}", limit)
+            chunks[-1] = truncate(f"{chunks[-1]}\n\n{context.site_url}", limit)
 
         first_id: Optional[str] = None
         previous_id: Optional[str] = None

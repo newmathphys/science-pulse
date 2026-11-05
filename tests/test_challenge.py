@@ -136,7 +136,7 @@ class PresentationTests(unittest.TestCase):
     def test_line_and_reveal(self):
         challenge = build_challenge(make_post())
         line = challenge_line(challenge)
-        self.assertIn("Задача на смекалку", line)
+        self.assertIn("Задача.", line)
         self.assertIn("комментариях", line)
         reveal = challenge_reveal(challenge)
         self.assertIn("Ответ:", reveal)
@@ -154,8 +154,7 @@ class PresentationTests(unittest.TestCase):
         post = make_post()
         build_post_proof(post)
         caption = build_rich_telegram_caption(post, limit=1024, site_url="https://example.org")
-        self.assertIn("🧠", caption)
-        self.assertIn("комментариях", caption)
+        self.assertIn("Задача.", caption)
         self.assertIn("example.org/post/challenge1.html", caption)
         self.assertLessEqual(len(caption), 1024)
 
@@ -182,7 +181,7 @@ class PresentationTests(unittest.TestCase):
         from science_pulse.enricher import enrich_post_longread
 
         text = enrich_post_longread(make_post())
-        self.assertIn("🧠 Задача для самопроверки", text)
+        self.assertIn("Задача для самопроверки", text)
         self.assertIn("Ответ ядра", text)
 
 

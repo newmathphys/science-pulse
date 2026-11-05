@@ -146,12 +146,12 @@ class TelegramPublisher(Publisher):
             return {}
         if mode == "link":
             link = f"{self.config.site_base_url}/post/{post.id}.html" if self.config.site_base_url else ""
-            if link and self.send_message(f"🎧 <a href=\"{link}\">Аудио-разбор на сайте</a>", reply_to=reply_to):
+            if link and self.send_message(f"<a href=\"{link}\">Аудиоразбор на сайте</a>", reply_to=reply_to):
                 return {"voice": "link"}
             return {"voice": "skipped"}
         if mode == "mp4":
             audiogram = audiogram_for_post(post, self.config)
-            if audiogram and self.send_video(audiogram, f"🎧 {post.title[:60]}"):
+            if audiogram and self.send_video(audiogram, post.title[:60]):
                 return {"voice": "mp4"}
             return {"voice": "failed"}
 

@@ -7,6 +7,9 @@ from typing import List, Optional
 from ..models import CardArtifact, Post, PublishResult
 from ..text import clean_latex_for_telegram, escape_html, formula_to_unicode, lead_sentence, smart_sentence_truncate, truncate
 
+# Ширина подписи поля в блоке «Field: Detail» (стиль mokujiro.com).
+SPEC_PAD = 15
+
 
 @dataclass
 class PublishContext:
@@ -27,7 +30,7 @@ def context_rules(context: "PublishContext", config: Any) -> Any:
 
 
 def audio_link(post: Post, site_url: str) -> str:
-    """Ссылка «🎧 Аудио-разбор на сайте» для площадок без поддержки аудио."""
+    """Ссылка на аудио-разбор для площадок без поддержки аудио."""
     return f"{site_url}/post/{post.id}.html" if site_url else ""
 
 
@@ -68,11 +71,12 @@ DOMAIN_CONTEXT = {
 
 
 def build_rich_telegram_caption(post: Post, limit: int = 1024, site_url: str = "") -> str:
-    """Полный Telegram-пост: чистый Unicode, без обрыва слов, 450–1024 символа.
+    """Полный Telegram-пост в строгом стиле mokujiro.com (без смайликов).
 
-    Структура: заголовок → вопрос-крючок → полный разбор (не обрезок) →
-    «Где работает сегодня» (конкретное `meta["modern_application"]` узла, если
-    есть; иначе — общий контекст дисциплины) → формула/код → источник → сайт.
+    Типографика вместо эмодзи: паспортная строка `§ X.Y · ДИСЦИПЛИНА · ЭПОХА`,
+    заголовок, вопрос-постановка, разбор, выровненный блок `Field: Detail`
+    (Инвариант / Верификация / Первоисточник / Применение), задача выпуска и
+    строка связей `← …`.
     """
     title = clean_latex_for_telegram(post.title)
     hook = clean_latex_for_telegram(post.hook or "")
@@ -86,28 +90,23 @@ def build_rich_telegram_caption(post: Post, limit: int = 1024, site_url: str = "
     source = clean_latex_for_telegram(post.source_name or "Science Pulse")
 
     section = str(meta.get("section_num") or "").strip()
-    section_prefix = f"<b>§ {escape_html(section)}</b> · " if section else ""
-    header_parts = [f"{post.emoji} <b>{post.label}</b> · {section_prefix}<b>{escape_html(title)}</b>"]
-    era_line = " — ".join(part for part in (str(meta.get("era") or "").strip(),
-                                            str(meta.get("scientist") or "").strip()) if part)
-    if era_line:
-        header_parts.append(f"🏛 <i>{escape_html(era_line)}</i>")
+    era_short = str(meta.get("era") or "").split("•")[0].strip()
+    # Паспортная строка в стиле mokujiro: «§ X.Y · ДИСЦИПЛИНА · ЭПОХА».
+    passport = " · ".join(
+        part for part in (f"§ {section}" if section else "", post.label, era_short) if part
+    )
+    header_parts = [f"<b>{escape_html(passport)}</b>", f"<b>{escape_html(title)}</b>"]
     if not hook or hook.lower() == title.lower() or raw_body.startswith(hook):
         hook = lead_sentence(raw_body, 200)
     if hook and hook.lower() != title.lower() and hook not in raw_body[: len(hook) + 40]:
-        header_parts.append(f"❓ <i>{escape_html(smart_sentence_truncate(hook, 80, 220))}</i>")
+        header_parts.append(f"<i>{escape_html(smart_sentence_truncate(hook, 80, 220))}</i>")
 
     footer_parts = []
-    # Тройная связь времени: конкретное применение из узла канона важнее шаблона.
-    if modern:
-        footer_parts.append(f"🔬 <b>Где работает сегодня:</b> {escape_html(truncate(modern, 200))}")
-    elif application_note:
-        footer_parts.append(f"🔬 {escape_html(application_note)}")
     if formula:
-        footer_parts.append(f"🧮 <b>Формула:</b> <code>{escape_html(truncate(formula, 140))}</code>")
+        footer_parts.append(f"{'Инвариант:':<{SPEC_PAD}} <code>{escape_html(truncate(formula, 140))}</code>")
     elif code:
         first_lines = "\n".join(code.splitlines()[:5])
-        footer_parts.append(f"💻 <b>Фрагмент:</b>\n<pre>{escape_html(truncate(first_lines, 240))}</pre>")
+        footer_parts.append(f"<b>Реализация.</b>\n<pre>{escape_html(truncate(first_lines, 240))}</pre>")
     # Вычислительный паспорт: точный расчёт (CODATA / значения формулы).
     proof = meta.get("proof") if isinstance(meta.get("proof"), dict) else None
     if not proof or not proof.get("computed_example"):
@@ -119,7 +118,7 @@ def build_rich_telegram_caption(post: Post, limit: int = 1024, site_url: str = "
             proof = proof or {}
     example = str((proof or {}).get("computed_example") or "").strip()
     if example:
-        footer_parts.append(f"🔢 {escape_html(truncate(example, 220))}")
+        footer_parts.append(f"{'Верификация:':<{SPEC_PAD}} {escape_html(truncate(example, 220))}")
     challenge = (proof or {}).get("challenge") if isinstance(proof, dict) else None
     if not isinstance(challenge, dict):
         try:
@@ -128,25 +127,42 @@ def build_rich_telegram_caption(post: Post, limit: int = 1024, site_url: str = "
             challenge = build_challenge(post)
         except Exception:
             challenge = None
-    if isinstance(challenge, dict) and challenge.get("question"):
-        footer_parts.append(
-            "🧠 <b>Задача на смекалку:</b> "
-            f"{escape_html(truncate(str(challenge['question']), 220))} "
-            "Напишите ответ в комментариях 👇"
-        )
+
+    # Первоисточник: убираем служебный префикс источника фундамента.
+    primary = source.replace("Фундамент Науки · ", "").replace("Фундамент Науки", "").strip() or source
     if post.source_url:
-        footer_parts.append(f"🏛 <a href=\"{escape_html(post.source_url)}\">Источник: {escape_html(truncate(source, 60))}</a>")
-    prereq_links = meta.get("prereq_links") or []
-    if prereq_links:
-        rendered = " · ".join(
-            f'<a href="{escape_html(str(url))}">{escape_html(truncate(str(name), 40))}</a>'
-            for name, url in prereq_links[:3]
-        )
-        footer_parts.append(f"🔗 <b>Опирается на фундамент:</b> {rendered}")
-    if site_url:
         footer_parts.append(
-            f"🧭 <a href=\"{escape_html(site_url)}/post/{escape_html(post.id)}.html\">"
-            "Тренажёр: покрутить формулу и проверить себя</a>"
+            f"{'Первоисточник:':<{SPEC_PAD}} "
+            f"<a href=\"{escape_html(post.source_url)}\">{escape_html(truncate(primary, 60))}</a>"
+        )
+    elif primary:
+        footer_parts.append(f"{'Первоисточник:':<{SPEC_PAD}} {escape_html(truncate(primary, 60))}")
+
+    # Тройная связь времени: конкретное применение из узла канона важнее шаблона.
+    if modern:
+        footer_parts.append(f"{'Применение:':<{SPEC_PAD}} {escape_html(truncate(modern, 200))}")
+    elif application_note:
+        footer_parts.append(f"{'Применение:':<{SPEC_PAD}} {escape_html(application_note)}")
+
+    # Задача выпуска: не дублируем вопрос, если он совпал с крючком.
+    question = str((challenge or {}).get("question") or "").strip() if isinstance(challenge, dict) else ""
+    if question and question.lower() != (post.hook or "").strip().lower():
+        footer_parts.append(f"<b>Задача.</b> <i>{escape_html(truncate(question, 220))}</i>")
+
+    chain: List[str] = []
+    for name, url in (meta.get("prereq_links") or [])[:2]:
+        chain.append(f'<a href="{escape_html(str(url))}">{escape_html(truncate(str(name), 46))}</a>')
+    trainer_href = (
+        f'{escape_html(site_url)}/post/{escape_html(post.id)}.html' if site_url else ""
+    )
+    if chain and trainer_href:
+        chain.append(f'<a href="{trainer_href}">Тренажёр</a>')
+        footer_parts.append("← " + " · ".join(chain))
+    elif chain:
+        footer_parts.append("← " + " · ".join(chain))
+    elif trainer_href:
+        footer_parts.append(
+            f'Тренажёр: <a href="{trainer_href}">покрутить формулу и проверить себя</a>'
         )
     footer_parts.append(post.hashtags or tags)
 
@@ -158,7 +174,7 @@ def build_rich_telegram_caption(post: Post, limit: int = 1024, site_url: str = "
     body = smart_sentence_truncate(raw_body, min_chars=min(480, body_limit), max_chars=body_limit)
 
     if len(body) < 300:
-        body = f"{body}\n\n💡 {context_note}"
+        body = f"{body}\n\n{context_note}"
 
     caption = "\n\n".join(part for part in [header, escape_html(body), footer] if part)
     target = min(limit, 1000)
@@ -181,7 +197,7 @@ def build_caption(post: Post, limit: int = 1024, html: bool = True, site_url: st
     hook = clean_latex_for_telegram(post.hook or "")
     body = smart_sentence_truncate(post.body or "", 300, max(300, limit - 200))
     formula = clean_latex_for_telegram(post.formula_plain or post.formula_latex or "")
-    parts = [f"{post.emoji} {post.label}", title]
+    parts = [post.label, title]
     if hook:
         parts.append(hook)
     if body:
@@ -201,7 +217,7 @@ def formula_frame(post: Any, width: int = 30) -> str:
     без рендера — оборачиваем её в моноширинную рамку:
 
     ```
-    ┌─── 📐 ФОРМУЛА ───
+    ┌─── ФОРМУЛА ───
     │ a² + b² = c²
     └──────────────────
     ```
@@ -214,23 +230,23 @@ def formula_frame(post: Any, width: int = 30) -> str:
     body = " ".join(formula.split())
     if len(body) > width:
         body = truncate(body, width)
-    top = "┌─── 📐 ФОРМУЛА " + "─" * max(0, width - 15)
+    top = "┌─── ФОРМУЛА " + "─" * max(0, width - 15)
     bottom = "└" + "─" * max(0, width - 1)
     return "\n".join((top, f"│ {body}", bottom))
 
 
 def build_short_text(post: Post, limit: int = 500, site_url: str = "", include_link: bool = True) -> str:
     formula = clean_latex_for_telegram(post.formula_latex or post.formula_plain)
-    parts = [f"{post.emoji} {clean_latex_for_telegram(post.title)}"]
+    parts = [clean_latex_for_telegram(post.title)]
     hook = clean_latex_for_telegram(post.hook or "")
     if hook:
         parts.append(hook)
     if post.body:
         parts.append(smart_sentence_truncate(post.body, 120, max(80, limit - 180)))
     if formula:
-        parts.append(f"📐 {formula}")
+        parts.append(f"Формула: {formula}")
     if site_url and include_link:
-        parts.append(f"🪐 {site_url}")
+        parts.append(site_url)
     parts.append(post.hashtags)
     return truncate("\n\n".join(parts), limit)
 
@@ -249,47 +265,63 @@ def build_full_description(post: Post, limit: int = 4096, site_url: str = "") ->
     formula = clean_latex_for_telegram(post.formula_plain or post.formula_latex or "")
     source = clean_latex_for_telegram(post.source_name or "Science Pulse")
 
-    blocks: List[str] = [f"{post.emoji} <b>{post.label}</b> · <b>{escape_html(title)}</b>"]
+    section = str(meta.get("section_num") or "").strip()
+    era_short = str(meta.get("era") or "").split("•")[0].strip()
+    passport = " · ".join(
+        part for part in (f"§ {section}" if section else "", post.label, era_short) if part
+    )
+    blocks: List[str] = [f"<b>{escape_html(passport)}</b>", f"<b>{escape_html(title)}</b>"]
 
-    era_line = " — ".join(part for part in (str(meta.get("era") or "").strip(),
-                                            str(meta.get("scientist") or "").strip()) if part)
-    if era_line:
-        blocks.append(f"🏛 <i>{escape_html(era_line)}</i>")
     if hook:
-        blocks.append(f"❓ <i>{escape_html(hook)}</i>")
+        blocks.append(f"<i>{escape_html(hook)}</i>")
     if body:
-        blocks.append(f"📖 <b>Разбор</b>\n{escape_html(body)}")
+        blocks.append(f"<b>Разбор.</b>\n{escape_html(body)}")
     if post.code:
-        blocks.append(f"💻 <b>Код</b>\n<pre>{escape_html(truncate(post.code, 1200))}</pre>")
+        blocks.append(f"<b>Реализация.</b>\n<pre>{escape_html(truncate(post.code, 1200))}</pre>")
     if formula:
-        blocks.append(f"🧮 <b>Формула</b>: <code>{escape_html(truncate(formula, 300))}</code>")
+        blocks.append(f"{'Инвариант:':<{SPEC_PAD}} <code>{escape_html(truncate(formula, 300))}</code>")
+
+    # Вычислительный паспорт: полный разбор обязан быть надмножеством подписи.
+    proof = meta.get("proof") if isinstance(meta.get("proof"), dict) else None
+    if not proof or not proof.get("computed_example"):
+        try:
+            from ..post_proof import build_post_proof
+
+            proof = build_post_proof(post)
+        except Exception:
+            proof = proof or {}
+    example = str((proof or {}).get("computed_example") or "").strip()
+    if example:
+        blocks.append(f"{'Верификация:':<{SPEC_PAD}} {escape_html(truncate(example, 300))}")
 
     application = clean_latex_for_telegram(str(meta.get("modern_application") or ""))
     if application:
-        blocks.append(f"🔬 <b>Где работает сегодня</b>: {escape_html(application)}")
+        blocks.append(f"{'Применение:':<{SPEC_PAD}} {escape_html(application)}")
 
     constants = [str(item) for item in (meta.get("constants_used") or []) if str(item).strip()]
     if constants:
-        blocks.append(f"🧭 <b>Константы</b>: {escape_html(', '.join(constants))}")
+        blocks.append(f"{'Константы:':<{SPEC_PAD}} {escape_html(', '.join(constants))}")
 
     concept = str(meta.get("concept") or "").strip()
     if concept:
-        blocks.append(f"🏷 <b>Тема</b>: {escape_html(concept)}")
+        blocks.append(f"{'Тема:':<{SPEC_PAD}} {escape_html(concept)}")
 
-    prereq = meta.get("prereq_links") or []
-    if prereq:
-        rendered = " · ".join(
-            f'<a href="{escape_html(str(url))}">{escape_html(truncate(str(name), 60))}</a>'
-            for name, url in prereq[:4]
-        )
-        blocks.append(f"🔗 <b>Опирается на фундамент</b>: {rendered}")
+    rendered = " · ".join(
+        f'<a href="{escape_html(str(url))}">{escape_html(truncate(str(name), 60))}</a>'
+        for name, url in (meta.get("prereq_links") or [])[:4]
+    )
+    if rendered:
+        blocks.append("← " + rendered)
 
     if post.source_url:
-        blocks.append(f"🏛 <a href=\"{escape_html(post.source_url)}\">Первоисточник: {escape_html(truncate(source, 70))}</a>")
+        blocks.append(
+            f"{'Первоисточник:':<{SPEC_PAD}} "
+            f"<a href=\"{escape_html(post.source_url)}\">{escape_html(truncate(source, 70))}</a>"
+        )
     elif source:
-        blocks.append(f"🏛 Источник: {escape_html(truncate(source, 70))}")
+        blocks.append(f"{'Первоисточник:':<{SPEC_PAD}} {escape_html(truncate(source, 70))}")
     if site_url:
-        blocks.append(f"🪐 <a href=\"{escape_html(site_url)}\">Полная версия с карточкой и аудио — на сайте</a>")
+        blocks.append(f"<a href=\"{escape_html(site_url)}\">Полная версия с карточкой и аудио — на сайте</a>")
     blocks.append(post.hashtags)
 
     return truncate("\n\n".join(blocks), limit)

@@ -575,7 +575,7 @@ def _typst_source(post: Post, info: Dict[str, Any], plot_name: str, badge: str, 
     #grid(
       columns: (1fr, auto),
       text(font: "DejaVu Sans Mono", size: 11pt, fill: rgb("#64748B"))[newmathphys.com • \\@newmathphys],
-      text(font: "DejaVu Sans Mono", size: 11pt, fill: rgb("#83C167"))[✓ 3B1B Color-Coded Pedagogy]
+      text(font: "DejaVu Sans Mono", size: 11pt, fill: rgb("#83C167"))[3B1B color-coded pedagogy]
     )
   ]
 )

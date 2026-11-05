@@ -122,7 +122,7 @@ class PublisherLimitTests(unittest.TestCase):
 
         publisher = BlueskyPublisher(Config(raw={}))
         text = publisher._text(make_post(), PublishContext(site_url="https://x.org"), PlatformRules())
-        self.assertIn("🎧", text)
+        self.assertIn("Аудио:", text)
         self.assertIn("post/rules1.html", text)
 
     def test_bluesky_off_mode_has_no_audio(self):
@@ -132,7 +132,7 @@ class PublisherLimitTests(unittest.TestCase):
         rules = PlatformRules()
         rules.set("bluesky", "audio_mode", "off")
         text = publisher._text(make_post(), PublishContext(site_url="https://x.org"), rules)
-        self.assertNotIn("🎧", text)
+        self.assertNotIn("Аудио:", text)
 
 
 class AudiogramTests(unittest.TestCase):

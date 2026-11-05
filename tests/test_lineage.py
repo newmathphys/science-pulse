@@ -71,7 +71,7 @@ class LineageTests(unittest.TestCase):
         self.assertEqual(lineage["digital_source"]["name"], "Википедия")
         self.assertEqual(lineage["digital_source"]["url"], WIKI_URL)
         text = lineage_line(lineage)
-        self.assertIn("📜 Родословная первоисточников", text)
+        self.assertIn("Родословная первоисточников", text)
         self.assertIn("Евклид", text)
         self.assertIn("академический свод", text)
 

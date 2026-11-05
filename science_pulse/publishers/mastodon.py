@@ -16,18 +16,18 @@ def build_status(post: Post, context: PublishContext, rules: Any) -> str:
     """Собирает текст статуса Mastodon по правилам площадки (и для демо)."""
     limit = rules.limit("mastodon", "max_caption_chars", 500)
     formula = post.formula_latex or post.formula_plain
-    text_parts = [f"⚡ {truncate(post.plain_title, 180)}"]
+    text_parts = [truncate(post.plain_title, 180)]
     if post.plain_hook:
-        text_parts.append(f"❓ {truncate(post.plain_hook, 180)}")
+        text_parts.append(truncate(post.plain_hook, 180))
     text_parts.append(formula_to_unicode(truncate(post.body, 180), 180))
     if formula:
         text_parts.append(f"\\[ {truncate(formula, 140)} \\]")
     if rules.audio_mode("mastodon") == "link":
         link = audio_link(post, context.site_url)
         if link:
-            text_parts.append(f"🎧 {link}")
+            text_parts.append(f"Аудио: {link}")
     if context.site_url:
-        text_parts.append(f"🪐 {context.site_url}")
+        text_parts.append(context.site_url)
     text_parts.append(post.hashtags)
     return truncate("\n\n".join(text_parts), max(80, limit - 5))
 

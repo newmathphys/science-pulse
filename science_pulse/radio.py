@@ -417,7 +417,7 @@ RADIO_JS = r"""
     set('radio-scientist', [entry.scientist, entry.era].filter(Boolean).join(' \u00B7 '));
     set('radio-domain', entry.domain_label);
     set('radio-hook', entry.hook);
-    set('radio-status', entry.status === 'published' ? '\u{1F7E2} В эфире канала' : '\u23F3 Готовится к эфиру');
+    set('radio-status', entry.status === 'published' ? 'В эфире канала' : 'Готовится к эфиру');
     set('radio-transcript', entry.script);
     set('radio-formula', entry.formula_plain || entry.formula || '');
     var card = $('radio-card');
@@ -485,7 +485,7 @@ RADIO_JS = r"""
     ambient(0.055);
     if (!raf) draw();
     var btn = $('radio-toggle');
-    if (btn) btn.textContent = '\u23F8 Пауза эфира';
+    if (btn) btn.textContent = 'Пауза эфира';
   }
 
   function off() {
@@ -494,7 +494,7 @@ RADIO_JS = r"""
     if (current) { try { current.pause(); } catch (e) {} current = null; }
     if ('speechSynthesis' in window) { try { window.speechSynthesis.cancel(); } catch (e) {} }
     var btn = $('radio-toggle');
-    if (btn) btn.textContent = '\u25B6 Включить эфир';
+    if (btn) btn.textContent = 'Включить эфир';
   }
 
   window.SP_RADIO_CTL = { play: play, on: on, off: off };
@@ -558,7 +558,7 @@ RADIO_PAGE_HEAD = """<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>\U0001F4FB __RADIO__ \u00B7 __SITE__</title>
+<title>__RADIO__ \u00B7 __SITE__</title>
 <meta name="description" content="__TAGLINE__: генеративный математический эмбиент и лекции о законах природы.">
 <meta name="theme-color" content="#FAF8F4">
 <link rel="manifest" href="manifest.webmanifest">
@@ -574,7 +574,7 @@ RADIO_PAGE_HEAD = """<!doctype html>
 <body>
 <div class="wrap">
 <header>
-  <div class="brand"><h1><a href="index.html" style="color:inherit">__SITE__</a></h1><span>\U0001F4FB радио 24/7</span></div>
+  <div class="brand"><h1><a href="index.html" style="color:inherit">__SITE__</a></h1><span>радио 24/7</span></div>
   <div class="stats"><span>выпусков в сетке: __COUNT__</span><span>с озвучкой: __LIVE__</span><span>0 LLM</span></div>
 </header>
 <nav class="tabs">
@@ -582,7 +582,7 @@ RADIO_PAGE_HEAD = """<!doctype html>
   <a href="scientists.html">II. Учёные и эпохи</a>
   <a href="constants.html">III. Эталоны СИ (CODATA)</a>
   <a href="flashcards.html">IV. Тренажёр памяти</a>
-  <a class="active" href="radio.html">\U0001F4FB Радио 24/7</a>
+  <a class="active" href="radio.html">Радио 24/7</a>
 </nav>
 <p class="meta" id="radio-now">Эфир синхронизирован по «часам Вселенной»: (сейчас \u2212 эпоха) // 6 ч.</p>
 <div class="radio-live">
@@ -599,11 +599,11 @@ RADIO_PAGE_HEAD = """<!doctype html>
     <p class="lead" id="radio-hook"></p>
     <div class="formula" id="radio-formula"></div>
     <div class="radio-ctl">
-      <button id="radio-toggle" type="button">\u25B6 Включить эфир</button>
-      <button id="radio-prev" type="button">\u23EE Предыдущий</button>
-      <button id="radio-next" type="button">\u23ED Следующий</button>
-      <button id="radio-random" type="button">\U0001F3B2 Случайная волна знаний</button>
-      <a href="podcast.xml" style="border:0">\U0001F4E1 Подписаться (RSS)</a>
+      <button id="radio-toggle" type="button">Включить эфир</button>
+      <button id="radio-prev" type="button">Предыдущий</button>
+      <button id="radio-next" type="button">Следующий</button>
+      <button id="radio-random" type="button">Случайная волна знаний</button>
+      <a href="podcast.xml" style="border:0">Подписаться (RSS)</a>
     </div>
     <canvas id="radio-scope" width="680" height="160"></canvas>
     <div class="transcript" id="radio-transcript"></div>

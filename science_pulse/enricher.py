@@ -135,7 +135,7 @@ def lineage_line(lineage: Dict[str, Any]) -> str:
     refs = lineage.get("references") or []
     tail = f" Библиография: {'; '.join(str(item) for item in refs[:3])}." if refs else ""
     return (
-        f"📜 Родословная первоисточников: первоисточник — {lineage.get('primary_work')}; "
+        f"Родословная первоисточников: первоисточник — {lineage.get('primary_work')}; "
         f"академический свод — {lineage.get('canonical_archive')}; "
         f"цифровой узел — {digital.get('name') or '—'}.{tail}"
     )
@@ -268,7 +268,7 @@ def _compose_longread(
         except Exception:
             challenge = None
     if challenge:
-        three.append("🧠 Задача для самопроверки: " + str(challenge.get("question") or ""))
+        three.append("Задача для самопроверки: " + str(challenge.get("question") or ""))
         three.append(
             "Ответ ядра: " + str(challenge.get("answer") or "")
             + ". " + str(challenge.get("explanation") or "")

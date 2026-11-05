@@ -59,7 +59,7 @@ class PostProofTests(unittest.TestCase):
         build_post_proof(post)
         self.assertIn("proof", post.meta)
         self.assertIn("merkle_hash", post.meta["proof"])
-        self.assertTrue(format_proof_line(post.meta["proof"]).startswith("🔢"))
+        self.assertTrue(format_proof_line(post.meta["proof"]).startswith("Верификация:"))
 
 
 if __name__ == "__main__":

@@ -44,7 +44,7 @@ class DemoTourTests(unittest.TestCase):
 
         post = _archetype_posts(self.config)[2]  # InSAR: есть эпоха/константы/применение/тема
         text = build_full_description(post, 4096, "https://x.org")
-        for marker in ("Разбор", "Формула", "Где работает сегодня", "Константы", "Тема", "https://x.org"):
+        for marker in ("Разбор.", "Инвариант:", "Применение:", "Константы:", "Тема:", "https://x.org"):
             self.assertIn(marker, text, marker)
         self.assertLessEqual(len(text), 4096)
         # полный разбор не обрезается до абзаца: тело поста входит целиком

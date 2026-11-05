@@ -46,7 +46,10 @@ class EvolutionEngine:
                 continue
             url = self.telegram_url(parent_id)
             if url:
-                links.append((parent.title, url))
+                section = str((parent.meta or {}).get("section_num") or "").strip()
+                short = parent.title.split(":")[0].strip() or parent.title
+                name = f"§ {section} {short}".strip() if section else short
+                links.append((name, url))
         return links
 
     def used_in(self, post: Post) -> List[Post]:

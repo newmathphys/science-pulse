@@ -146,7 +146,7 @@ def build_post_proof(post: Post, prev_merkle: str = "0" * 64) -> Dict[str, Any]:
 
 
 def format_proof_line(proof: Dict[str, Any]) -> str:
-    """Строка для подписи: ``🔢 <computed_example>`` (если расчёт есть)."""
+    """Строка для подписи: ``Верификация: <computed_example>`` (если расчёт есть)."""
     example = str((proof or {}).get("computed_example") or "").strip()
-    return f"🔢 {example}" if example else ""
+    return f"Верификация: {example}" if example else ""
 
