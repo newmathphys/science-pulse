@@ -689,7 +689,8 @@ def cmd_film(args: argparse.Namespace) -> int:
     if post is None:
         print("Нет поста для экранизации.", file=sys.stderr)
         return 1
-    path = film_for_post(post, pipeline.config)
+    aspect = getattr(args, "aspect", None)
+    path = film_for_post(post, pipeline.config, aspect=aspect)
     if not path:
         print("Не удалось собрать фильм Moku3D.", file=sys.stderr)
         return 1
@@ -1400,6 +1401,8 @@ def build_parser() -> argparse.ArgumentParser:
     film = subparsers.add_parser("film", help="5-актовый фильм Moku3D (moku_film)")
     film.add_argument("--post-id", default=None, help="id поста (по умолчанию — следующий)")
     film.add_argument("--domain", default=None, choices=["math", "physics", "cs"])
+    film.add_argument("--aspect", default=None, choices=["1:1", "9:16"],
+                      help="формат кадра: 1:1 (лента) или 9:16 (Reels/Shorts/VK Клипы)")
     film.add_argument("--send", action="store_true", help="отправить фильм в админ-чат")
     film.set_defaults(func=cmd_film)
 

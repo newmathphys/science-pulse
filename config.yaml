@@ -88,7 +88,8 @@ live_sensors:
 # а основная масса постов — чистое знание. См. docs/POST_MODES.md.
 post_modes:
   enabled: true
-  challenge_every_nth: 5
+  # Задача выпуска выходит дозированно: каждый 4-й пост, чтобы не утомлять ленту.
+  challenge_every_nth: 4
   weights:
     pure_knowledge: 6
     satellite_lab: 2
@@ -146,6 +147,14 @@ card:
   theme: "auto"
   # Движок карточек: auto (meta-сигнал) | typst (3Blue1Brown) | academic (книжная серия) | pillow.
   engine: "auto"
+
+# Moku3D: 5-актовый фильм, собранный из одного уравнения (docs/MOKU3D.md).
+moku3d:
+  size: 720             # сторона кадра (для 9:16 — ширина)
+  aspect: "1:1"         # 1:1 (лента Telegram) | 9:16 (Reels/Shorts/VK Клипы)
+  fps: 24
+  seconds_per_act: 5.0  # × 5 актов = 30 секунд
+  audio: true
 
 sources:
   # Фундамент Науки: 30 узлов по ступеням — выходят первыми (см. curriculum.py).

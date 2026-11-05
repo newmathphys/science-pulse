@@ -53,7 +53,8 @@ ARCHETYPES = (
     "prob_tree",
 )
 SIMULATIONS = ("insar", "ndvi", "geodesics", "tunneling", "lorenz", "lj",
-               "cern_dimuon", "ligo_chirp", "voronoi_laplacian", "sat_tsp", "sparse_cg", "seismic_ps")
+               "cern_dimuon", "ligo_chirp", "voronoi_laplacian", "sat_tsp", "sparse_cg", "seismic_ps",
+               "ocean_altimetry", "grace_geoid", "wind_field", "mercury_precession")
 
 _FONT_DIRS = [
     "/usr/share/fonts/TTF",
@@ -473,6 +474,14 @@ def _chart_diptych(post: Post, out_left: str | Path, out_right: str | Path) -> T
         return _diptych_sparse_cg(out_left, out_right)
     if kind == "seismic_ps":
         return _diptych_seismic(out_left, out_right)
+    if kind == "ocean_altimetry":
+        return _diptych_ocean(out_left, out_right)
+    if kind == "grace_geoid":
+        return _diptych_grace(out_left, out_right)
+    if kind == "wind_field":
+        return _diptych_wind(out_left, out_right)
+    if kind == "mercury_precession":
+        return _diptych_mercury(out_left, out_right)
     return _diptych_insar(out_left, out_right)
 
 
@@ -664,6 +673,119 @@ def _diptych_seismic(out_left: Path, out_right: Path) -> Tuple[str, str]:
         ax.spines[["top", "right"]].set_visible(False)
 
     return _diptych_pair(out_left, out_right, left, right, "Триангуляция по P/S-волнам", "Разные скорости волн")
+
+
+def _diptych_ocean(out_left: Path, out_right: Path) -> Tuple[str, str]:
+    from . import simulate
+
+    data = simulate.ocean_altimetry()
+
+    def left(fig: Any, ax: Any) -> None:
+        ax.plot(data["time"], data["waveform"], color="#1D3557", lw=1.8)
+        ax.axvline(data["epoch"], color="#B23A2E", lw=1.2, ls="--")
+        ax.annotate(f"эпоха {data['epoch']:.2f}", (data["epoch"], float(np.max(data["waveform"]))),
+                    textcoords="offset points", xytext=(6, -4), fontsize=9, color="#6B7280")
+        ax.set_xlabel("задержка, бины")
+        ax.set_ylabel("мощность отклика")
+        ax.set_title("Модель Брауна: форма импульса", fontsize=11)
+        ax.spines[["top", "right"]].set_visible(False)
+
+    def right(fig: Any, ax: Any) -> None:
+        extent = data["extent"]
+        mesh = ax.pcolormesh(np.linspace(extent[0], extent[1], data["topography"].shape[1]),
+                             np.linspace(extent[2], extent[3], data["topography"].shape[0]),
+                             data["topography"], cmap="RdBu_r", shading="auto")
+        fig.colorbar(mesh, ax=ax, fraction=0.046, pad=0.03, label="высота, усл. ед.")
+        ax.set_title(f"Динамическая топография, размах {data['range_m']} м", fontsize=11)
+
+    return _diptych_pair(out_left, out_right, left, right,
+                         "Альтиметрия океана (Sentinel-6 / Jason-3)", "Геоид и вихри")
+
+
+def _diptych_grace(out_left: Path, out_right: Path) -> Tuple[str, str]:
+    from . import simulate
+
+    data = simulate.grace_geoid()
+
+    def left(fig: Any, ax: Any) -> None:
+        extent = data["extent"]
+        mesh = ax.pcolormesh(np.linspace(extent[0], extent[1], data["geoid"].shape[1]),
+                             np.linspace(extent[2], extent[3], data["geoid"].shape[0]),
+                             data["geoid"], cmap="RdBu_r", shading="auto")
+        fig.colorbar(mesh, ax=ax, fraction=0.046, pad=0.03, label="высота геоида, м")
+        ax.set_xlabel("долгота, °")
+        ax.set_ylabel("широта, °")
+        ax.set_title(f"Аномалии геоида, степень {data['degree']}", fontsize=11)
+
+    def right(fig: Any, ax: Any) -> None:
+        ax.plot(data["profile"], data["latitude"], color="#1D3557", lw=1.8)
+        ax.axvline(0.0, color="#6B7280", lw=0.8)
+        ax.set_xlabel("высота геоида, м")
+        ax.set_ylabel("широта, °")
+        ax.set_title(f"Меридиональный разрез, ±{data['amplitude_m']:.0f} м", fontsize=11)
+        ax.spines[["top", "right"]].set_visible(False)
+
+    return _diptych_pair(out_left, out_right, left, right,
+                         "Гравитационное поле (NASA GRACE-FO)", "Сферические гармоники Лежандра")
+
+
+def _diptych_wind(out_left: Path, out_right: Path) -> Tuple[str, str]:
+    from . import simulate
+
+    data = simulate.wind_field()
+    size = data["speed"].shape[0]
+    step = max(1, size // 26)
+    axis = np.linspace(data["extent"][0], data["extent"][1], size)
+
+    def left(fig: Any, ax: Any) -> None:
+        ax.imshow(data["speed"], cmap="Blues", origin="lower",
+                  extent=data["extent"], aspect="auto")
+        ax.quiver(axis[::step], axis[::step], data["u"][::step, ::step], data["v"][::step, ::step],
+                  color="#1D3557", scale_units="xy", angles="xy", scale=1.6, width=0.004)
+        ax.set_title(f"Оптический поток, Vmax {data['max_speed']}", fontsize=11)
+
+    def right(fig: Any, ax: Any) -> None:
+        mesh = ax.imshow(data["vorticity"], cmap="RdBu_r", origin="lower",
+                         extent=data["extent"], aspect="auto")
+        fig.colorbar(mesh, ax=ax, fraction=0.046, pad=0.03, label="ζ, с⁻¹ (усл.)")
+        ax.set_title(f"Завихрённость ζmax {data['max_vorticity']}", fontsize=11)
+
+    return _diptych_pair(out_left, out_right, left, right,
+                         "Ветер по снимкам GOES / Meteosat", "Функция тока ψ: u = −∂ψ/∂y, v = ∂ψ/∂x")
+
+
+def _diptych_mercury(out_left: Path, out_right: Path) -> Tuple[str, str]:
+    from . import simulate
+
+    data = simulate.mercury_precession()
+    radii = data["radii"]
+    angles = data["angles"]
+
+    def left(fig: Any, ax: Any) -> None:
+        ax.plot(radii * np.cos(angles), radii * np.sin(angles), color="#1D3557", lw=1.2)
+        ax.plot([radii[0] * np.cos(angles[0])], [radii[0] * np.sin(angles[0])], "o",
+                color="#B23A2E", ms=5.0)
+        ax.plot([0.0], [0.0], "o", color="#F2A93B", ms=7.0)
+        ax.set_aspect("equal")
+        ax.set_title(f"Орбита: T = {data['period_days']} сут, e = {data['eccentricity']}", fontsize=11)
+        ax.set_xlabel("x, а.е.")
+        ax.set_ylabel("y, а.е.")
+
+    def right(fig: Any, ax: Any) -> None:
+        labels = ["ньютоновская\nтеория", "ОТО\n(формула)", "наблюдения\n(JPL/IAU)"]
+        values = [abs(data["newtonian_drift_arcsec"]), data["gr_arcsec_per_century"],
+                  data["observed_arcsec_per_century"]]
+        colors = ["#6B7280", "#1D3557", "#B23A2E"]
+        ax.barh(labels, values, color=colors, height=0.55)
+        for index, value in enumerate(values):
+            ax.text(value + 0.6, index, f"{value:.1f}″", va="center", fontsize=10, color="#111827")
+        ax.set_xlabel("смещение перигелия, ″ за век")
+        ax.set_xlim(0.0, max(values) * 1.35)
+        ax.set_title("Проверка ОТО, а не подгонка", fontsize=11)
+        ax.spines[["top", "right"]].set_visible(False)
+
+    return _diptych_pair(out_left, out_right, left, right,
+                         "Смещение перигелия Меркурия", "43″ за век: согласие с эфемеридами")
 
 
 def _chart_timeline(post: Post, out_png: str | Path) -> List[Dict[str, Any]]:

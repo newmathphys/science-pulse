@@ -44,7 +44,8 @@ visible as a short film». Модуль `science_pulse/moku_film.py` превр�
 
 ## Сборка и звук
 
-1. Кадры рендерятся в PNG (`render_frames`), `size` × `size`, `fps`.
+1. Кадры рендерятся в PNG (`render_frames`), `width` × `height` (от `size` и
+   `aspect`), `fps`.
 2. Звук: `sound.sonify` (гармонический пад) на всю длину фильма; если задан
    `audio_path` — берётся он (например, озвучка `voice.py`).
 3. `ffmpeg`: `-c:v libx264 -pix_fmt yuv420p -preset ultrafast -movflags +faststart`
@@ -53,11 +54,27 @@ visible as a short film». Модуль `science_pulse/moku_film.py` превр�
 4. Рабочие кадры удаляются (`shutil.rmtree`), готовый файл кэшируется в
    `data/films/<id>.mp4` (`film_for_post`).
 
+## Формат кадра: `1:1` и `9:16`
+
+`frame_size(size, aspect)` возвращает пару сторон, обе **чётные** (требование
+`yuv420p`):
+
+| `aspect` | `size` | Кадр | Куда |
+|:--|:--:|:--|:--|
+| `1:1` | 720 | `720 × 720` | лента Telegram, карточка поста |
+| `9:16` | 1080 | `1080 × 1920` | Reels / Shorts / VK Клипы |
+
+Геометрия и штамп считаются от `width`/`height`, а кегли, отступы и радиусы
+точек — от `min(width, height)`, поэтому в вертикальном кадре композиция не
+«разъезжается»: «восьмёрка» остаётся в центре, а линия смысла акта привязана к
+`0.845·height`.
+
 ## Настройки
 
 ```yaml
 moku3d:
-  size: 720             # сторона кадра
+  size: 720             # сторона (для 9:16 — ширина)
+  aspect: "1:1"         # 1:1 | 9:16
   fps: 24
   seconds_per_act: 5.0  # × 5 актов = 30 секунд
   audio: true
@@ -68,6 +85,7 @@ moku3d:
 ```bash
 python -m science_pulse.cli film                 # следующий пост в очереди
 python -m science_pulse.cli film --domain physics
+python -m science_pulse.cli film --aspect 9:16   # вертикальный кадр для Reels
 python -m science_pulse.cli film --post-id <id> --send   # отправить в админ-чат
 ```
 
@@ -80,8 +98,8 @@ python -m science_pulse.cli film --post-id <id> --send   # отправить в
 
 `tests/test_moku_film.py`: 5 актов и ровно одна строка на акт, ограниченность
 «восьмёрки», переключение гармоник `n = 1 → 3`, перспектива проекции, число
-кадров и размер PNG, валидный `.mp4` (skip без `ffmpeg`), очистка рабочих
-кадров.
+кадров и размер PNG, чётность сторон `1:1`/`9:16` и вертикальный кадр `144×256`,
+валидный `.mp4` (skip без `ffmpeg`), очистка рабочих кадров.
 
 ## Ограничения
 

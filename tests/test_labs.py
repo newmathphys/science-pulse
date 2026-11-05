@@ -1,4 +1,4 @@
-"""Шесть лабораторных стендов: численные свойства, а не «картинка красивая»."""
+"""Десять лабораторных стендов: численные свойства, а не «картинка красивая»."""
 
 import unittest
 
@@ -8,7 +8,8 @@ from science_pulse import simulate, sound
 from science_pulse.cards_academic import SIMULATIONS
 from science_pulse.models import Post
 
-NEW_STANDS = ("cern_dimuon", "ligo_chirp", "voronoi_laplacian", "sat_tsp", "sparse_cg", "seismic_ps")
+NEW_STANDS = ("cern_dimuon", "ligo_chirp", "voronoi_laplacian", "sat_tsp", "sparse_cg", "seismic_ps",
+              "ocean_altimetry", "grace_geoid", "wind_field", "mercury_precession")
 
 
 def make_post(identifier: str = "lab1", simulation: str = "") -> Post:
@@ -128,6 +129,76 @@ class SeismicTriangulationTests(unittest.TestCase):
     def test_monotone_growth(self):
         data = simulate.seismic_triangulation()
         self.assertTrue(np.all(np.diff(data["distance_km"]) > 0))
+
+
+class OceanAltimetryTests(unittest.TestCase):
+    def test_brown_waveform_has_leading_edge(self):
+        data = simulate.ocean_altimetry()
+        waveform = data["waveform"]
+        peak = int(np.argmax(waveform))
+        # ведущий край слева от пика, плато/спад справа
+        self.assertGreater(float(waveform[peak]), float(waveform[0]))
+        self.assertGreater(float(waveform[peak]), float(waveform[-1]))
+        self.assertGreater(data["epoch"], 0.0)
+
+    def test_topography_has_relief(self):
+        data = simulate.ocean_altimetry()
+        self.assertGreater(float(np.ptp(data["topography"])), 0.3)
+        self.assertGreater(data["range_m"], 10.0)
+
+
+class GraceGeoidTests(unittest.TestCase):
+    def test_geoid_amplitude_is_realistic(self):
+        data = simulate.grace_geoid()
+        # реальный порядок аномалий геоида — десятки метров, не километры
+        self.assertAlmostEqual(data["amplitude_m"], 100.0, delta=1.0)
+
+    def test_legendre_matches_scipy_reference(self):
+        from scipy.special import lpmv
+
+        cos_theta = np.cos(np.linspace(0.05, np.pi - 0.05, 7))
+        table = simulate.associated_legendre(cos_theta, 6)
+        worst = 0.0
+        for (l, m), values in table.items():
+            worst = max(worst, float(np.max(np.abs(values - lpmv(m, l, cos_theta)))))
+        self.assertLess(worst, 1e-9, f"рекурсия Лежандра расходится с эталоном: {worst:.2e}")
+
+    def test_legendre_degree_controls_detail(self):
+        coarse = simulate.grace_geoid(degree=3)
+        fine = simulate.grace_geoid(degree=8)
+        self.assertEqual(coarse["degree"], 3)
+        self.assertEqual(fine["degree"], 8)
+        self.assertGreater(float(np.std(fine["geoid"])), 0.0)
+
+
+class WindFieldTests(unittest.TestCase):
+    def test_field_is_nearly_divergence_free(self):
+        data = simulate.wind_field()
+        # поле построено по функции тока: |div| ≪ |ζ|
+        self.assertLess(data["divergence_vs_vorticity"], 0.05)
+        self.assertGreater(data["max_vorticity"], 1.0)
+
+    def test_deterministic_by_seed_and_time(self):
+        first = simulate.wind_field(seed=7, t=0)
+        again = simulate.wind_field(seed=7, t=0)
+        later = simulate.wind_field(seed=7, t=3)
+        self.assertTrue(np.allclose(first["u"], again["u"]))
+        self.assertFalse(np.allclose(first["u"], later["u"]))
+
+
+class MercuryPrecessionTests(unittest.TestCase):
+    def test_gr_precession_matches_observation(self):
+        data = simulate.mercury_precession()
+        # 43″ за век — проверка ОТО, а не подгонка
+        self.assertAlmostEqual(data["gr_arcsec_per_century"], 43.0, delta=1.5)
+        self.assertEqual(data["observed_arcsec_per_century"], 43.0)
+
+    def test_orbital_period_and_newtonian_closure(self):
+        data = simulate.mercury_precession()
+        self.assertAlmostEqual(data["period_days"], 87.97, delta=0.2)
+        self.assertGreater(data["perihelion_count"], 10)
+        # в чисто ньютоновском поле перигелий не дрейфует
+        self.assertLess(abs(data["newtonian_drift_arcsec"]), 5.0)
 
 
 if __name__ == "__main__":

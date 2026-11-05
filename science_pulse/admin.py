@@ -43,7 +43,7 @@ HELP = """🎛 <b>Science Pulse — пульт</b>
 /menu — добавить кнопку «Пульт» в меню чата (нужен HTTPS-адрес сайта)
 /theme [auto|academic|3b1b|blueprint|moku3d] — дизайн выпуска; без аргумента — рейтинг
 /ab — таблица эффективности дизайнов (A/B по живой аудитории)
-/film [ID] — 5-актовый фильм Moku3D в этот чат
+/film [ID] [1:1|9:16] — 5-актовый фильм Moku3D в этот чат (9:16 — для Reels)
 /audio — озвучить следующий пост и прислать аудио
 /radio — собрать радио-эфир и показать статус
 /kernel — паспорт ядра системы (фазы, часы эпохи)
@@ -663,20 +663,32 @@ class TelegramAdmin:
         return format_design_table(self.storage, self.config)
 
     def _film_text(self, args: List[str]) -> str:
-        """`/film`: 5-актовый фильм Moku3D в админ-чат (без публикации в канал)."""
+        """`/film [ID] [1:1|9:16]`: 5-актовый фильм Moku3D в админ-чат (без публикации)."""
         from .moku_film import film_available, film_for_post
 
         if not film_available():
             return "Moku3D недоступен: не найден ffmpeg."
-        post = self.storage.get_post(args[0]) if args else None
+        aspect = None
+        identifier = None
+        for arg in args:
+            token = str(arg).strip().lower()
+            if token in ("9:16", "916", "vertical", "portrait"):
+                aspect = "9:16"
+            elif token in ("1:1", "11", "square"):
+                aspect = "1:1"
+            elif token:
+                identifier = str(arg).strip()
+        post = self.storage.get_post(identifier) if identifier else None
         if post is None:
             post = self.pipeline.choose_next()
         if post is None:
             return "Очередь пуста — нечего экранировать."
-        path = film_for_post(post, self.config)
+        path = film_for_post(post, self.config, aspect=aspect)
         if not path:
             return "Не удалось собрать фильм Moku3D."
         caption = f"Moku3D · {html.escape(post.title)}"
+        if aspect:
+            caption += f" · {aspect}"
         if self.send_video(path, caption):
             return f"Фильм отправлен: <code>{html.escape(str(path))}</code>"
         return f"Фильм собран, но не отправлен: <code>{html.escape(str(path))}</code>"

@@ -43,14 +43,34 @@ def film_available() -> bool:
     return shutil.which("ffmpeg") is not None
 
 
-def moku3d_settings(config: Any = None) -> Dict[str, Any]:
+def moku3d_settings(config: Any = None, aspect: Optional[str] = None) -> Dict[str, Any]:
+    """Настройки фильма. `aspect`: `1:1` (квадрат) или `9:16` (вертикаль для Reels/Shorts).
+
+    Аргумент `aspect` перебивает конфиг — так `/film 9:16` и `cli film --aspect 9:16`
+    собирают вертикальный кадр, не меняя файл настроек.
+    """
     raw = dict((getattr(config, "raw", {}) or {}).get("moku3d") or {}) if config else {}
+    size = int(raw.get("size", SIZE))
+    aspect = str(aspect or raw.get("aspect", "1:1")).strip() or "1:1"
+    width, height = frame_size(size, aspect)
     return {
-        "size": int(raw.get("size", SIZE)),
+        "size": size,
+        "aspect": aspect,
+        "width": width,
+        "height": height,
         "fps": int(raw.get("fps", FPS)),
         "seconds_per_act": float(raw.get("seconds_per_act", SECONDS_PER_ACT)),
         "audio": bool(raw.get("audio", True)),
     }
+
+
+def frame_size(size: int, aspect: str = "1:1") -> Tuple[int, int]:
+    """Размер кадра: `1:1` → квадрат, `9:16` → вертикаль (обе стороны чётные)."""
+    size = max(160, int(size))
+    if str(aspect).replace(" ", "") in ("9:16", "916", "vertical", "portrait"):
+        height = int(round(size * 16 / 9 / 2)) * 2
+        return size, max(size, height)
+    return size, size
 
 
 def _lerp(a: Tuple[int, int, int], b: Tuple[int, int, int], t: float) -> Tuple[int, int, int]:
@@ -246,14 +266,20 @@ class Scene3D:
         return data
 
 
-def _project(points: np.ndarray, rotation: np.ndarray, size: int, scale: float = 0.34) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Перспективная проекция 3D → 2D с глубиной (для Z-буфера яркости)."""
+def _project(points: np.ndarray, rotation: np.ndarray, width: int, height: int,
+             scale: float = 0.34) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Перспективная проекция 3D → 2D с глубиной (для Z-буфера яркости).
+
+    Кадр может быть неквадратным (`9:16`), поэтому центр и масштаб считаются
+    по `width`/`height`, а база — по меньшей стороне, чтобы геометрия влезала.
+    """
     rotated = np.asarray(points, dtype=float) @ rotation.T
     depth = rotated[:, 2]
     focal = 3.2
     factor = focal / (focal - np.clip(depth, -1.8, 1.8))
-    xs = size / 2 + rotated[:, 0] * factor * size * scale
-    ys = size / 2 - rotated[:, 1] * factor * size * scale
+    base = min(width, height)
+    xs = width / 2 + rotated[:, 0] * factor * base * scale
+    ys = height / 2 - rotated[:, 1] * factor * base * scale
     return xs, ys, depth
 
 
@@ -301,22 +327,24 @@ def _fit_text(
 
 
 
-def _draw_geometry(draw: ImageDraw.ImageDraw, data: Dict[str, Any], rotation: np.ndarray, size: int) -> None:
+def _draw_geometry(draw: ImageDraw.ImageDraw, data: Dict[str, Any], rotation: np.ndarray,
+                   width: int, height: int) -> None:
     accent = data["accent"]
+    base = min(width, height)
     for trail in data.get("trails") or []:
         if len(trail) < 2:
             continue
-        xs, ys, depth = _project(trail, rotation, size)
+        xs, ys, depth = _project(trail, rotation, width, height)
         mean_depth = float(np.mean(depth))
         brightness = 0.55 + 0.45 * (mean_depth + 1.6) / 3.2
-        width = 3 if mean_depth > 0.3 else (2 if mean_depth > -0.5 else 1)
+        stroke = 3 if mean_depth > 0.3 else (2 if mean_depth > -0.5 else 1)
         draw.line(list(zip(xs.tolist(), ys.tolist())), fill=_lerp(BG, accent, min(1.0, brightness)),
-                  width=width, joint="curve")
+                  width=stroke, joint="curve")
     points3d = data.get("points")
     if points3d is None:
         return
-    xs, ys, depth = _project(points3d, rotation, size)
-    radius_base = max(2, int(size * 0.0055))
+    xs, ys, depth = _project(points3d, rotation, width, height)
+    radius_base = max(2, int(base * 0.0055))
     for index in np.argsort(depth):  # дальние — раньше (Z-буфер)
         near = (float(depth[index]) + 1.6) / 3.2
         radius = radius_base + int(round(radius_base * 1.6 * near))
@@ -326,26 +354,28 @@ def _draw_geometry(draw: ImageDraw.ImageDraw, data: Dict[str, Any], rotation: np
         )
 
 
-def _draw_hud(draw: ImageDraw.ImageDraw, post: Post, act_info: Dict[str, Any], data: Dict[str, Any], size: int) -> None:
+def _draw_hud(draw: ImageDraw.ImageDraw, post: Post, act_info: Dict[str, Any],
+              data: Dict[str, Any], width: int, height: int) -> None:
     """Технический штамп: `STUDY § X.Y`, уравнение и счётчик (без наложений)."""
-    pad = int(size * 0.035)
-    mono_size = max(11, int(size * 0.017))
+    base = min(width, height)
+    pad = int(base * 0.035)
+    mono_size = max(11, int(base * 0.017))
     section = str((getattr(post, "meta", {}) or {}).get("section_num") or "").strip()
     stamp = f"STUDY § {section} · ТОЧНАЯ ЧИСЛЕННАЯ МОДЕЛЬ" if section else "STUDY · ТОЧНАЯ ЧИСЛЕННАЯ МОДЕЛЬ"
     formula = _one_line(getattr(post, "formula_plain", "") or getattr(post, "formula_latex", "") or "", 60)
 
     act_label = f"АКТ {act_info['roman']} · {act_info['title']}"
-    _, act_text = _fit_text(draw, act_label, size * 0.42, mono_size, mono=True, min_size=9)
+    _, act_text = _fit_text(draw, act_label, width * 0.42, mono_size, mono=True, min_size=9)
     act_font = _font(max(9, mono_size - 2), bold=True, mono=True)
     act_width = draw.textlength(act_text, font=act_font)
-    avail = max(size * 0.30, size - 2 * pad - act_width - pad)
+    avail = max(width * 0.30, width - 2 * pad - act_width - pad)
 
     font, stamp_text = _fit_text(draw, stamp, avail, mono_size, mono=True, min_size=9)
     draw.text((pad, pad), stamp_text, fill=MUTED, font=font)
     if formula:
         formula_font, formula_text = _fit_text(draw, formula, avail, mono_size, mono=True, min_size=9)
         draw.text(
-            (pad, pad + int(size * 0.026)),
+            (pad, pad + int(base * 0.026)),
             formula_text,
             fill=_lerp(BG, data["accent"], 0.75),
             font=formula_font,
@@ -353,27 +383,30 @@ def _draw_hud(draw: ImageDraw.ImageDraw, post: Post, act_info: Dict[str, Any], d
     counter_font, counter_text = _fit_text(
         draw, data.get("counter") or "", avail, mono_size, mono=True, min_size=9
     )
-    draw.text((pad, pad + int(size * 0.052)), counter_text, fill=MUTED, font=counter_font)
-    draw.text((size - pad - act_width, pad), act_text, fill=_lerp(BG, INK, 0.6), font=act_font)
+    draw.text((pad, pad + int(base * 0.052)), counter_text, fill=MUTED, font=counter_font)
+    draw.text((width - pad - act_width, pad), act_text, fill=_lerp(BG, INK, 0.6), font=act_font)
 
 
-def _draw_act_line(draw: ImageDraw.ImageDraw, text: str, alpha: float, size: int) -> None:
+def _draw_act_line(draw: ImageDraw.ImageDraw, text: str, alpha: float,
+                   width: int, height: int) -> None:
     """Ровно ОДНА строка смысла текущего акта внизу кадра (кегль подгоняется)."""
     if not text:
         return
-    pad = int(size * 0.035)
+    base = min(width, height)
+    pad = int(base * 0.035)
     font, fitted = _fit_text(
-        draw, text, size - 2 * pad, max(15, int(size * 0.036)), bold=True, min_size=13
+        draw, text, width - 2 * pad, max(15, int(base * 0.036)), bold=True, min_size=13
     )
-    rule_y = int(size * 0.845)
-    draw.line([(pad, rule_y), (size - pad, rule_y)], fill=_lerp(BG, MUTED, 0.55 * alpha), width=2)
-    draw.text((pad, rule_y + int(size * 0.022)), fitted, fill=_lerp(BG, INK, alpha), font=font)
+    rule_y = int(height * 0.845)
+    draw.line([(pad, rule_y), (width - pad, rule_y)], fill=_lerp(BG, MUTED, 0.55 * alpha), width=2)
+    draw.text((pad, rule_y + int(base * 0.022)), fitted, fill=_lerp(BG, INK, alpha), font=font)
 
 
 def render_frames(post: Post, out_dir: Path, settings: Optional[Dict[str, Any]] = None) -> int:
     """Рендерит все кадры фильма в `out_dir` (PNG `frame_00000.png` …)."""
     conf = settings or moku3d_settings(None)
-    size = int(conf["size"])
+    width = int(conf.get("width", conf.get("size", SIZE)))
+    height = int(conf.get("height", conf.get("size", SIZE)))
     fps = int(conf["fps"])
     spa = float(conf["seconds_per_act"])
     total_seconds = spa * ACTS
@@ -388,11 +421,11 @@ def render_frames(post: Post, out_dir: Path, settings: Optional[Dict[str, Any]] 
         act_progress = (global_time - act * spa) / spa
         act_info = acts[act]
         data = scene.frame(act + 1, act_progress, global_progress)
-        image = Image.new("RGB", (size, size), BG)
+        image = Image.new("RGB", (width, height), BG)
         draw = ImageDraw.Draw(image)
-        _draw_geometry(draw, data, _camera(act + 1, act_progress, global_progress), size)
-        _draw_hud(draw, post, act_info, data, size)
-        _draw_act_line(draw, act_info["line"], _fade(act_progress), size)
+        _draw_geometry(draw, data, _camera(act + 1, act_progress, global_progress), width, height)
+        _draw_hud(draw, post, act_info, data, width, height)
+        _draw_act_line(draw, act_info["line"], _fade(act_progress), width, height)
         image.save(out_dir / f"frame_{index:05d}.png", format="PNG")
     return frames
 
@@ -426,15 +459,17 @@ def render_moku3d_short_film(
     audio_path: Optional[str | Path] = None,
     config: Any = None,
     keep_frames: bool = False,
+    aspect: Optional[str] = None,
 ) -> Optional[Path]:
     """5-актовый фильм Moku3D: 30 секунд, 5 сцен, одна строка текста на акт.
 
-    Возвращает путь к `.mp4` или None, если `ffmpeg` недоступен.
+    `aspect` (`1:1` | `9:16`) перебивает конфиг. Возвращает путь к `.mp4` или
+    None, если `ffmpeg` недоступен.
     """
     if not film_available():
         LOGGER.warning("Moku3D: ffmpeg не найден — фильм не собран")
         return None
-    settings = moku3d_settings(config)
+    settings = moku3d_settings(config, aspect=aspect)
     out = Path(out_path)
     out.parent.mkdir(parents=True, exist_ok=True)
     work = Path(out).parent / f"_moku3d_{post.id}"
@@ -461,12 +496,20 @@ def render_moku3d_short_film(
             shutil.rmtree(work, ignore_errors=True)
 
 
-def film_for_post(post: Post, config: Any, out_dir: str | Path | None = None) -> Optional[Path]:
-    """Кэшированный фильм поста: `data/films/<id>.mp4`."""
+def film_for_post(post: Post, config: Any, out_dir: str | Path | None = None,
+                  aspect: Optional[str] = None) -> Optional[Path]:
+    """Кэшированный фильм поста: `data/films/<id>.mp4`.
+
+    Вертикальный формат кэшируется отдельно (`<id>_9x16.mp4`), иначе запрос
+    `9:16` получил бы готовый квадратный файл.
+    """
     base = Path(out_dir) if out_dir else (Path(getattr(config, "data_dir", "data")) / "films")
-    target = base / f"{post.id}.mp4"
+    name = f"{post.id}.mp4"
+    if aspect and str(aspect) != moku3d_settings(config)["aspect"]:
+        name = f"{post.id}_{str(aspect).replace(':', 'x')}.mp4"
+    target = base / name
     if target.exists() and target.stat().st_size > 20_000:
         return target
-    return render_moku3d_short_film(post, target, config=config)
+    return render_moku3d_short_film(post, target, config=config, aspect=aspect)
 
 

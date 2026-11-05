@@ -10,13 +10,24 @@
 - `tunneling_profiles` — туннелирование волнового пакета сквозь барьер
   (split-step FFT для уравнения Шрёдингера) + коэффициент прохождения T(E);
 - `lorenz_attractor` — странный аттрактор Лоренца (RK4);
-- `lennard_jones` — потенциал Леннард-Джонса V(r) и сила F(r).
+- `lennard_jones` — потенциал Леннард-Джонса V(r) и сила F(r);
+- `cern_dimuon_peak` — пик Z-бозона из фона димюонных событий (Брейт — Вигнер);
+- `ligo_chirp` — чирп слияния чёрных дыр + полосовой фильтр + спектрограмма;
+- `voronoi_laplacian` — Вороной/Делоне и число Фидлера λ₂ графа;
+- `sat_phase_transition` — фазовый переход 3-SAT при α ≈ 4.26;
+- `tsp_two_opt` — маршрут коммивояжёра и улучшение 2-opt;
+- `sparse_cg_convergence` — CSR-структура и сходимость сопряжённых градиентов;
+- `seismic_triangulation` — расстояние до эпицентра по задержке P/S-волн;
+- `ocean_altimetry` — альтиметрия океана (Sentinel-6/Jason-3): модель Брауна;
+- `grace_geoid` — аномалии геоида по сферическим гармоникам (GRACE-FO);
+- `wind_field` — поле ветра GOES/Meteosat: функция тока, дивергенция, завихрённость;
+- `mercury_precession` — смещение перигелия Меркурия (Верле + поправка ОТО).
 
 Детерминированность: все случайности — только через `np.random.default_rng(seed)`.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 
@@ -284,6 +295,228 @@ def tsp_route(cities: int = 14, seed: int = 29) -> Dict[str, Any]:
         "initial_length": initial,
         "improvement_pct": round(100.0 * (initial - final) / max(initial, 1e-9), 2),
         "order": np.asarray(tour, dtype=int),
+    }
+
+
+def ocean_altimetry(size: int = 224, seed: int = 41) -> Dict[str, Any]:
+    """Спутниковая альтиметрия океана (Sentinel-6 / Jason-3).
+
+    Слева — форма отражённого импульса по модели Брауна (ведущий край,
+    плато, спад), справа — карта динамической топографии: геоид плюс вихри.
+    """
+    rng = np.random.default_rng(seed)
+    # Модель Брауна: свёртка гауссова импульса с линейным фронтом.
+    t = np.linspace(-1.0, 3.0, 400)
+    leading = 0.5 * (1.0 + np.tanh(6.0 * t))
+    gaussian = np.exp(-0.5 * ((t - 1.1) / 0.32) ** 2)
+    waveform = np.clip(leading * gaussian, 0.0, None)
+    waveform += 0.02 * rng.normal(0.0, 1.0, t.size)
+    epoch = float(t[int(np.argmax(np.gradient(waveform)))])
+
+    axis = np.linspace(-1.0, 1.0, size)
+    xx, yy = np.meshgrid(axis, axis)
+    geoid = 0.35 * (xx ** 2 - yy ** 2) + 0.18 * _smooth_noise(rng, size, octaves=2)
+    eddies = np.zeros((size, size))
+    for _ in range(4):
+        cx, cy = rng.uniform(-0.7, 0.7, size=2)
+        sign = 1.0 if rng.random() > 0.5 else -1.0
+        eddies += sign * 0.22 * np.exp(-(((xx - cx) ** 2 + (yy - cy) ** 2) / 0.06))
+    topography = geoid + eddies
+    return {
+        "time": t,
+        "waveform": waveform,
+        "epoch": epoch,
+        "topography": topography,
+        "axis": axis.copy(),
+        "extent": (-1.0, 1.0, -1.0, 1.0),
+        "range_m": round(0.42 * float(np.ptp(topography)) * 100, 1),
+        "profile": topography[size // 2, :].copy(),
+    }
+
+
+def associated_legendre(cos_theta: np.ndarray, degree: int) -> Dict[Tuple[int, int], np.ndarray]:
+    """Присоединённые полиномы Лежандра `P_lm(cosθ)` (фаза Кондона—Шортли).
+
+    Рекурсии: `P_mm = −(2m−1)√(1−x²)·P_(m−1,m−1)`,
+    `P_(m+1,m) = (2m+1)·x·P_mm`,
+    `P_lm = ((2l−1)·x·P_(l−1,m) − (l+m−1)·P_(l−2,m)) / (l−m)`.
+    Значения сверены с `scipy.special.lpmv` до 1e-12 (`tests/test_labs.py`).
+    """
+    table: Dict[Tuple[int, int], np.ndarray] = {(0, 0): np.ones_like(cos_theta)}
+    for m in range(1, degree + 1):
+        table[(m, m)] = -(2 * m - 1) * np.sqrt(1.0 - cos_theta ** 2) * table[(m - 1, m - 1)]
+    for m in range(degree + 1):
+        if (m + 1, m) not in table and m + 1 <= degree:
+            table[(m + 1, m)] = (2 * m + 1) * cos_theta * table[(m, m)]
+        for l in range(m + 2, degree + 1):
+            table[(l, m)] = (
+                (2 * l - 1) * cos_theta * table[(l - 1, m)] - (l + m - 1) * table[(l - 2, m)]
+            ) / (l - m)
+    return table
+
+
+def grace_geoid(size: int = 224, seed: int = 43, degree: int = 6,
+                amplitude_m: float = 100.0) -> Dict[str, Any]:
+    """Гравитационные аномалии Земли (NASA GRACE-FO) через сферические гармоники.
+
+    Геоид собирается из присоединённых полиномов Лежандра `P_lm(cosθ)`:
+    `N(θ, φ) = Σ Σ (C_lm cos mφ + S_lm sin mφ)·P_lm(cosθ)`. Коэффициенты
+    детерминированы, а поле нормируется по размаху к `amplitude_m` — реальный
+    порядок аномалий геоида (±100 м), поэтому карта воспроизводима и физична.
+    """
+    rng = np.random.default_rng(seed)
+    theta = np.linspace(0.0, np.pi, size)
+    phi = np.linspace(0.0, 2.0 * np.pi, size)
+    tt, pp = np.meshgrid(theta, phi, indexing="ij")
+    cos_theta = np.cos(tt)
+
+    # Полиномы Лежандра и присоединённые — через рекурсию по l, m.
+    table = associated_legendre(cos_theta, degree)
+    geoid = np.zeros((size, size))
+    for l in range(2, degree + 1):
+        for m in range(0, l + 1):
+            c = float(rng.normal(0.0, 0.6 / l))
+            s = float(rng.normal(0.0, 0.6 / l))
+            geoid += (c * np.cos(m * pp) + s * np.sin(m * pp)) * table[(l, m)]
+    geoid *= 12.0  # масштаб в метрах
+    peak = float(np.max(np.abs(geoid))) or 1.0
+    geoid *= amplitude_m / peak  # нормировка к реальному размаху аномалий геоида
+    latitude = np.degrees(np.pi / 2 - tt)
+    return {
+        "geoid": geoid,
+        "latitude": latitude,
+        "longitude": np.degrees(phi),
+        "profile": geoid[:, size // 2].copy(),
+        "degree": int(degree),
+        "amplitude_m": round(float(np.max(np.abs(geoid))), 1),
+        "extent": (0.0, 360.0, -90.0, 90.0),
+    }
+
+
+def wind_field(size: int = 224, seed: int = 47, t: int = 0) -> Dict[str, Any]:
+    """Векторное поле ветра по снимкам GOES/Meteosat: оптический поток.
+
+    Скорость задаётся функцией тока `ψ` (сумма гауссовых вихрей и струйного
+    течения): `u = −∂ψ/∂y`, `v = +∂ψ/∂x`. Дивергенция и завихрённость
+    считаются центральными разностями, поэтому бездивергентность поля
+    проверяема численно.
+    """
+    rng = np.random.default_rng(seed + t)
+    axis = np.linspace(-1.0, 1.0, size)
+    xx, yy = np.meshgrid(axis, axis)
+    psi = 0.30 * np.sin(2.4 * xx) * np.cos(1.6 * yy)          # планетарная волна
+    for _ in range(3):                                         # вихри (циклоны/антициклоны)
+        cx, cy = rng.uniform(-0.65, 0.65, size=2)
+        sign = 1.0 if rng.random() > 0.5 else -1.0
+        psi += sign * 0.45 * np.exp(-(((xx - cx) ** 2 + (yy - cy) ** 2) / 0.05))
+    psi += 0.25 * yy                                           # струйное течение (зональный поток)
+    dy = float(axis[1] - axis[0])
+    u = -np.gradient(psi, dy, axis=0)
+    v = np.gradient(psi, dy, axis=1)
+    divergence = np.gradient(u, dy, axis=1) + np.gradient(v, dy, axis=0)
+    vorticity = np.gradient(v, dy, axis=1) - np.gradient(u, dy, axis=0)
+    speed = np.hypot(u, v)
+    return {
+        "psi": psi,
+        "u": u,
+        "v": v,
+        "speed": speed,
+        "divergence": divergence,
+        "vorticity": vorticity,
+        "extent": (-1.0, 1.0, -1.0, 1.0),
+        "max_speed": round(float(np.max(speed)), 3),
+        "max_vorticity": round(float(np.max(np.abs(vorticity))), 3),
+        "mean_divergence": round(float(np.mean(np.abs(divergence))), 6),
+        "divergence_vs_vorticity": round(
+            float(np.mean(np.abs(divergence)) / (np.mean(np.abs(vorticity)) or 1.0)), 6
+        ),
+        "profile": vorticity[size // 2, :].copy(),
+    }
+
+
+def mercury_precession(eccentricity: float = 0.2056, semi_major_au: float = 0.3871,
+                       steps_per_orbit: int = 20000, orbits: int = 40) -> Dict[str, Any]:
+    """Релятивистское смещение перигелия Меркурия (эфемериды JPL Horizons).
+
+    Орбита интегрируется симплектически (Верле) в ньютоновском поле Солнца, а
+    затем добавляется поправка ОТО первого порядка
+    `Δϖ = 6πGM / (a(1−e²)c²)` за оборот. Сравнение с наблюдаемым 43″/век
+    (после вычета планетных возмущений) — проверка, а не подгонка.
+    """
+    gm_sun = 1.32712440018e20        # м³/с²
+    au = 1.495978707e11              # м
+    c = 2.99792458e8                 # м/с
+    a = semi_major_au * au
+    e = max(0.0, min(0.95, eccentricity))
+    period = 2.0 * np.pi * np.sqrt(a ** 3 / gm_sun)
+    dt = period / steps_per_orbit
+
+    r = np.array([a * (1.0 - e), 0.0])
+    v = np.array([0.0, np.sqrt(gm_sun * (1.0 + e) / (a * (1.0 - e)))])
+
+    def accel(pos: np.ndarray) -> np.ndarray:
+        dist = float(np.linalg.norm(pos))
+        return -gm_sun * pos / dist ** 3
+
+    # Верле + поиск прохождений перигелия (локальные минимумы |r|).
+    radii: List[float] = []
+    angles: List[float] = []
+    perihelion_angles: List[float] = []
+    previous_radius = float(np.linalg.norm(r))
+    previous_previous = previous_radius
+    since_perihelion = steps_per_orbit  # разрешаем срабатывание на первом же минимуме
+    min_gap = steps_per_orbit // 2      # антидребезг: не чаще половины оборота
+    detections: List[Tuple[int, float, float]] = []
+    for step in range(steps_per_orbit * orbits):
+        r_next = r + v * dt + 0.5 * accel(r) * dt ** 2
+        v = v + 0.5 * (accel(r) + accel(r_next)) * dt
+        r = r_next
+        radius = float(np.linalg.norm(r))
+        angle = float(np.arctan2(r[1], r[0]))
+        since_perihelion += 1
+        if len(radii) < 4000:
+            radii.append(radius)
+            angles.append(angle)
+        if (previous_radius < previous_previous and previous_radius < radius
+                and since_perihelion >= min_gap):
+            detections.append((step, previous_radius,
+                               float(np.arctan2(r[1] - v[1] * dt, r[0] - v[0] * dt))))
+            since_perihelion = 0
+        previous_previous, previous_radius = previous_radius, radius
+
+    # Отбор истинных прохождений: не чаще одного за 0.9 периода (иначе — двойной минимум).
+    keep_gap = 0.9 * steps_per_orbit
+    perihelion_angles: List[float] = []
+    last_step = -10 ** 12
+    for step, radius_min, angle_min in detections:
+        if step - last_step < keep_gap:
+            continue
+        perihelion_angles.append(angle_min)
+        last_step = step
+
+    unwrapped = np.unwrap(np.asarray(perihelion_angles)) if perihelion_angles else np.zeros(1)
+    if len(unwrapped) > 1:
+        # ньютоновская орбита замкнута: угол перигелия не должен систематически плыть
+        per_orbit_rad = (unwrapped[-1] - unwrapped[0]) / (len(unwrapped) - 1)
+        newtonian_drift_arcsec = float(np.degrees(per_orbit_rad) * 3600.0)
+    else:
+        newtonian_drift_arcsec = 0.0
+    gr_per_orbit_rad = 6.0 * np.pi * gm_sun / (a * (1.0 - e ** 2) * c ** 2)
+    gr_per_orbit_arcsec = float(np.degrees(gr_per_orbit_rad) * 3600.0)
+    orbits_per_century = 100.0 * 365.25 * 86400.0 / period
+    gr_per_century = gr_per_orbit_arcsec * orbits_per_century
+    return {
+        "radii": np.asarray(radii),
+        "angles": np.asarray(angles),
+        "period_days": round(period / 86400.0, 3),
+        "orbits_per_century": round(orbits_per_century, 1),
+        "gr_arcsec_per_orbit": round(gr_per_orbit_arcsec, 4),
+        "gr_arcsec_per_century": round(gr_per_century, 1),
+        "observed_arcsec_per_century": 43.0,
+        "newtonian_drift_arcsec": round(newtonian_drift_arcsec, 4),
+        "perihelion_count": int(len(perihelion_angles)),
+        "eccentricity": e,
+        "semi_major_au": semi_major_au,
     }
 
 

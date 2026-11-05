@@ -3,7 +3,7 @@
 Психология внимания: если в каждом посте требовать решения задачи, читатель
 привыкает и перестаёт читать низ поста (habituation). Поэтому «Задача» выходит
 дозированно — только в режиме `interactive_challenge` (по умолчанию каждый
-5-й выпуск), а основная масса постов — чистое знание.
+4-й выпуск), а основная масса постов — чистое знание.
 
 Режимы:
 
@@ -52,7 +52,7 @@ def settings(config: Any) -> Dict[str, Any]:
     weights.update({key: int(value) for key, value in (raw.get("weights") or {}).items() if key in MODES})
     return {
         "enabled": bool(raw.get("enabled", True)),
-        "challenge_every_nth": max(1, int(raw.get("challenge_every_nth", 5))),
+        "challenge_every_nth": max(1, int(raw.get("challenge_every_nth", 4))),
         "weights": weights,
     }
 

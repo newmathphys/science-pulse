@@ -71,7 +71,7 @@ python -m science_pulse.cli metrics --collect  # метрики площадок
 python -m science_pulse.cli trending    # 🔥 радар мировых новостей (HN + GitHub)
 python -m science_pulse.cli doctor      # 🚦 светофор автономности (--send в чат)
 python -m science_pulse.cli theme       # дизайн выпуска: A/B-рейтинг (auto|academic|3b1b|blueprint|moku3d)
-python -m science_pulse.cli film        # 5-актовый фильм Moku3D (--post-id ID --domain math --send)
+python -m science_pulse.cli film        # 5-актовый фильм Moku3D (--post-id ID --domain math --aspect 9:16 --send)
 python -m science_pulse.cli auth-check  # живой тестер ключей всех 6 площадок (read-only)
 python -m science_pulse.cli sync-platform threads --limit 5   # довыгрузить летопись с § 1.1
 python -m science_pulse.cli sensors     # живые датчики Планеты и Космоса (USGS, NOAA, LIGO, МКС)
@@ -492,7 +492,7 @@ PDF-книгу. Удобно, чтобы показать проект цели�
 | `docs/MOKU3D.md` | Moku3D: 5-актовый фильм из одного уравнения |
 | `docs/POST_MODES.md` | пять режимов подачи: задача выходит дозированно |
 | `docs/LIVE_SENSORS.md` | живые датчики Планеты и Космоса без ключей |
-| `docs/LABS.md` | шесть лабораторных стендов: ЦЕРН, LIGO, Вороной, 3-SAT, CG, P/S |
+| `docs/LABS.md` | десять лабораторных стендов: ЦЕРН, LIGO, Вороной, 3-SAT, CG, P/S, альтиметрия, GRACE-FO, ветер, Меркурий |
 | `docs/SCHEDULE.md` | 4-уровневый календарь: слоты, Пт/Сб/Вс, 1-е число |
 | `docs/CANON_GATE.md` | двухпроходный шлюз канона (Pass 1 и Pass 2) |
 | `docs/FOUNDATION_TOPOLOGY.md` | топология фундамента: диск Пуанкаре и геодезические |

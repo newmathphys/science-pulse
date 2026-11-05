@@ -71,7 +71,7 @@ class SceneTests(unittest.TestCase):
 
         rotation = moku_film._rotation(0.0, 0.0)
         points = np.array([[0.0, 0.0, 1.0], [0.0, 0.0, -1.0]])
-        xs, ys, depth = moku_film._project(points, rotation, 100)
+        xs, ys, depth = moku_film._project(points, rotation, 100, 100)
         self.assertEqual(len(xs), 2)
         self.assertGreater(float(depth[0]), float(depth[1]))
 
@@ -112,6 +112,47 @@ class RenderTests(unittest.TestCase):
         self.assertEqual(settings["size"], moku_film.SIZE)
         self.assertEqual(settings["fps"], moku_film.FPS)
         self.assertEqual(settings["seconds_per_act"], moku_film.SECONDS_PER_ACT)
+        self.assertEqual(settings["aspect"], "1:1")
+        self.assertEqual((settings["width"], settings["height"]), (moku_film.SIZE, moku_film.SIZE))
+
+    def test_frame_size_aspects(self):
+        self.assertEqual(moku_film.frame_size(720, "1:1"), (720, 720))
+        self.assertEqual(moku_film.frame_size(720, "9:16"), (720, 1280))
+        width, height = moku_film.frame_size(1080, "9:16")
+        self.assertEqual((width, height), (1080, 1920))
+        self.assertEqual(width % 2, 0)    # yuv420p требует чётные стороны
+        self.assertEqual(height % 2, 0)
+
+    def test_render_frames_vertical_aspect(self):
+        settings = {"size": 144, "aspect": "9:16", "fps": 6, "seconds_per_act": 0.5,
+                    "audio": False, "width": 144, "height": 256}
+        out_dir = self.root / "frames_vertical"
+        frames = moku_film.render_frames(make_post("math", "vert1"), out_dir, settings)
+        pngs = sorted(out_dir.glob("frame_*.png"))
+        self.assertEqual(len(pngs), frames)
+        from PIL import Image
+
+        with Image.open(pngs[0]) as image:
+            self.assertEqual(image.size, (144, 256))
+
+
+    def test_aspect_argument_overrides_config(self):
+        self.config.raw["moku3d"] = {"size": 540, "aspect": "1:1"}
+        square = moku_film.moku3d_settings(self.config)
+        vertical = moku_film.moku3d_settings(self.config, aspect="9:16")
+        self.assertEqual((square["width"], square["height"]), (540, 540))
+        self.assertEqual((vertical["width"], vertical["height"]), (540, 960))
+        self.assertEqual(self.config.raw["moku3d"]["aspect"], "1:1", "конфиг не мутируется")
+
+    def test_vertical_film_has_separate_cache(self):
+        self.config.raw["moku3d"] = {"size": 720, "aspect": "1:1"}
+        out_dir = self.root / "films"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        cached = out_dir / "vert2_9x16.mp4"
+        cached.write_bytes(b"0" * 25_000)
+        found = moku_film.film_for_post(make_post("math", "vert2"), self.config,
+                                        out_dir=out_dir, aspect="9:16")
+        self.assertEqual(found, cached, "вертикальный кэш отдельный от квадратного")
 
 
 if __name__ == "__main__":

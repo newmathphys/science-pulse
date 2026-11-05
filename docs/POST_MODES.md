@@ -21,7 +21,7 @@
 2. Дизайн `moku3d` → `moku3d_film`.
 3. `meta["simulation"]` или архетип `diptych_insar` → `satellite_lab`.
 4. Архетип `cheatsheet_table` → `cheatsheet_save`.
-5. Каждый `challenge_every_nth`-й выпуск (по умолчанию 5) → `interactive_challenge`.
+5. Каждый `challenge_every_nth`-й выпуск (по умолчанию 4) → `interactive_challenge`.
 6. Иначе — детерминированная взвешенная ротация (`WEIGHTS`, без случайности).
 
 ## Ответ на задачу
@@ -36,7 +36,7 @@
 ```yaml
 post_modes:
   enabled: true
-  challenge_every_nth: 5
+  challenge_every_nth: 4
   weights:
     pure_knowledge: 6
     satellite_lab: 2
