@@ -63,6 +63,18 @@ platform_rules:
 edge:
   d1_primary: false
 
+# Пять режимов подачи (психология ленты): «Задача» выходит дозированно,
+# а основная масса постов — чистое знание. См. docs/POST_MODES.md.
+post_modes:
+  enabled: true
+  challenge_every_nth: 5
+  weights:
+    pure_knowledge: 6
+    satellite_lab: 2
+    cheatsheet_save: 1
+    moku3d_film: 1
+    interactive_challenge: 1
+
 # Пред-подготовка следующего выпуска (N+1 warm staging): сразу после успешной
 # публикации пайплайн готовит лонгрид, паспорт, карточку и приёмку следующего
 # поста. Отключите, если не нужны лишние секунды на публикацию.

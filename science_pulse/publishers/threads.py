@@ -66,6 +66,13 @@ class ThreadsPublisher(Publisher):
         if context.site_url:
             chunks[-1] = truncate(f"{chunks[-1]}\n\n{context.site_url}", limit)
 
+        # Ответ на задачу уходит отдельным сообщением цепочки (спойлеров в Threads нет).
+        from .base import challenge_answer_line
+
+        answer_line = challenge_answer_line(post)
+        if answer_line:
+            chunks.append(answer_line)
+
         first_id: Optional[str] = None
         previous_id: Optional[str] = None
         published: List[str] = []

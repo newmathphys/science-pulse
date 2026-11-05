@@ -72,6 +72,8 @@ python -m science_pulse.cli trending    # 🔥 радар мировых нов�
 python -m science_pulse.cli doctor      # 🚦 светофор автономности (--send в чат)
 python -m science_pulse.cli theme       # дизайн выпуска: A/B-рейтинг (auto|academic|3b1b|blueprint|moku3d)
 python -m science_pulse.cli film        # 5-актовый фильм Moku3D (--post-id ID --domain math --send)
+python -m science_pulse.cli auth-check  # живой тестер ключей всех 6 площадок (read-only)
+python -m science_pulse.cli sync-platform threads --limit 5   # довыгрузить летопись с § 1.1
 python -m science_pulse.cli invariants  # проверка инвариантов состояния
 python -m science_pulse.cli formal      # машинная проверка Lean-доказательств
 python -m science_pulse.cli edge        # синхронизация R2/D1 (Cloudflare)
@@ -132,6 +134,8 @@ python -m science_pulse.cli radio --rtmp rtmps://dc4.rtmp.t.me/s/KEY --run  # п
 /about               как работает пульт, где Mini App и где хранится состояние
 /theme [стиль]       дизайн выпуска; без аргумента — рейтинг A/B (алиас /ab)
 /film [ID]           5-актовый фильм Moku3D в этот чат
+/auth                живой тестер ключей всех 6 площадок (read-only)
+/sync platform [N]   довыгрузить пропущенное начало летописи на площадку
 /book                📕 собрать PDF-книгу проекта и прислать файл
 /voice               🔊 озвучить следующий пост и прислать голосовое
 /standards           📏 пороги качества (/standards set KEY VALUE)
@@ -478,6 +482,7 @@ PDF-книгу. Удобно, чтобы показать проект цели�
 | `docs/GRAPH.md` | граф знаний: PageRank и диск Пуанкаре |
 | `docs/ABTEST.md` | A/B: 4 дизайна, бандит Томпсона, `/theme`, `/ab` |
 | `docs/MOKU3D.md` | Moku3D: 5-актовый фильм из одного уравнения |
+| `docs/POST_MODES.md` | пять режимов подачи: задача выходит дозированно |
 | `docs/MINIAPP.md` | Mini App «Пульт» (статическая страница) |
 | `docs/TRANSLATION.md` | перевод без LLM (формулы и код не трогаются) |
 | `docs/INVARIANTS.md` | инварианты состояния (Lean-спецификация + проверки) |

@@ -305,6 +305,11 @@ class Pipeline:
             "format": "film" if theme == "moku3d" else "card",
         }
         post.meta["design_variant"] = design
+        # Режим подачи (психология ленты): задача выходит дозированно.
+        from .post_modes import mode_for_post
+
+        post.meta["post_mode"] = mode_for_post(self.storage, self.config, post, theme=theme)
+        design["mode"] = post.meta["post_mode"]
         try:
             self.storage.set_post_meta(post.id, "design_variant", design)
         except Exception as exc:  # дизайн не должен блокировать публикацию

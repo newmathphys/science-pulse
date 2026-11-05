@@ -48,7 +48,7 @@ class QuizOptionsTests(unittest.TestCase):
         )
 
     def test_concept_challenge_has_no_quiz(self):
-        post = make_post(formula_plain="iħ·∂Ψ/∂t = ĤΨ", formula_latex="", domain="physics")
+        post = make_post(formula_plain="∀ φ: истинно, но недоказуемо", formula_latex="", domain="math")
         challenge = build_challenge(post)
         self.assertEqual(challenge["kind"], "concept")
         self.assertIsNone(quiz_options(challenge))
@@ -125,7 +125,7 @@ class TelegramPollTests(unittest.TestCase):
     def test_send_poll_returns_none_without_number(self):
         with mock.patch("science_pulse.publishers.telegram.requests.post") as fake_post:
             result = self.publisher.send_poll(
-                make_post(formula_plain="iħ·∂Ψ/∂t = ĤΨ", formula_latex="")
+                make_post(formula_plain="∀ φ: истинно, но недоказуемо", formula_latex="")
             )
         self.assertIsNone(result)
         fake_post.assert_not_called()

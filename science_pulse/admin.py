@@ -44,6 +44,8 @@ HELP = """🎛 <b>Science Pulse — пульт</b>
 /theme [auto|academic|3b1b|blueprint|moku3d] — дизайн выпуска; без аргумента — рейтинг
 /ab — таблица эффективности дизайнов (A/B по живой аудитории)
 /film [ID] — 5-актовый фильм Moku3D в этот чат
+/auth — живой тестер ключей всех 6 площадок (read-only)
+/sync platform [N] — довыгрузить пропущенное начало летописи на площадку
 /book — 📕 собрать PDF-книгу проекта и прислать файл
 /voice — 🔊 озвучить следующий пост и прислать голосовое (edge-tts)
 /standards — 📏 пороги качества (и /standards set KEY VALUE)
@@ -303,6 +305,10 @@ class TelegramAdmin:
                 return self._theme_text(args)
             if command == "/film":
                 return self._film_text(args)
+            if command in ("/auth", "/keys"):
+                return self._auth_text()
+            if command == "/sync":
+                return self._sync_text(args)
             if command in ("/book", "/pdf"):
                 return self._book_text()
             if command in ("/voice", "/audio"):
@@ -669,6 +675,27 @@ class TelegramAdmin:
         if self.send_video(path, caption):
             return f"Фильм отправлен: <code>{html.escape(str(path))}</code>"
         return f"Фильм собран, но не отправлен: <code>{html.escape(str(path))}</code>"
+
+    def _auth_text(self) -> str:
+        """`/auth`: что готово к работе, где нет ключей, где битый токен."""
+        from .authcheck import check_all, format_auth_table
+
+        return format_auth_table(check_all(self.config))
+
+    def _sync_text(self, args: List[str]) -> str:
+        """`/sync <platform> [N]`: довыгрузить пропущенную летопись."""
+        from .sync import format_sync_report, sync_platform
+
+        if not args:
+            return "Формат: /sync telegram|threads|bluesky|discord|mastodon|vk [N]"
+        limit = 5
+        if len(args) > 1:
+            try:
+                limit = max(1, min(20, int(args[1])))
+            except ValueError:
+                pass
+        result = sync_platform(self.pipeline, args[0], limit=limit)
+        return format_sync_report(result)
 
     def send_photo(self, path: str | Path, caption: str = "") -> bool:
         """Отправляет картинку в админ-чат (для /preview и /render)."""

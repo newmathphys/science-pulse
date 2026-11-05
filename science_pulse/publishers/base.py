@@ -144,10 +144,19 @@ def build_rich_telegram_caption(post: Post, limit: int = 1024, site_url: str = "
     elif application_note:
         footer_parts.append(f"{'Применение:':<{SPEC_PAD}} {escape_html(application_note)}")
 
-    # Задача выпуска: не дублируем вопрос, если он совпал с крючком.
+    # Задача выпуска: только в режиме `interactive_challenge` (дозированно).
+    from ..post_modes import shows_challenge
+
+    mode = str(meta.get("post_mode") or "pure_knowledge")
     question = str((challenge or {}).get("question") or "").strip() if isinstance(challenge, dict) else ""
-    if question and question.lower() != (post.hook or "").strip().lower():
+    if question and shows_challenge(mode):
         footer_parts.append(f"<b>Задача.</b> <i>{escape_html(truncate(question, 220))}</i>")
+        answer = str((challenge or {}).get("answer") or "").strip() if isinstance(challenge, dict) else ""
+        if answer:
+            # Мгновенная самопроверка: ответ спрятан под нативный спойлер Telegram.
+            footer_parts.append(
+                f"<b>Ответ:</b> <tg-spoiler>{escape_html(truncate(answer, 220))}</tg-spoiler>"
+            )
 
     chain: List[str] = []
     for name, url in (meta.get("prereq_links") or [])[:2]:
@@ -235,6 +244,27 @@ def formula_frame(post: Any, width: int = 30) -> str:
     return "\n".join((top, f"│ {body}", bottom))
 
 
+def challenge_answer_line(post: Post) -> str:
+    """Строка ответа для площадок без спойлеров (Threads/Bluesky/Mastodon).
+
+    В Telegram ответ прячется под `<tg-spoiler>`, а здесь он уходит отдельным
+    сообщением цепочки или хвостом поста — чтобы читатель мог проверить себя.
+    """
+    from ..post_modes import shows_challenge
+
+    meta = getattr(post, "meta", {}) or {}
+    if not shows_challenge(str(meta.get("post_mode") or "")):
+        return ""
+    try:
+        from ..challenge import build_challenge
+
+        data = build_challenge(post) or {}
+    except Exception:  # pragma: no cover - защитный контур
+        return ""
+    answer = str(data.get("answer") or "").strip()
+    return f"Ответ: {answer}" if answer else ""
+
+
 def build_short_text(post: Post, limit: int = 500, site_url: str = "", include_link: bool = True) -> str:
     formula = clean_latex_for_telegram(post.formula_latex or post.formula_plain)
     parts = [clean_latex_for_telegram(post.title)]
@@ -245,6 +275,9 @@ def build_short_text(post: Post, limit: int = 500, site_url: str = "", include_l
         parts.append(smart_sentence_truncate(post.body, 120, max(80, limit - 180)))
     if formula:
         parts.append(f"Формула: {formula}")
+    answer_line = challenge_answer_line(post)
+    if answer_line:
+        parts.append(answer_line)
     if site_url and include_link:
         parts.append(site_url)
     parts.append(post.hashtags)

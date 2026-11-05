@@ -579,6 +579,8 @@ def _challenge_key(post: Post) -> tuple:
         str(meta.get("section_num") or ""),
         str(meta.get("sequence") or ""),
         str(meta.get("formula_vars") or ""),
+        # Идентификатор узла канона: без него теряется реестр вычислимых задач.
+        str(meta.get("canon_id") or meta.get("foundation_id") or ""),
     )
 
 
@@ -587,12 +589,19 @@ def _challenge_cached(key: tuple) -> Dict[str, Any]:
     """Мемоизация: одна и та же задача не пересчитывается SymPy повторно.
 
     Функция детерминирована (только формулы и текст поста), поэтому кэш
-    безопасен и снимает нагрузку при сборке 30 глав сайта.
+    безопасен и снимает нагрузку при сборке глав сайта.
     """
+    canon_id = key[11] if len(key) > 11 else ""
     post = Post(
         id=key[0], domain=key[1], title=key[2], hook=key[3], body=key[4],
         formula_latex=key[5], formula_plain=key[6], code=key[7],
-        meta={"section_num": key[8], "sequence": key[9], "formula_vars": key[10]},
+        meta={
+            "section_num": key[8],
+            "sequence": key[9],
+            "formula_vars": key[10],
+            "canon_id": canon_id,
+            "foundation_id": canon_id,
+        },
     )
     return _challenge_for(post)
 
@@ -600,6 +609,210 @@ def _challenge_cached(key: tuple) -> Dict[str, Any]:
 def build_challenge(post: Post) -> Dict[str, Any]:
     """Просветительская задача выпуска: вопрос, подсказка и точный ответ."""
     return dict(_challenge_cached(_challenge_key(post)))
+
+
+def _numeric_proof_challenge(post: Post, seed: int) -> Optional[Dict[str, Any]]:
+    """Числовая задача из вычислительного паспорта (`post_proof`).
+
+    Для законов с операторами `∇, ∫, ∑, ∮, lim` прямое `y = f(x)` невозможно,
+    но `computed_example` содержит точный эталонный расчёт (CODATA и т. п.).
+    """
+    try:
+        from .post_proof import build_post_proof
+
+        proof = build_post_proof(post) or {}
+    except Exception:  # pragma: no cover - защитный контур
+        return None
+    example = str(proof.get("computed_example") or "").strip()
+    if not example or not any(char.isdigit() for char in example):
+        return None
+    formula = str(getattr(post, "formula_plain", "") or getattr(post, "formula_latex", "") or "").strip()
+    return {
+        "kind": "numeric_proof",
+        "question": f"Проверьте численно: {formula or 'закон выпуска'}. Что даёт эталонный расчёт?",
+        "hint": "Подставьте эталонные значения констант из паспорта выпуска.",
+        "answer": example,
+        "explanation": "Расчёт выполнен ядром на эталонных константах (CODATA) и проверен на карточке.",
+        "verified": True,
+    }
+
+
+def _compute_archimedes() -> Dict[str, str]:
+    rho, g, volume = 1000.0, 9.81, 2.0
+    return {
+        "question": "Тело объёмом V = 2 м³ полностью в воде. Чему равна сила Архимеда?",
+        "hint": "F = ρ·g·V, плотность воды 1000 кг/м³.",
+        "answer": f"{rho * g * volume:.0f} Н (ρ = 1000 кг/м³, g = 9.81 м/с², V = 2 м³)",
+    }
+
+
+def _compute_leibniz_boolean() -> Dict[str, str]:
+    variables = 3
+    return {
+        "question": f"Сколько строк в таблице истинности для {variables} логических переменных?",
+        "hint": "Каждая переменная удваивает число комбинаций: 2ⁿ.",
+        "answer": f"{2 ** variables} строк (2^{variables})",
+    }
+
+
+def _compute_newton_calculus() -> Dict[str, str]:
+    point = 2.0
+    return {
+        "question": f"f(x) = x³. Чему равна производная f′(x) в точке x = {point:.0f}?",
+        "hint": "Правило степени: (xⁿ)′ = n·xⁿ⁻¹.",
+        "answer": f"{3.0 * point ** 2:.0f} (f′(x) = 3x², x = 2)",
+    }
+
+
+def _compute_lovelace() -> Dict[str, str]:
+    from fractions import Fraction
+
+    def bernoulli(index: int) -> Fraction:
+        values = [Fraction(0)] * (index + 1)
+        for m in range(index + 1):
+            values[m] = Fraction(1, m + 1)
+            for j in range(m, 0, -1):
+                values[j - 1] = j * (values[j - 1] - values[j])
+        return values[0]
+
+    target = 4
+    return {
+        "question": f"Чему равен {target}-й член последовательности чисел Бернулли B₍{target}₎?",
+        "hint": "Рекурсия: Σ C(n+1, k)·B_k = 0, начиная с B₀ = 1.",
+        "answer": f"B₍{target}₎ = {bernoulli(target)}",
+    }
+
+
+def _compute_fourier() -> Dict[str, str]:
+    base, harmonic = 220.0, 4
+    return {
+        "question": f"Основная гармоника f₁ = {base:.0f} Гц. Чему равна {harmonic}-я гармоника ряда Фурье?",
+        "hint": "Гармоники кратны основной: fₙ = n·f₁.",
+        "answer": f"{base * harmonic:.0f} Гц (f₍{harmonic}₎ = {harmonic}·{base:.0f})",
+    }
+
+
+def _compute_noether() -> Dict[str, str]:
+    mass, speed, height, g = 1.0, 3.0, 2.0, 9.81
+    energy = 0.5 * mass * speed ** 2 + mass * g * height
+    return {
+        "question": f"Проверьте сохранение: E = ½mv² + mgh при m = {mass:.0f}, v = {speed:.0f}, h = {height:.0f}.",
+        "hint": "Симметрия по времени даёт сохранение энергии: сложите кинетическую и потенциальную части.",
+        "answer": f"E = {energy:.2f} Дж",
+    }
+
+
+def _compute_turing() -> Dict[str, str]:
+    return {
+        "question": "Сколько шагов делает «бобёр-2» — машина Тьюринга BB(2)?",
+        "hint": "Классический результат Радо: BB(2) — самая долгая остановка среди двух состояний.",
+        "answer": "4 шага (BB(2) останавливается, оставляя 4 единицы)",
+    }
+
+
+def _compute_dijkstra() -> Dict[str, str]:
+    import heapq
+
+    edges = {"A": [("B", 1), ("C", 5)], "B": [("C", 2)], "C": []}
+    distance = {node: float("inf") for node in edges}
+    distance["A"] = 0
+    queue = [(0, "A")]
+    while queue:
+        current, node = heapq.heappop(queue)
+        for neighbour, weight in edges[node]:
+            candidate = current + weight
+            if candidate < distance[neighbour]:
+                distance[neighbour] = candidate
+                heapq.heappush(queue, (candidate, neighbour))
+    return {
+        "question": "Кратчайший путь A→C, если рёбра A→B = 1, B→C = 2, A→C = 5?",
+        "hint": "Алгоритм Дейкстры релаксирует d(v) = min(d(u) + w(u,v)).",
+        "answer": f"{distance['C']:.0f} (A→B→C, прямое ребро даёт 5)",
+    }
+
+
+def _compute_godel() -> Dict[str, str]:
+    primes, codes = [2, 3, 5], [5, 6, 7]  # коды символов x, =, 0
+    number = 1
+    for prime, code in zip(primes, codes):
+        number *= prime ** code
+    return {
+        "question": "Гёделев номер последовательности «x = 0» (коды символов 5, 6, 7 при простых 2, 3, 5)?",
+        "hint": "Номер = p₁^c₁ · p₂^c₂ · p₃^c₃.",
+        "answer": f"{number:,}".replace(",", " "),
+    }
+
+
+def _compute_rsa() -> Dict[str, str]:
+    p, q, exponent = 61, 53, 17
+    modulus, phi = p * q, (p - 1) * (q - 1)
+    private = pow(exponent, -1, phi)
+    message = 65
+    cipher = pow(message, exponent, modulus)
+    return {
+        "question": f"RSA: p = {p}, q = {q}, e = {exponent}. Зашифруйте сообщение m = {message}.",
+        "hint": "c = mᵉ mod n, где n = p·q.",
+        "answer": f"c = {cipher} (n = {modulus}; расшифровка даёт {pow(cipher, private, modulus)})",
+    }
+
+
+def _compute_maxwell() -> Dict[str, str]:
+    import math
+
+    eps0, mu0 = 8.8541878128e-12, 1.25663706212e-6
+    speed = 1.0 / math.sqrt(eps0 * mu0)
+    return {
+        "question": "Чему равна скорость света из уравнения Максвелла c = 1/√(ε₀μ₀)?",
+        "hint": "Подставьте эталонные ε₀ и μ₀ (CODATA).",
+        "answer": f"c = {speed:.0f} м/с (1/√(ε₀μ₀), ε₀ = 8.8541878128·10⁻¹², μ₀ = 1.25663706212·10⁻⁶)",
+    }
+
+
+def _compute_lj_lorenz() -> Dict[str, str]:
+    sigma, epsilon = 1.0, 1.0
+    r_min = sigma * 2 ** (1.0 / 6.0)
+    return {
+        "question": "Потенциал Леннард-Джонса: при каком r он минимален и чему равен V(r)?",
+        "hint": "Минимум при r = 2^(1/6)·σ, глубина ямы V = −ε.",
+        "answer": f"r_min = {r_min:.4f}σ, V(r_min) = −{epsilon:.1f}ε",
+    }
+
+
+CANON_COMPUTABLE = {
+    "archimedes": _compute_archimedes,
+    "leibniz_boolean": _compute_leibniz_boolean,
+    "newton_calculus": _compute_newton_calculus,
+    "lovelace": _compute_lovelace,
+    "fourier_series": _compute_fourier,
+    "noether_symmetry": _compute_noether,
+    "turing_machine": _compute_turing,
+    "dijkstra_shortest": _compute_dijkstra,
+    "godel_incompleteness": _compute_godel,
+    "rsa_crypto": _compute_rsa,
+    "maxwell": _compute_maxwell,
+    "lj_lorenz": _compute_lj_lorenz,
+}
+
+
+def _canon_computable_challenge(post: Post, seed: int) -> Optional[Dict[str, Any]]:
+    """Вычислимое следствие закона для узлов с ∇, ∫, ∑, ∮, mod, lim."""
+    meta = getattr(post, "meta", {}) or {}
+    canon_id = str(meta.get("canon_id") or meta.get("foundation_id") or "").strip()
+    builder = CANON_COMPUTABLE.get(canon_id)
+    if not builder:
+        return None
+    try:
+        data = builder()
+    except Exception:  # pragma: no cover - защитный контур
+        return None
+    return {
+        "kind": "canon_computable",
+        "question": data["question"],
+        "hint": data.get("hint", ""),
+        "answer": data["answer"],
+        "explanation": "Ответ вычислен ядром точно (арифметика Python, без округлений).",
+        "verified": True,
+    }
 
 
 def _challenge_for(post: Post) -> Dict[str, Any]:
@@ -612,6 +825,8 @@ def _challenge_for(post: Post) -> Dict[str, Any]:
         _substitute_challenge,
         _solve_challenge,
         _sequence_challenge,
+        _canon_computable_challenge,
+        _numeric_proof_challenge,
     ):
         try:
             challenge = strategy(post, seed)

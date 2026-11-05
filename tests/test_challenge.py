@@ -116,12 +116,32 @@ class GeneratorTests(unittest.TestCase):
         self.assertAlmostEqual(value, expected, places=5)
 
     def test_unparsable_formula_falls_back_to_concept(self):
-        post = make_post(formula_plain="iħ·∂Ψ/∂t = ĤΨ", formula_latex="", domain="physics",
-                         meta={"section_num": "5.5"})
+        """Формула без вычислимого следствия честно остаётся «концепт»-вопросом."""
+        post = make_post(formula_plain="∀ φ: истинно, но недоказуемо", formula_latex="",
+                         domain="math", meta={"section_num": "5.5"})
         challenge = build_challenge(post)
         self.assertEqual(challenge["kind"], "concept")
+        self.assertFalse(challenge["verified"])
         self.assertTrue(challenge["question"].endswith("?"))
         self.assertTrue(challenge["answer"])
+
+    def test_all_canon_nodes_have_verified_challenge(self):
+        """Регрессия: 30 из 30 узлов канона дают проверяемую числовую задачу."""
+        from science_pulse.sources.foundation import FoundationSource, ordered_nodes
+
+        config = Config(raw={"data_dir": "data", "dist_dir": "dist"}, root=Path("."))
+        source = FoundationSource(config)
+        verified, total, failed = 0, 0, []
+        for index, node in enumerate(ordered_nodes()):
+            post = source.fetch(limit=1, cycle=index)[0]
+            challenge = build_challenge(post)
+            total += 1
+            if challenge.get("verified"):
+                verified += 1
+            else:
+                failed.append(node["id"])
+        self.assertEqual(failed, [], f"без проверяемой задачи: {failed}")
+        self.assertEqual(verified, total)
 
     def test_every_challenge_has_question_hint_and_answer(self):
         for formula in ("a² + b² = c²", "F = G·m/r²", "E = h·ν", "S = k_B · ln W",
@@ -152,11 +172,28 @@ class PresentationTests(unittest.TestCase):
 
     def test_caption_has_challenge_block(self):
         post = make_post()
+        post.meta["post_mode"] = "interactive_challenge"
         build_post_proof(post)
         caption = build_rich_telegram_caption(post, limit=1024, site_url="https://example.org")
         self.assertIn("Задача.", caption)
         self.assertIn("example.org/post/challenge1.html", caption)
         self.assertLessEqual(len(caption), 1024)
+
+    def test_challenge_caption_hides_answer_under_spoiler(self):
+        post = make_post()
+        post.meta["post_mode"] = "interactive_challenge"
+        build_post_proof(post)
+        caption = build_rich_telegram_caption(post, limit=1024, site_url="")
+        self.assertIn("<tg-spoiler>", caption)
+        self.assertIn("Ответ:", caption)
+
+    def test_pure_knowledge_caption_has_no_task(self):
+        """Основной режим — чистое знание: блока «Задача» в подписи нет."""
+        post = make_post()
+        post.meta["post_mode"] = "pure_knowledge"
+        caption = build_rich_telegram_caption(post, limit=1024, site_url="")
+        self.assertNotIn("Задача.", caption)
+        self.assertNotIn("<tg-spoiler>", caption)
 
     def test_lecture_script_has_task_and_bridge(self):
         script = build_lecture_script(make_post(), max_chars=3000)

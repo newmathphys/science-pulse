@@ -707,6 +707,33 @@ def cmd_film(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_auth_check(args: argparse.Namespace) -> int:
+    """Живой тестер ключей: безопасный read-only пинг всех площадок."""
+    from .authcheck import check_all, format_auth_table
+
+    pipeline = _pipeline(args)
+    rows = check_all(pipeline.config)
+    if getattr(args, "json", False):
+        print(json.dumps(rows, ensure_ascii=False, indent=2))
+    else:
+        print(format_auth_table(rows, html=False))
+    _checkpoint(pipeline)
+    return 0
+
+
+def cmd_sync_platform(args: argparse.Namespace) -> int:
+    """Догоняющая синхронизация: довыгрузить начало летописи на площадку."""
+    from .sync import format_sync_report, sync_platform
+
+    pipeline = _pipeline(args)
+    result = sync_platform(
+        pipeline, args.platform, limit=args.limit, dry_run=getattr(args, "dry_run", False)
+    )
+    print(format_sync_report(result, html=False))
+    _checkpoint(pipeline)
+    return 0 if result.get("ok") else 1
+
+
 def cmd_formal(args: argparse.Namespace) -> int:
     from .formal import check_lean
 
@@ -1327,6 +1354,18 @@ def build_parser() -> argparse.ArgumentParser:
     film.add_argument("--domain", default=None, choices=["math", "physics", "cs"])
     film.add_argument("--send", action="store_true", help="отправить фильм в админ-чат")
     film.set_defaults(func=cmd_film)
+
+    auth_check = subparsers.add_parser("auth-check", help="живой тестер ключей площадок (read-only)")
+    auth_check.add_argument("--json", action="store_true")
+    auth_check.set_defaults(func=cmd_auth_check)
+
+    sync_platform_parser = subparsers.add_parser(
+        "sync-platform", help="довыгрузить пропущенную летопись на новую площадку"
+    )
+    sync_platform_parser.add_argument("platform", help="telegram|threads|bluesky|discord|mastodon|vk")
+    sync_platform_parser.add_argument("--limit", type=int, default=5)
+    sync_platform_parser.add_argument("--dry-run", action="store_true")
+    sync_platform_parser.set_defaults(func=cmd_sync_platform)
 
     reset = subparsers.add_parser("reset", help="очистить состояние (опасно)")
     reset.add_argument("--yes", action="store_true")
