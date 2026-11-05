@@ -74,6 +74,7 @@ python -m science_pulse.cli theme       # дизайн выпуска: A/B-ре�
 python -m science_pulse.cli film        # 5-актовый фильм Moku3D (--post-id ID --domain math --send)
 python -m science_pulse.cli auth-check  # живой тестер ключей всех 6 площадок (read-only)
 python -m science_pulse.cli sync-platform threads --limit 5   # довыгрузить летопись с § 1.1
+python -m science_pulse.cli sensors     # живые датчики Планеты и Космоса (USGS, NOAA, LIGO, МКС)
 python -m science_pulse.cli invariants  # проверка инвариантов состояния
 python -m science_pulse.cli formal      # машинная проверка Lean-доказательств
 python -m science_pulse.cli edge        # синхронизация R2/D1 (Cloudflare)
@@ -483,6 +484,7 @@ PDF-книгу. Удобно, чтобы показать проект цели�
 | `docs/ABTEST.md` | A/B: 4 дизайна, бандит Томпсона, `/theme`, `/ab` |
 | `docs/MOKU3D.md` | Moku3D: 5-актовый фильм из одного уравнения |
 | `docs/POST_MODES.md` | пять режимов подачи: задача выходит дозированно |
+| `docs/LIVE_SENSORS.md` | живые датчики Планеты и Космоса без ключей |
 | `docs/MINIAPP.md` | Mini App «Пульт» (статическая страница) |
 | `docs/TRANSLATION.md` | перевод без LLM (формулы и код не трогаются) |
 | `docs/INVARIANTS.md` | инварианты состояния (Lean-спецификация + проверки) |

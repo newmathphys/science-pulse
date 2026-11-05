@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from science_pulse import post_modes
+from science_pulse import live_sensors, post_modes
 from science_pulse.authcheck import PLATFORMS, check_all, format_auth_table
 from science_pulse.config import Config
 from science_pulse.models import Post, PublishResult
@@ -195,6 +195,100 @@ class SyncPlatformTests(unittest.TestCase):
         self.assertIn("не включена", result["error"])
 
 
+class LiveSensorTests(unittest.TestCase):
+    """Живые датчики: расчёт по формулам, офлайн-фоллбэк, кэш и маршрутизация."""
+
+    def setUp(self):
+        # Кэш мог прогреться другими тестами: сбрасываем, иначе счётчик вызовов врёт.
+        live_sensors.enable(False)
+        live_sensors._CACHE["data"] = {}
+        live_sensors._CACHE["ts"] = 0.0
+
+    def tearDown(self):
+        live_sensors.enable(False)
+        live_sensors._CACHE["data"] = {}
+        live_sensors._CACHE["ts"] = 0.0
+
+    def test_earthquake_energy_by_richter(self):
+        payload = {"features": [{"properties": {"mag": 6.0, "place": "Тест"},
+                                 "geometry": {"coordinates": [0, 0, 12.5]}}]}
+        data = live_sensors.sensor("earthquake", http=lambda url: payload, use_cache=False)
+        self.assertTrue(data["live"])
+        self.assertEqual(data["magnitude"], 6.0)
+        self.assertEqual(data["depth_km"], 12.5)
+        self.assertAlmostEqual(data["energy_j"], 10 ** (4.8 + 1.5 * 6.0), delta=1e6)
+
+    def test_offline_fallback_is_deterministic(self):
+        data = live_sensors.sensor("earthquake", http=lambda url: None, use_cache=False)
+        self.assertFalse(data["live"])
+        self.assertEqual(data["magnitude"], 5.0)
+        self.assertAlmostEqual(data["energy_j"], 10 ** (4.8 + 1.5 * 5.0), delta=1e6)
+        self.assertIn("офлайн", data["source"])
+
+    def test_iss_orbital_gravity(self):
+        payload = {"altitude": 400.0, "velocity": 27600.0}
+        data = live_sensors.sensor("iss_orbit", http=lambda url: payload, use_cache=False)
+        expected = live_sensors.G * live_sensors.M_EARTH / ((live_sensors.R_EARTH_KM + 400.0) * 1000.0) ** 2
+        self.assertAlmostEqual(data["gravity"], expected, places=6)
+        self.assertLess(data["gravity"], 9.81)  # на орбите гравитация слабее
+
+    def test_gravitational_waves_energy(self):
+        payload = {"events": {"GW-test-v1": {"commonName": "GW-test", "GPS": 100,
+                                             "mass_1_source": 30.0, "mass_2_source": 20.0,
+                                             "final_mass_source": 48.0}}}
+        data = live_sensors.sensor("gravitational_waves", http=lambda url: payload, use_cache=False)
+        self.assertTrue(data["live"])
+        self.assertEqual(data["radiated_m_sun"], 2.0)
+        self.assertGreater(data["energy_j"], 0)
+        self.assertGreater(data["schwarzschild_km"], 0)
+
+    def test_space_weather_kp_class(self):
+        payload = [{"time_tag": "t", "estimated_kp": 7.0}]
+        data = live_sensors.sensor("space_weather", http=lambda url: payload, use_cache=False)
+        self.assertEqual(data["kp"], 7.0)
+        self.assertIn("G3", data["level"])
+
+    def test_sensor_routing_by_topic(self):
+        cases = {
+            "earthquake": "Логарифмы и закон Рихтера",
+            "space_weather": "Уравнения Максвелла и сила Лоренца",
+            "gravitational_waves": "Метрика Шварцшильда и горизонт событий",
+            "iss_orbit": "Закон тяготения Ньютона на орбите",
+        }
+        for sensor_name, title in cases.items():
+            post = make_post("live1", "1.1")
+            post.title = title
+            self.assertEqual(live_sensors.sensor_for_post(post), sensor_name, title)
+
+    def test_live_line_disabled_by_default(self):
+        post = make_post("live2", "1.2")
+        post.title = "Закон Рихтера и логарифмы"
+        live_sensors.enable(False)
+        self.assertEqual(live_sensors.live_line(post, http=lambda url: None), "")
+
+    def test_live_line_uses_sensor_when_enabled(self):
+        post = make_post("live3", "1.3")
+        post.title = "Закон тяготения Ньютона"
+        live_sensors.enable(True)
+        line = live_sensors.live_line(
+            post, http=lambda url: {"altitude": 420.0, "velocity": 27600.0}
+        )
+        self.assertIn("МКС", line)
+        self.assertIn("g(h)", line)
+
+    def test_cache_avoids_repeated_requests(self):
+        calls = {"n": 0}
+
+        def counting(url):
+            calls["n"] += 1
+            return {"altitude": 400.0, "velocity": 27600.0}
+
+        live_sensors.sensor("iss_orbit", http=counting)
+        live_sensors.sensor("iss_orbit", http=counting)
+        self.assertEqual(calls["n"], 1)
+
+
 if __name__ == "__main__":
     unittest.main()
+
 

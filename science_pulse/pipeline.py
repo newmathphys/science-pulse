@@ -310,6 +310,11 @@ class Pipeline:
 
         post.meta["post_mode"] = mode_for_post(self.storage, self.config, post, theme=theme)
         design["mode"] = post.meta["post_mode"]
+
+        # Живые датчики Планеты и Космоса (без ключей) — по конфигу.
+        from .live_sensors import enable as enable_sensors
+
+        enable_sensors(bool((self.config.raw.get("live_sensors") or {}).get("enabled", True)))
         try:
             self.storage.set_post_meta(post.id, "design_variant", design)
         except Exception as exc:  # дизайн не должен блокировать публикацию

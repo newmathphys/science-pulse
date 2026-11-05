@@ -119,6 +119,16 @@ def build_rich_telegram_caption(post: Post, limit: int = 1024, site_url: str = "
     example = str((proof or {}).get("computed_example") or "").strip()
     if example:
         footer_parts.append(f"{'Верификация:':<{SPEC_PAD}} {escape_html(truncate(example, 220))}")
+
+    # Живой датчик Планеты и Космоса: реальное сегодняшнее число в формулу поста.
+    try:
+        from ..live_sensors import live_line
+
+        live = live_line(post)
+    except Exception:  # pragma: no cover - датчик не должен ломать публикацию
+        live = ""
+    if live:
+        footer_parts.append(f"{'Живой датчик:':<{SPEC_PAD}} {escape_html(truncate(live, 220))}")
     challenge = (proof or {}).get("challenge") if isinstance(proof, dict) else None
     if not isinstance(challenge, dict):
         try:

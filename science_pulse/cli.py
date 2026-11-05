@@ -734,6 +734,28 @@ def cmd_sync_platform(args: argparse.Namespace) -> int:
     return 0 if result.get("ok") else 1
 
 
+def cmd_sensors(args: argparse.Namespace) -> int:
+    """Живые датчики Планеты и Космоса (4 бесключевых научных API)."""
+    from .live_sensors import all_sensors, enable
+
+    pipeline = _pipeline(args)
+    enable(True)
+    data = all_sensors()
+    if getattr(args, "json", False):
+        print(json.dumps(data, ensure_ascii=False, indent=2, default=str))
+    else:
+        print("Живые датчики (без ключей)")
+        for name, item in data.items():
+            state = "живой" if item.get("live") else "офлайн-фоллбэк"
+            print(f"  {name}: {state} · {item.get('source')}")
+            for key in ("magnitude", "depth_km", "kp", "level", "name", "mass_1", "mass_2",
+                        "altitude_km", "velocity_km_s", "gravity", "energy_j"):
+                if key in item:
+                    print(f"      {key} = {item[key]}")
+    _checkpoint(pipeline)
+    return 0
+
+
 def cmd_formal(args: argparse.Namespace) -> int:
     from .formal import check_lean
 
@@ -1366,6 +1388,10 @@ def build_parser() -> argparse.ArgumentParser:
     sync_platform_parser.add_argument("--limit", type=int, default=5)
     sync_platform_parser.add_argument("--dry-run", action="store_true")
     sync_platform_parser.set_defaults(func=cmd_sync_platform)
+
+    sensors = subparsers.add_parser("sensors", help="живые датчики Планеты и Космоса (без ключей)")
+    sensors.add_argument("--json", action="store_true")
+    sensors.set_defaults(func=cmd_sensors)
 
     reset = subparsers.add_parser("reset", help="очистить состояние (опасно)")
     reset.add_argument("--yes", action="store_true")

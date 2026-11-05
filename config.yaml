@@ -63,6 +63,12 @@ platform_rules:
 edge:
   d1_primary: false
 
+# Живые датчики Планеты и Космоса (без ключей и регистрации): USGS Earthquakes,
+# NOAA SWPC (Kp-индекс), LIGO GWOSC (массы слияния), WhereTheISS.at (орбита МКС).
+# Реальное сегодняшнее число подставляется в формулу поста — см. docs/LIVE_SENSORS.md.
+live_sensors:
+  enabled: true
+
 # Пять режимов подачи (психология ленты): «Задача» выходит дозированно,
 # а основная масса постов — чистое знание. См. docs/POST_MODES.md.
 post_modes:
