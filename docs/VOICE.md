@@ -102,6 +102,13 @@ voice:
   google_fallback: true           # резервный Google TTS при сбое edge/piper
 ```
 
+## Короткая озвучка book-фильма
+
+`film_voice_for_post(post, config)` собирает сценарий ≤360 символов и
+синтезирует отдельный файл `<id>_film.mp3`. Это даёт 25–35 секунд речи и
+5 сцен по 5–7 секунд. Edge-tts режет текст на куски и делает до 5 повторов
+на кусок; эталонный голос — `ru-RU-SvetlanaNeural`.
+
 ## Пост ≠ радио
 
 `build_lecture_script(..., closing="post")` завершает пост фразой
