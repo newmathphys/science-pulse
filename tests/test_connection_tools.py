@@ -126,6 +126,7 @@ class AuthCheckTests(unittest.TestCase):
 
     def test_broken_token_is_error(self):
         os.environ["TH_ACCESS_TOKEN"] = "bad"
+        os.environ["TH_USER_ID"] = "123"
         rows = {row["platform"]: row for row in check_all(
             self.config, http=lambda *a, **k: {"status": 401, "data": {"error": {"message": "invalid"}}}
         )}

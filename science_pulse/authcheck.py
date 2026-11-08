@@ -70,8 +70,9 @@ def _telegram(config: Any, http: Callable[..., Dict[str, Any]]) -> Dict[str, str
 
 def _threads(config: Any, http: Callable[..., Dict[str, Any]]) -> Dict[str, str]:
     token = _value(config, "TH_ACCESS_TOKEN")
-    if not token:
-        return {"state": "no_keys", "detail": "нужен TH_ACCESS_TOKEN"}
+    user_id = _value(config, "TH_USER_ID")
+    if not token or not user_id:
+        return {"state": "no_keys", "detail": "нужны TH_USER_ID и TH_ACCESS_TOKEN"}
     payload = http(
         "GET", "https://graph.threads.net/v1.0/me",
         params={"fields": "id,username", "access_token": token},

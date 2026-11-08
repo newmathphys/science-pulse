@@ -23,6 +23,7 @@ cd "/home/mrbritneyxxx/Рабочий стол/ПРОЕКТТ SCM"
 
 ```bash
 ./sp enter          # вход и статус
+./sp launch         # проверка ключей Telegram + Threads
 ./sp publish        # опубликовать следующий пост
 ./sp check          # тесты, verify, preflight, knowledge integrity
 ./sp knowledge search "формула"   # поиск по документам

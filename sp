@@ -32,6 +32,14 @@ case "$cmd" in
   knowledge)
     "$PY" -m science_pulse.cli knowledge "$@"
     ;;
+  launch)
+    echo "=== SCM launch: Telegram + Threads ==="
+    "$PY" -m science_pulse.cli auth-check
+    echo
+    "$PY" -m science_pulse.cli preflight --no-media
+    echo
+    "$PY" -m science_pulse.cli doctor
+    ;;
   publish)
     "$PY" -m science_pulse.cli publish "$@"
     ;;
@@ -63,6 +71,7 @@ SCM operator entry
   ./sp enter            статус, doctor, preflight, knowledge
   ./sp check            тесты + verify + preflight + knowledge integrity
   ./sp knowledge ...    index|search|stats|claim|note|integrity|export
+  ./sp launch           проверить ключи Telegram/Threads и готовность
   ./sp publish [args]   опубликовать следующий пост
   ./sp site             пересобрать сайт
   ./sp admin            Telegram-пульт
