@@ -300,6 +300,7 @@ class Pipeline:
         # Математический движок сигналов: объём поста против ёмкости канала.
         signal_cfg = dict(self.config.raw.get("signal_engine") or {})
         auto_visual = bool(signal_cfg.get("auto_visual", False))
+        auto_visual_ratio = float(signal_cfg.get("auto_visual_ratio", 1.8))
         try:
             from .platforms_info import PlatformRules
             from .signal_engine import SignalVolumeMatcher
@@ -308,17 +309,17 @@ class Pipeline:
                 post, "telegram", PlatformRules.load(self.storage, self.config)
             )
             post.meta["signal_volume"] = volume
-            if auto_visual and not volume["fits"]:
+            if auto_visual and not volume["fits"] and float(volume.get("ratio", 0)) >= auto_visual_ratio:
                 post.meta["signal_visual_mode"] = volume["recommended_mode"]
         except Exception as exc:  # pragma: no cover
             LOGGER.debug("Signal volume: %s", exc)
 
         # Дизайн выпуска: реестр тем (academic/3b1b/blueprint/moku3d/bookfilm).
         # В режиме `auto` стиль выбирает бандит Томпсона, иначе — фиксация оператора.
-        from .themes import record_reward, theme_for_post
+        from .themes import is_auto, record_reward, theme_for_post
 
         theme = theme_for_post(self.storage, self.config)
-        if auto_visual and post.meta.get("signal_visual_mode") == "bookfilm":
+        if auto_visual and is_auto(self.config) and post.meta.get("signal_visual_mode") == "bookfilm":
             theme = "bookfilm"
         archetype = ""
         try:

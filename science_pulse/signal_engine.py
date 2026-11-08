@@ -36,6 +36,8 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "max_redundancy": 0.92,
     "p_fa": 0.05,
     "guard_hours": 4.0,
+    "auto_visual": False,
+    "auto_visual_ratio": 1.8,
     "kalman": {"alpha": 0.3, "process_noise": 0.01, "measurement_noise": 0.1},
     "uos": {"drop_ratio": 0.8, "recover_ratio": 1.2, "baseline_alpha": 0.2},
     "channels": {

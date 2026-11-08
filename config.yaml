@@ -38,7 +38,8 @@ signal_engine:
   p_fa: 0.05
   guard_hours: 4.0
   enforce: false
-  auto_visual: false
+  auto_visual: true
+  auto_visual_ratio: 1.8
   trending_filter: true
   kalman:
     alpha: 0.3
