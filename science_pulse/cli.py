@@ -455,6 +455,20 @@ def cmd_growth(args: argparse.Namespace) -> int:
     pipeline = _pipeline(args)
     registry = AudienceRegistry(pipeline.config.data_dir / "growth.db")
     action = args.action
+    if action == "collect":
+        from .audience import AudienceCollector
+
+        snapshots = AudienceCollector(pipeline.config, pipeline.storage, registry).collect()
+        print(json.dumps([item.as_dict() for item in snapshots], ensure_ascii=False, indent=2) if args.json else "\n".join(
+            f"{item.platform}: {item.followers} подписчиков ({item.status}) {item.detail}" for item in snapshots
+        ))
+        return 0
+    if action == "dashboard":
+        from .audience import AudienceDashboard
+
+        paths = AudienceDashboard(pipeline.config, pipeline.storage, registry).write()
+        print(f"Growth report: {paths['markdown']}\nHTML: {paths['html']}")
+        return 0
     if action == "plan":
         post = pipeline.storage.get_post(args.post_id) if args.post_id else pipeline.choose_next()
         if post is None:
@@ -485,7 +499,7 @@ def cmd_growth(args: argparse.Namespace) -> int:
     if action == "utm":
         print(utm_url(args.value or "", content=args.post_id or ""))
         return 0
-    print("Действия: plan|targets|target-add|report|utm")
+    print("Действия: plan|targets|target-add|report|utm|collect|dashboard")
     return 1
 
 
@@ -1462,7 +1476,7 @@ def build_parser() -> argparse.ArgumentParser:
     doctor.set_defaults(func=cmd_doctor)
 
     growth = subparsers.add_parser("growth", help="рост аудитории: Threads-формат, UTM, реестр каналов")
-    growth.add_argument("action", nargs="?", default="plan", choices=["plan", "targets", "target-add", "report", "utm"])
+    growth.add_argument("action", nargs="?", default="plan", choices=["plan", "targets", "target-add", "report", "utm", "collect", "dashboard"])
     growth.add_argument("value", nargs="?", default=None, help="URL для utm")
     growth.add_argument("--post-id", default=None)
     growth.add_argument("--platform", default=None)

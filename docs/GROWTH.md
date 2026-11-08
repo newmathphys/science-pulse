@@ -81,9 +81,25 @@ UTM:
 ./sp growth plan                 # формат, крючки и Threads-цепочка
 ./sp growth plan --post-id ID
 ./sp growth utm https://example.org/post/ID --post-id ID
+./sp growth collect              # подписчики Telegram/Threads + снимок
+./sp growth dashboard            # data/growth_report.md и .html
 ./sp growth targets
 ./sp growth report
 ```
+
+## Что собираем
+
+| Метрика | Источник |
+|:--|:--|
+| подписчики Telegram | `getChatMemberCount` |
+| подписчики Threads | Graph API `followers_count` (если отдаёт) |
+| просмотры/реакции/ответы постов | `metrics --collect` |
+| дизайны/оформление | `themes.design_stats` |
+| посты/очередь/ошибки | SQLite `posts` |
+| каналы-партнёры | `growth.db` |
+
+Отчёт: `data/growth_report.md` + `data/growth_report.html`.
+Если API не отдаёт показатель — честно `skipped`, а не выдуманное число.
 
 ## 7. KPI
 

@@ -181,6 +181,16 @@ class AudienceRegistry:
         created_at TEXT NOT NULL,
         FOREIGN KEY(target_id) REFERENCES targets(id) ON DELETE CASCADE
     );
+    CREATE TABLE IF NOT EXISTS audience_snapshots (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        platform TEXT NOT NULL,
+        followers INTEGER DEFAULT 0,
+        views INTEGER DEFAULT 0,
+        likes INTEGER DEFAULT 0,
+        replies INTEGER DEFAULT 0,
+        collected_at TEXT NOT NULL,
+        meta_json TEXT DEFAULT '{}'
+    );
     """
 
     def __init__(self, path: str | Path):
@@ -242,6 +252,37 @@ class AudienceRegistry:
             )
             return int(cursor.lastrowid)
 
+    def add_snapshot(self, platform: str, followers: int = 0, views: int = 0,
+                     likes: int = 0, replies: int = 0, meta: Optional[Dict[str, Any]] = None) -> int:
+        with sqlite3.connect(self.path) as connection:
+            cursor = connection.execute(
+                "INSERT INTO audience_snapshots(platform,followers,views,likes,replies,collected_at,meta_json) "
+                "VALUES (?,?,?,?,?,?,?)",
+                (platform, int(followers), int(views), int(likes), int(replies),
+                 self._now(), json.dumps(meta or {}, ensure_ascii=False)),
+            )
+            return int(cursor.lastrowid)
+
+    def latest_snapshots(self) -> List[Dict[str, Any]]:
+        with sqlite3.connect(self.path) as connection:
+            connection.row_factory = sqlite3.Row
+            rows = connection.execute(
+                """
+                SELECT s.* FROM audience_snapshots s
+                WHERE s.id = (SELECT MAX(id) FROM audience_snapshots WHERE platform = s.platform)
+                ORDER BY s.platform
+                """
+            ).fetchall()
+        result = []
+        for row in rows:
+            item = dict(row)
+            try:
+                item["meta"] = json.loads(item.pop("meta_json") or "{}")
+            except ValueError:
+                item["meta"] = {}
+            result.append(item)
+        return result
+
     def report(self) -> Dict[str, Any]:
         with sqlite3.connect(self.path) as connection:
             connection.row_factory = sqlite3.Row
@@ -257,6 +298,7 @@ class AudienceRegistry:
             "by_platform": [dict(row) for row in by_platform],
             "by_status": [dict(row) for row in by_status],
             "events": int(events),
+            "audience": self.latest_snapshots(),
         }
 
 
@@ -284,6 +326,8 @@ def format_targets(targets: List[AudienceTarget]) -> str:
 
 def format_report(report: Dict[str, Any]) -> str:
     lines = ["Аудиторный реестр SCM"]
+    for row in report.get("audience") or []:
+        lines.append(f"  {row['platform']}: подписчиков {row.get('followers', 0)} ({row.get('collected_at', '')})")
     for row in report["by_platform"]:
         lines.append(f"  {row['platform']}: каналов {row['targets']} · аудитория {row['audience'] or 0}")
     for row in report["by_status"]:

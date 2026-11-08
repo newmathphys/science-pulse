@@ -15,6 +15,8 @@ data/knowledge.db
 data/knowledge.db-*
 data/growth.db
 data/growth.db-*
+data/growth_report.md
+data/growth_report.html
 data/*.db-wal
 data/*.db-shm
 

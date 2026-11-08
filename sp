@@ -27,6 +27,7 @@ case "$cmd" in
     "$PY" -m unittest discover
     "$PY" -m science_pulse.cli verify
     "$PY" -m science_pulse.cli preflight --no-media
+    "$PY" -m science_pulse.cli knowledge index
     "$PY" -m science_pulse.cli knowledge integrity
     ;;
   knowledge)

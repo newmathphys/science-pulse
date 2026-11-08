@@ -410,7 +410,7 @@ python -m unittest discover -v
 
 ```text
 $ python -m unittest discover -v
-Ran 610 tests
+Ran 613 tests
 OK
 ```
 
