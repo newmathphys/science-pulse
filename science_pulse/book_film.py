@@ -38,7 +38,7 @@ from .cards_academic import (
 )
 from .models import Post
 from .plotting import evaluate_curve
-from .voice import VoiceArtifact, build_lecture_script, voice_for_post
+from .voice import VoiceArtifact, build_lecture_script, film_voice_for_post, voice_for_post
 
 LOGGER = logging.getLogger(__name__)
 
@@ -203,6 +203,85 @@ def _draw_curve(draw: ImageDraw.ImageDraw, curve: Dict[str, Any], box: Tuple[int
     font = _serif_font(max(12, int(16 * scale)))
     draw.text((left, top), "f(x)", fill=INK, font=font)
     draw.text((left, bottom - int(18 * scale)), "x", fill=MUTED, font=font)
+
+
+def _draw_equation_parts(draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, int], scale: float, formula: str) -> None:
+    """Разбирает уравнение на три смысловые части со стрелками."""
+    left, top, right, bottom = box
+    if "Ψ" in formula or "psi" in formula.lower():
+        parts = ("iħ", "∂Ψ/∂t", "ĤΨ")
+    else:
+        clean = (formula or "").replace("$", "")
+        parts = (clean[:14] or "f(x)", "=", clean[-14:] or "const")
+    width = (right - left - int(60 * scale)) // 3
+    font = _serif_font(max(18, int(28 * scale)), bold=True)
+    small = _serif_font(max(12, int(16 * scale)))
+    y0 = top + int(40 * scale)
+    y1 = bottom - int(40 * scale)
+    centers = []
+    for index, part in enumerate(parts):
+        x0 = left + int(12 * scale) + index * (width + int(18 * scale))
+        draw.rounded_rectangle(
+            (x0, y0, x0 + width, y1),
+            radius=int(14 * scale), fill=(240, 236, 228), outline=RULE, width=max(1, int(2 * scale)),
+        )
+        text = part if len(part) <= 12 else part[:11] + "…"
+        tw = draw.textlength(text, font=font)
+        draw.text((x0 + (width - tw) / 2, (y0 + y1) / 2 - int(18 * scale)), text, fill=INK, font=font)
+        centers.append((x0 + width, x0 + width + int(18 * scale)))
+    for start_x, end_x in centers[:2]:
+        draw.line([(start_x + int(2 * scale), (y0 + y1) / 2), (end_x - int(2 * scale), (y0 + y1) / 2)],
+                  fill=ACCENT, width=max(2, int(3 * scale)))
+        draw.polygon([
+            (end_x - int(2 * scale), (y0 + y1) / 2),
+            (end_x - int(10 * scale), (y0 + y1) / 2 - int(5 * scale)),
+            (end_x - int(10 * scale), (y0 + y1) / 2 + int(5 * scale)),
+        ], fill=ACCENT)
+    draw.text((left + int(12 * scale), top + int(8 * scale)), "смысловые части уравнения", fill=MUTED, font=small)
+
+
+def _draw_tunneling(draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, int], progress: float, scale: float) -> None:
+    """Реальный опыт: туннелирование волнового пакета сквозь барьер."""
+    try:
+        from .simulate import tunneling_profiles
+
+        data = tunneling_profiles(n=180, steps=120)
+    except Exception:
+        return
+    left, top, right, bottom = box
+    xs = data["x"]
+    barrier = data["barrier"]
+    key = "before" if progress < 0.33 else ("during" if progress < 0.66 else "after")
+    values = data["psi2"][key]
+    max_value = max(float(np.max(values)), 1e-9)
+    mid = (top + bottom) / 2
+    amp = (bottom - top) * 0.34
+    def px(xv: float) -> float:
+        return left + (float(xv) + 8.0) / 16.0 * (right - left)
+    def py(yv: float) -> float:
+        return mid - (float(yv) / max_value) * amp
+    # барьер
+    barrier_points = [(px(xv), py(float(bv) * max_value * 0.65)) for xv, bv in zip(xs, barrier)]
+    if len(barrier_points) > 1:
+        draw.line(barrier_points, fill=RULE, width=max(2, int(3 * scale)))
+    points = [(px(xv), py(float(yv))) for xv, yv in zip(xs, values)]
+    draw.polygon(points + [(points[-1][0], mid), (points[0][0], mid)], fill=(238, 233, 223))
+    draw.line(points, fill=INK, width=max(2, int(3 * scale)), joint="curve")
+    font = _serif_font(max(12, int(16 * scale)))
+    draw.text((left + int(10 * scale), top + int(8 * scale)), f"|Ψ|² · {key}", fill=INK, font=font)
+    draw.text((right - int(170 * scale), top + int(8 * scale)), f"T ≈ {data['T']:.2f}", fill=ACCENT, font=font)
+
+
+def _draw_invariant(image: Image.Image, draw: ImageDraw.ImageDraw, formula: Optional[Image.Image],
+                    box: Tuple[int, int, int, int], scale: float) -> None:
+    left, top, right, bottom = box
+    if formula is not None:
+        image.paste(formula, (left + (right - left - formula.width) // 2,
+                              top + (bottom - top - formula.height) // 2 - int(30 * scale)), formula)
+    font = _serif_font(max(48, int(88 * scale)), bold=True)
+    draw.text(((left + right) / 2 - int(20 * scale), bottom - int(130 * scale)), "?", fill=ACCENT, font=font)
+    small = _serif_font(max(12, int(16 * scale)))
+    draw.text((left + int(12 * scale), top + int(8 * scale)), "инвариант / проверка", fill=MUTED, font=small)
 
 
 def _draw_wave_packet(draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, int], progress: float, scale: float) -> None:
@@ -408,28 +487,56 @@ class BookFilmScene:
         wave_like = ("Ψ" in formula_text or "psi" in formula_text.lower()
                      or canon_id in ("schrodinger", "tunneling", "heisenberg"))
         act_index = self.act_at(time_s)
+        act_start = self.act_times[act_index]
+        act_end = self.act_times[act_index + 1] if act_index + 1 < len(self.act_times) else self.duration
+        act_progress = min(1.0, max(0.0, (time_s - act_start) / max(1e-6, act_end - act_start)))
         draw.text(
             (margin + width - int(120 * s), int(44 * s)),
             f"АКТ {ACT_ROMAN[act_index]} / V",
             fill=MUTED,
             font=font_small,
         )
-        if self.post.code and self.post.domain == "cs":
-            _draw_code(draw, self.post, box, progress, s)
-        elif wave_like and act_index in (1, 2):
-            _draw_wave_packet(draw, box, progress, s)
-        elif wave_like and act_index == 4 and re.search(r"e\^\{?i|e\^i", formula_text):
-            _draw_complex_phase(draw, box, progress, s, full_turn=False)
-        elif visual_type == "timeline_evolution" and isinstance(timeline, list) and act_index in (0, 3):
-            _draw_timeline(draw, timeline, box, progress, s)
+        content_box = (box[0], box[1] + int(30 * s), box[2], box[3])
+        has_complex = bool(re.search(r"e\^\{?i|e\^i", formula_text))
+        if self.post.code and self.post.domain == "cs" and act_index < 4:
+            _draw_code(draw, self.post, content_box, act_progress, s)
         elif wave_like:
-            _draw_wave_packet(draw, box, progress, s)
+            if act_index == 0 and isinstance(timeline, list):
+                _draw_timeline(draw, timeline, content_box, act_progress, s)
+            elif act_index == 1:
+                _draw_equation_parts(draw, content_box, s, formula_text)
+            elif act_index == 2:
+                _draw_wave_packet(draw, content_box, act_progress, s)
+            elif act_index == 3:
+                _draw_tunneling(draw, content_box, act_progress, s)
+            else:
+                _draw_invariant(image, draw, self.formula, content_box, s)
         elif self.sequence:
-            _draw_stem_plot(draw, self.sequence, box, s, progress)
+            if act_index == 0 and isinstance(timeline, list):
+                _draw_timeline(draw, timeline, content_box, act_progress, s)
+            elif act_index == 1:
+                _draw_equation_parts(draw, content_box, s, formula_text)
+            elif act_index in (2, 3):
+                _draw_stem_plot(draw, self.sequence, content_box, s, act_progress)
+            else:
+                _draw_invariant(image, draw, self.formula, content_box, s)
         elif self.curve is not None:
-            _draw_curve(draw, self.curve, box, s, progress)
-        elif re.search(r"e\^\{?i|e\^i", formula_text):
-            _draw_complex_phase(draw, box, progress, s, full_turn=False)
+            if act_index == 0 and isinstance(timeline, list):
+                _draw_timeline(draw, timeline, content_box, act_progress, s)
+            elif act_index == 1:
+                _draw_equation_parts(draw, content_box, s, formula_text)
+            elif act_index in (2, 3):
+                _draw_curve(draw, self.curve, content_box, s, act_progress)
+            else:
+                _draw_invariant(image, draw, self.formula, content_box, s)
+        elif isinstance(timeline, list) and act_index in (0, 2, 3):
+            _draw_timeline(draw, timeline, content_box, act_progress, s)
+        elif act_index == 1:
+            _draw_equation_parts(draw, content_box, s, formula_text)
+        elif has_complex and act_index in (2, 3):
+            _draw_complex_phase(draw, content_box, act_progress, s, full_turn=False)
+        elif act_index == 4:
+            _draw_invariant(image, draw, self.formula, content_box, s)
         else:
             # Честная книжная плашка: без выдуманного графика.
             font = _serif_font(max(14, int(20 * s)))
@@ -483,7 +590,7 @@ def render_book_film(
     settings = book_film_settings(config, aspect)
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    artifact = artifact or voice_for_post(post, config)
+    artifact = artifact or film_voice_for_post(post, config)
     scene = BookFilmScene(post, settings["width"], settings["height"], artifact)
     duration = min(float(max_seconds or scene.duration), 180.0)
     frames = max(2, min(settings["max_frames"], int(duration * settings["fps"])))

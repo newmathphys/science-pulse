@@ -996,6 +996,19 @@ def audiogram_for_post(post: Post, config: Config, card_path: str | Path | None 
     return target
 
 
+def film_voice_for_post(post: Post, config: Config, out_dir: str | Path | None = None,
+                        max_chars: int = 360) -> Optional[VoiceArtifact]:
+    """Короткая озвучка для book-фильма: 5 актов по 5–7 секунд."""
+    settings = voice_settings(config)
+    settings = dict(settings)
+    settings["max_chars"] = int(max_chars)
+    directory = Path(out_dir) if out_dir else config.data_dir / "audio"
+    text = build_lecture_script(post, max_chars=max_chars)
+    if len(text) < 40:
+        return None
+    return synthesize(text, directory, f"{post.id}_film", config, settings, post=post)
+
+
 def voice_for_post(post: Post, config: Config, out_dir: str | Path | None = None) -> Optional[VoiceArtifact]:
     """Озвучка поста с кэшем в `data/audio/<id>.mp3` (детерминированно)."""
     settings = voice_settings(config)
