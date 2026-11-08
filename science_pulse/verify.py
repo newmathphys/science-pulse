@@ -103,6 +103,22 @@ def run_verify(pipeline: Any, include_media: bool = True, include_lean: bool = T
     checks: List[Dict[str, Any]] = []
 
     from .invariants import InvariantChecker
+    from .no_llm import audit_no_llm, format_audit
+
+    no_llm = audit_no_llm()
+    checks.append({
+        "name": "no_llm",
+        "ok": no_llm["ok"],
+        "detail": format_audit(no_llm),
+    })
+
+    translation_off = not pipeline.config.translate
+    checks.append({
+        "name": "no_ai_translation",
+        "ok": translation_off,
+        "detail": "перевод выключен (translate: false)" if translation_off
+                  else "SP_TRANSLATE включён: контент идёт через переводчик",
+    })
 
     report = InvariantChecker(pipeline.storage).check()
     checks.append({

@@ -49,6 +49,21 @@ SCM = Источники
 - `PROVEN` ставит оракул, не агент;
 - заметка агента — `UNPROVEN` до подписи.
 
+### 5.1. Запрет LLM в контенте
+
+Контент собирается из источников и шаблонов, а не генерируется моделью.
+Это проверяется, а не декларируется:
+
+- `science_pulse/no_llm.py` сканирует AST всех модулей пакета;
+- запрещены импорты `openai`, `anthropic`, `ollama`, `transformers`,
+  `langchain`, `litellm` и подобных;
+- запрещены адреса `api.openai.com`, `api.anthropic.com`,
+  `generativelanguage.googleapis.com` и вызовы `chat.completions.create`;
+- `translate` по умолчанию `false`, а `cli verify` падает при
+  `SP_TRANSLATE=1` (гейт `no_ai_translation`).
+
+Поэтому `./sp check` каждый раз доказывает: в контентном контуре LLM нет.
+
 ## 6. Границы
 
 SCM — **ветка экосистемы**, а не замена RII, KERN, NYUUI или Эмбриона.
