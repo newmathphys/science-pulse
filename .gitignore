@@ -11,6 +11,8 @@ data/cards/
 dist/
 data/*.log
 data/*.pid
+data/knowledge.db
+data/knowledge.db-*
 data/*.db-wal
 data/*.db-shm
 

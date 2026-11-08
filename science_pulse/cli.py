@@ -57,12 +57,83 @@ def cmd_init(args: argparse.Namespace) -> int:
     config = load_config(args.config, root=args.root)
     config.ensure_dirs()
     storage = Storage(config.db_path)
+    try:
+        from .knowledge import KnowledgeBase, format_stats
+
+        knowledge = KnowledgeBase(config.data_dir / "knowledge.db", root=config.root)
+        result = knowledge.index_documents(config.root)
+        print(f"Knowledge: {result['indexed']} новых, {result['skipped']} без изменений")
+    except Exception as exc:
+        print(f"Knowledge: пропущено ({exc})")
     print(f"Инициализировано: {config.root}")
     print(f"База: {config.db_path}")
     print(f"Карточки: {config.cards_dir}")
     print(f"Сайт: {config.dist_dir}")
     print(f"Постов в базе: {storage.count()}")
     return 0
+
+
+def cmd_knowledge(args: argparse.Namespace) -> int:
+    """SCM Knowledge Base: индексация документов, поиск, утверждения, integrity."""
+    from .knowledge import KnowledgeBase, format_search, format_stats
+
+    config = load_config(args.config, root=args.root)
+    config.ensure_dirs()
+    kb = KnowledgeBase(config.data_dir / "knowledge.db", root=config.root)
+    action = args.action
+    if action == "index":
+        result = kb.index_documents(config.root)
+        print(f"Индекс: {result['indexed']} новых, {result['skipped']} без изменений, всего {result['total']}")
+        return 0
+    if action == "search":
+        rows = kb.search(args.value or "", limit=args.limit)
+        if args.json:
+            print(json.dumps(rows, ensure_ascii=False, indent=2))
+        else:
+            print(format_search(rows))
+        return 0
+    if action == "stats":
+        stats = kb.stats()
+        print(json.dumps(stats.as_dict(), ensure_ascii=False, indent=2) if args.json else format_stats(stats))
+        return 0
+    if action == "claim":
+        if args.value:
+            claim_id = kb.add_claim(args.value, status=args.status, source=args.source)
+            print(f"Утверждение #{claim_id}: {args.status} (owner_signed=0)")
+        else:
+            rows = kb.list_claims(limit=args.limit)
+            print(json.dumps(rows, ensure_ascii=False, indent=2) if args.json else "\n".join(
+                f"#{row['id']} [{row['status']}] {row['text']} — {row['source']}" for row in rows
+            ) or "Утверждений нет.")
+        return 0
+    if action == "note":
+        if args.value:
+            note_id = kb.add_note(args.value, source=args.source, status=args.status)
+            print(f"Заметка #{note_id}: {args.status} (owner_signed=0)")
+        else:
+            rows = kb.list_notes(limit=args.limit)
+            print(json.dumps(rows, ensure_ascii=False, indent=2) if args.json else "\n".join(
+                f"#{row['id']} [{row['status']}] {row['text']} — {row['source']}" for row in rows
+            ) or "Заметок нет.")
+        return 0
+    if action == "decisions":
+        rows = kb.list_decisions(limit=args.limit)
+        print(json.dumps(rows, ensure_ascii=False, indent=2) if args.json else "\n".join(
+            f"#{row['id']} {row['title']}: {row['decision']}" for row in rows
+        ) or "Решений нет.")
+        return 0
+    if action == "integrity":
+        report = kb.integrity()
+        print(json.dumps(report, ensure_ascii=False, indent=2) if args.json else (
+            "✅ Knowledge Base целостна" if report["ok"] else "❌ " + "; ".join(report["issues"])
+        ))
+        return 0 if report["ok"] else 1
+    if action == "export":
+        path = kb.export_json(config.data_dir / "knowledge_export.json")
+        print(f"Экспорт: {path}")
+        return 0
+    print("Действия: index|search|stats|claim|note|decisions|integrity|export")
+    return 1
 
 
 def cmd_status(args: argparse.Namespace) -> int:
@@ -1230,6 +1301,16 @@ def build_parser() -> argparse.ArgumentParser:
     status = subparsers.add_parser("status", help="показать состояние")
     status.add_argument("--json", action="store_true")
     status.set_defaults(func=cmd_status)
+
+    knowledge = subparsers.add_parser("knowledge", help="SCM Knowledge Base: документы, поиск, утверждения")
+    knowledge.add_argument("action", nargs="?", default="stats",
+                           choices=["index", "search", "stats", "claim", "note", "decisions", "integrity", "export"])
+    knowledge.add_argument("value", nargs="?", default=None, help="запрос или текст утверждения/заметки")
+    knowledge.add_argument("--source", default="")
+    knowledge.add_argument("--status", default="UNPROVEN", choices=["PROVEN", "EMPIRIC", "HYPOTHESIS", "REFUTED", "UNPROVEN"])
+    knowledge.add_argument("--limit", type=int, default=10)
+    knowledge.add_argument("--json", action="store_true")
+    knowledge.set_defaults(func=cmd_knowledge)
 
     harvest = subparsers.add_parser("harvest", help="добрать материалы")
     harvest.add_argument("--limit", type=int, default=2)

@@ -1,3 +1,11 @@
+project:
+  name: "SCM"
+  full_name: "Scientific Content Machine"
+  paradigm: "scm"
+  owner_role: "chief_operator"
+  ai_role: "tool"
+  docs: "docs/INDEX.md"
+
 # Science Pulse — рабочая конфигурация.
 # Секреты сюда не пишем: они берутся из .env или GitHub Secrets.
 

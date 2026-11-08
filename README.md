@@ -1,5 +1,14 @@
 # Science Pulse
 
+**SCM — Scientific Content Machine** — детерминированная машина научного
+контента: источники → проверяемое знание → публикация → сайт → метрики →
+коммерческая ветка. SCM — ветка экосистемы; RII, AI Connector, KERN, NYUUI и
+Эмбрион-Симбиот используются как оракулы и поставщики знаний, но их код здесь
+не меняется.
+
+Вход оператора: `./sp enter` · карта документации: `docs/INDEX.md` ·
+парадигма: `docs/SCM.md` · база знаний: `docs/KNOWLEDGE_BASE.md`.
+
 Детерминированная фабрика научного контента по мотивам документа
 `2-2026-10-31.md`: математика, физика и информатика — 4 публикации в сутки
 (09:00, 13:00, 17:00 и 21:00 МСК) в Telegram, Threads и другие сети, с карточками 1080×1080, формулами,
@@ -72,6 +81,10 @@ Threads принимает картинку только по публичном
 
 ```bash
 python -m science_pulse.cli init
+python -m science_pulse.cli knowledge index
+python -m science_pulse.cli knowledge search "SCM"
+python -m science_pulse.cli knowledge stats
+python -m science_pulse.cli knowledge integrity
 python -m science_pulse.cli status [--json]
 python -m science_pulse.cli harvest --limit 3 [--domain physics] [--offline]
 python -m science_pulse.cli publish [--dry-run] [--domain math] [--target telegram]
