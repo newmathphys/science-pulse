@@ -377,6 +377,20 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_signal(args: argparse.Namespace) -> int:
+    """Математический движок сигналов: объём, энтропия, УОС, интервалы."""
+    from .signal_engine import format_signal_report, signal_status
+
+    pipeline = _pipeline(args)
+    status = signal_status(pipeline.storage, pipeline.config)
+    if args.json:
+        print(json.dumps(status, ensure_ascii=False, indent=2, default=str))
+    else:
+        print(format_signal_report(pipeline.storage, pipeline.config, html=False))
+    _checkpoint(pipeline)
+    return 0
+
+
 def cmd_trending(args: argparse.Namespace) -> int:
     from .trending import TrendingRadar, format_trending
 
@@ -676,12 +690,22 @@ def cmd_theme(args: argparse.Namespace) -> int:
 
 
 def cmd_film(args: argparse.Namespace) -> int:
-    """5-актовый фильм Moku3D для поста (по умолчанию — следующий в очереди)."""
-    from .moku_film import film_available, film_for_post
+    """Видео поста: 5-актовый Moku3D или книжный book-фильм."""
+    style = str(getattr(args, "style", "moku3d") or "moku3d").lower()
+    if style == "book":
+        from .book_film import book_film_available, book_film_for_post
+
+        available, build = book_film_available, book_film_for_post
+        label = "book-фильм"
+    else:
+        from .moku_film import film_available, film_for_post
+
+        available, build = film_available, film_for_post
+        label = "Moku3D"
 
     pipeline = _pipeline(args)
-    if not film_available():
-        print("Moku3D недоступен: не найден ffmpeg.", file=sys.stderr)
+    if not available():
+        print(f"{label} недоступен: не найден ffmpeg.", file=sys.stderr)
         return 1
     post = pipeline.storage.get_post(args.post_id) if getattr(args, "post_id", None) else None
     if post is None:
@@ -690,9 +714,9 @@ def cmd_film(args: argparse.Namespace) -> int:
         print("Нет поста для экранизации.", file=sys.stderr)
         return 1
     aspect = getattr(args, "aspect", None)
-    path = film_for_post(post, pipeline.config, aspect=aspect)
+    path = build(post, pipeline.config, aspect=aspect)
     if not path:
-        print("Не удалось собрать фильм Moku3D.", file=sys.stderr)
+        print(f"Не удалось собрать {label}.", file=sys.stderr)
         return 1
     print(f"Фильм: {path} ({path.stat().st_size // 1024} КБ)")
     if getattr(args, "send", False):
@@ -1315,6 +1339,10 @@ def build_parser() -> argparse.ArgumentParser:
     doctor.add_argument("--send", action="store_true", help="отправить отчёт в админ-чат Telegram")
     doctor.set_defaults(func=cmd_doctor)
 
+    signal = subparsers.add_parser("signal", help="математический движок сигналов (5 законов книги)")
+    signal.add_argument("--json", action="store_true")
+    signal.set_defaults(func=cmd_signal)
+
     trending = subparsers.add_parser("trending", help="радар мировых научных новостей (HN + Reddit)")
     trending.add_argument("--domain", choices=["math", "physics", "cs"], default=None)
     trending.add_argument("--top", type=int, default=5)
@@ -1395,10 +1423,12 @@ def build_parser() -> argparse.ArgumentParser:
     recard.set_defaults(func=cmd_recard)
 
     theme = subparsers.add_parser("theme", help="дизайн выпуска: A/B-рейтинг или переключение")
-    theme.add_argument("name", nargs="?", help="auto|academic|3b1b|blueprint|moku3d")
+    theme.add_argument("name", nargs="?", help="auto|academic|3b1b|blueprint|moku3d|bookfilm")
     theme.set_defaults(func=cmd_theme)
 
     film = subparsers.add_parser("film", help="5-актовый фильм Moku3D (moku_film)")
+    film.add_argument("--style", default="moku3d", choices=["moku3d", "book"],
+                      help="видео-движок: moku3d (тёмный 3D) или book (книжная страница)")
     film.add_argument("--post-id", default=None, help="id поста (по умолчанию — следующий)")
     film.add_argument("--domain", default=None, choices=["math", "physics", "cs"])
     film.add_argument("--aspect", default=None, choices=["1:1", "9:16"],

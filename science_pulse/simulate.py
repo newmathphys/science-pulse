@@ -29,6 +29,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Tuple
 
+import math
+
 import numpy as np
 
 
@@ -804,4 +806,106 @@ def lennard_jones(n: int = 400, epsilon: float = 1.0, sigma: float = 1.0) -> Dic
         "F": force,
         "r_min": np.array([2.0 ** (1.0 / 6.0) * sigma]),
         "v_min": np.array([-epsilon]),
+    }
+
+def kotelnikov_sampling(f_max: float = 5.0, oversample: float = 1.0,
+                        duration: float = 1.0, points: int = 800) -> Dict[str, Any]:
+    """Дискретизация и восстановление по Котельникову — без магии.
+
+    Сигнал с максимальной частотой ``f_max`` дискретизируется с частотой
+    ``fs = 2·f_max·oversample`` и восстанавливается идеальной sinc-интерполяцией.
+    При ``oversample < 1`` возникает наложение спектров (алиасинг), и ошибка
+    резко растёт — это видно численно, а не на словах.
+    """
+    t = np.linspace(0.0, duration, max(64, int(points)))
+    signal = (
+        0.65 * np.sin(2.0 * np.pi * f_max * 0.55 * t)
+        + 0.35 * np.sin(2.0 * np.pi * f_max * 0.9 * t + 0.3)
+    )
+    fs = max(0.1, 2.0 * float(f_max) * max(0.05, float(oversample)))
+    sample_t = np.arange(-0.2, duration + 0.2, 1.0 / fs)
+    samples = (
+        0.65 * np.sin(2.0 * np.pi * f_max * 0.55 * sample_t)
+        + 0.35 * np.sin(2.0 * np.pi * f_max * 0.9 * sample_t + 0.3)
+    )
+    ts = 1.0 / fs
+    reconstructed = np.zeros_like(t)
+    for sample, sample_time in zip(samples, sample_t):
+        reconstructed += sample * np.sinc((t - sample_time) / ts)
+    error = np.abs(reconstructed - signal)
+    interior = error[10:-10] if len(error) > 20 else error
+    return {
+        "t": t,
+        "signal": signal,
+        "sample_t": sample_t,
+        "samples": samples,
+        "reconstructed": reconstructed,
+        "error": error,
+        "fs": fs,
+        "nyquist": 2.0 * float(f_max),
+        "max_error": float(np.max(interior)),
+        "aliasing": bool(oversample < 1.0),
+    }
+
+
+def shannon_capacity(bandwidth_hz: float = 1.0, snr_db: float = 20.0,
+                     snr_db_sweep: Optional[np.ndarray] = None) -> Dict[str, Any]:
+    """Пропускная способность канала C = B·log2(1 + S/N)."""
+    bandwidth = max(1e-9, float(bandwidth_hz))
+    sweep = np.asarray(snr_db_sweep if snr_db_sweep is not None else np.linspace(-10.0, 40.0, 101), dtype=float)
+    snr_linear = 10.0 ** (sweep / 10.0)
+    capacity = bandwidth * np.log2(1.0 + snr_linear)
+    snr_linear_point = 10.0 ** (float(snr_db) / 10.0)
+    return {
+        "bandwidth_hz": bandwidth,
+        "snr_db": sweep,
+        "snr_linear": snr_linear,
+        "capacity": capacity,
+        "capacity_at_snr": bandwidth * math.log2(1.0 + snr_linear_point),
+        "snr_db_point": float(snr_db),
+    }
+
+
+def hamming_7_4() -> Dict[str, Any]:
+    """Код Хэмминга (7,4): G·Hᵀ ≡ 0 mod 2, минимальное расстояние 3."""
+    generator = np.array([
+        [1, 0, 0, 0, 1, 1, 0],
+        [0, 1, 0, 0, 1, 0, 1],
+        [0, 0, 1, 0, 0, 1, 1],
+        [0, 0, 0, 1, 1, 1, 1],
+    ], dtype=int)
+    parity = np.array([
+        [1, 1, 0, 1, 1, 0, 0],
+        [1, 0, 1, 1, 0, 1, 0],
+        [0, 1, 1, 1, 0, 0, 1],
+    ], dtype=int)
+    codewords = []
+    for message in range(16):
+        bits = np.array([(message >> shift) & 1 for shift in (3, 2, 1, 0)], dtype=int)
+        codewords.append((bits @ generator) % 2)
+    nonzero = [int(np.sum(word)) for word in codewords if int(np.sum(word)) > 0]
+    syndromes: Dict[Tuple[int, ...], int] = {}
+    for position in range(7):
+        error = np.zeros(7, dtype=int)
+        error[position] = 1
+        syndrome = tuple(int(value) for value in (parity @ error) % 2)
+        syndromes[syndrome] = position
+    example = codewords[7].copy()
+    received = example.copy()
+    received[3] ^= 1
+    syndrome = tuple(int(value) for value in (parity @ received) % 2)
+    corrected = received.copy()
+    if syndrome in syndromes:
+        corrected[syndromes[syndrome]] ^= 1
+    return {
+        "G": generator,
+        "H": parity,
+        "orthogonal": bool(np.all((generator @ parity.T) % 2 == 0)),
+        "codewords": codewords,
+        "min_distance": int(min(nonzero)) if nonzero else 0,
+        "syndromes": syndromes,
+        "example": example,
+        "received": received,
+        "corrected": corrected,
+        "corrected_ok": bool(np.array_equal(corrected, example)),
     }

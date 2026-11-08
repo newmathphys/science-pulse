@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import time
 import urllib.request
 from dataclasses import asdict, dataclass
@@ -273,6 +274,22 @@ class TrendingRadar:
                 continue
             seen.add(key)
             unique.append(item)
+
+        signal_cfg = dict((getattr(self.config, "raw", {}) or {}).get("signal_engine") or {})
+        if signal_cfg.get("trending_filter"):
+            try:
+                from .signal_engine import NeymanPearsonDetector
+
+                detector = NeymanPearsonDetector(float(signal_cfg.get("p_fa", 0.05)))
+                filtered, report = detector.filter_items(
+                    unique,
+                    lambda item: 10.0 * item.relevance + math.log1p(max(0.0, item.heat)),
+                )
+                if filtered:
+                    unique = filtered
+                self._last_filter = report
+            except Exception as exc:  # pragma: no cover - радар не должен падать
+                LOGGER.warning("Нейман—Пирсон: %s", exc)
 
         picked = unique[:top]
         if translate:

@@ -94,6 +94,15 @@ def build_typst_source(posts: List[Post], card_names: Dict[str, str], formula_na
     for symbol, name, value, unit in constants_rows:
         constants_block.append(f"- *{_esc(symbol)}* — {_esc(name)}: `{_esc(value)}` {_esc(unit)}")
 
+    notation_block = [
+        "= Основные обозначения",
+        "- *Vc = Tc·Fc·Hc* — объём сигнала; *Vk* — ёмкость канала.",
+        "- *H(X)* — энтропия; *ϰ* — избыточность текста.",
+        "- *Λ(z)* — отношение правдоподобия; *Pлт* — вероятность ложной тревоги.",
+        "- *Δt_защ* — защитный интервал между потоками.",
+        "- *f_max* — верхняя частота; *Δt = 1/(2·f_max)* — шаг Котельникова.",
+    ]
+
     joined_sections = "\n".join(sections)
     joined_constants = "\n".join(constants_block)
     joined_index = "\n".join(index_entries) or "- Учёные появятся вместе с постами канона."
@@ -125,6 +134,8 @@ def build_typst_source(posts: List[Post], card_names: Dict[str, str], formula_na
 {joined_sections}
 
 {joined_constants}
+
+{chr(10).join(notation_block)}
 
 = Предметный указатель учёных
 {joined_index}

@@ -190,6 +190,15 @@ def build_rich_telegram_caption(post: Post, limit: int = 1024, site_url: str = "
     overhead = len(header) + len(footer) + 8
     # Полное описание: до ~620 символов вместо прежних ~380.
     body_limit = max(320, min(620, limit - overhead))
+    if len(raw_body) > body_limit * 2:
+        try:
+            from ..signal_engine import ShannonTextCompressor
+
+            compressed = ShannonTextCompressor().compress(raw_body, body_limit * 2)
+            if len(compressed) >= 200:
+                raw_body = compressed
+        except Exception:
+            pass
     body = smart_sentence_truncate(raw_body, min_chars=min(480, body_limit), max_chars=body_limit)
 
     if len(body) < 300:

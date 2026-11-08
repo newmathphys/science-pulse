@@ -96,6 +96,21 @@ class TelegramPublisher(Publisher):
         """
         path = None
         design = (getattr(post, "meta", {}) or {}).get("design_variant") or {}
+        if isinstance(design, dict) and design.get("theme") == "bookfilm":
+            try:
+                from ..book_film import book_film_available, book_film_for_post
+
+                if book_film_available():
+                    path = book_film_for_post(post, self.config)
+                    if path and self.send_video(path, caption):
+                        return PublishResult(
+                            platform=self.name,
+                            ok=True,
+                            external_id=None,
+                            meta={"video": str(path), "book_film": True},
+                        )
+            except Exception as exc:  # pragma: no cover
+                LOGGER.warning("Book film: %s", exc)
         if isinstance(design, dict) and design.get("theme") == "moku3d":
             try:
                 from ..moku_film import film_for_post

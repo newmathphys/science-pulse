@@ -187,4 +187,52 @@ theorem inv8_causal_completeness (tier parentTier : Nat)
     (h : parentTier < tier) : parentTier + 1 ≤ tier := by
   omega
 
+/-! ## Стенды теории сигналов (конечные алгебраические модели)
+
+Полные аналитические теоремы Котельникова и Шеннона требуют mathlib.
+Здесь — их конечные алгебраические ядра: код Хэмминга (7,4), счётчик
+отсчётов 2BT и монотонность табличной ёмкости. Это честные машинные
+инварианты без `sorry`. -/
+
+/-- Порождающая матрица G кода Хэмминга (7,4). -/
+def hammingG : List (List Nat) :=
+  [[1,0,0,0,1,1,0],
+   [0,1,0,0,1,0,1],
+   [0,0,1,0,0,1,1],
+   [0,0,0,1,1,1,1]]
+
+/-- Проверочная матрица H кода Хэмминга (7,4). -/
+def hammingH : List (List Nat) :=
+  [[1,1,0,1,1,0,0],
+   [1,0,1,1,0,1,0],
+   [0,1,1,1,0,0,1]]
+
+/-- Скалярное произведение по модулю 2. -/
+def dotMod2 (a b : List Nat) : Nat :=
+  (List.zipWith (fun x y => x * y) a b).sum % 2
+
+/-- Все строки G ортогональны всем строкам H по модулю 2. -/
+def hammingOrthogonal : Bool :=
+  hammingG.all (fun row => hammingH.all (fun col => dotMod2 row col == 0))
+
+/-- G·Hᵀ ≡ 0 (mod 2): конечная проверка всех 12 пар. -/
+theorem hamming_7_4_orthogonal : hammingOrthogonal = true := by
+  decide
+
+/-- Число отсчётов при частоте Найквиста: 2·B·T. -/
+def sampleCount (B T : Nat) : Nat := 2 * B * T
+
+/-- Эквивалентная форма счётчика отсчётов. -/
+theorem sample_count (B T : Nat) : sampleCount B T = 2 * (B * T) := by
+  simp [sampleCount, Nat.mul_assoc]
+
+/-- Табличная модель ёмкости канала C = B·S (дискретный аналог B·log2(1+S/N)). -/
+def capacity (B S : Nat) : Nat := B * S
+
+/-- Ёмкость монотонна по отношению сигнал/шум. -/
+theorem capacity_monotone (B S1 S2 : Nat) (h : S1 ≤ S2) :
+    capacity B S1 ≤ capacity B S2 := by
+  exact Nat.mul_le_mul_left B h
+
+
 end SciencePulse

@@ -284,6 +284,15 @@ def build_lecture_script(post: Post, max_chars: int = 900) -> str:
     parts = [math_to_spoken_russian(part) for part in parts if part]
     text = " ".join(parts)
     if len(text) > budget:
+        try:
+            from .signal_engine import ShannonTextCompressor
+
+            compressed = ShannonTextCompressor().compress(text, budget)
+            if compressed and len(compressed) <= budget:
+                text = compressed
+        except Exception:
+            pass
+    if len(text) > budget:
         cut = text[:budget]
         for stop in (". ", "! ", "? "):
             index = cut.rfind(stop)
@@ -338,6 +347,48 @@ def _timestamp(seconds: float, comma: bool = False) -> str:
     secs, millis = divmod(remainder, 1000)
     separator = "," if comma else "."
     return f"{hours:02d}:{minutes:02d}:{secs:02d}{separator}{millis:03d}"
+
+
+def _words_from_boundaries(boundaries: List[Any]) -> List[Any]:
+    """Слово-таймкоды edge-tts: (start_s, end_s, word).
+
+    Русский голос часто отдаёт SentenceBoundary целой фразой — тогда делим
+    интервал фразы между словами пропорционально длине.
+    """
+    words: List[Any] = []
+    for offset, duration, text in boundaries:
+        token = str(text or "").strip()
+        if not token:
+            continue
+        start = float(offset) / 10_000_000.0
+        end = max(start, float(offset + duration) / 10_000_000.0)
+        parts = token.split()
+        if len(parts) <= 1:
+            words.append((start, end, token))
+            continue
+        total = sum(max(1, len(part)) for part in parts)
+        cursor = start
+        span = max(0.02, end - start)
+        for part in parts:
+            piece = span * max(1, len(part)) / max(1, total)
+            words.append((cursor, min(end, cursor + piece), part))
+            cursor += piece
+    return words
+
+
+def _approximate_words(text: str, duration: float) -> List[Any]:
+    """Равномерные таймкоды слов, если движок не отдал boundaries."""
+    tokens = [token for token in str(text or "").split() if token]
+    if not tokens:
+        return []
+    total = sum(max(1, len(token)) for token in tokens)
+    cursor = 0.0
+    words: List[Any] = []
+    for token in tokens:
+        span = max(0.08, duration * max(1, len(token)) / max(1, total))
+        words.append((cursor, min(duration, cursor + span), token))
+        cursor += span
+    return words
 
 
 def write_subtitles(segments: List[Any], base_path: str | Path) -> Dict[str, str]:
@@ -405,6 +456,8 @@ class VoiceArtifact:
     voice: str = ""
     vtt_path: str = ""
     srt_path: str = ""
+    segments: List[Any] = field(default_factory=list)
+    words: List[Any] = field(default_factory=list)
     meta: Dict[str, Any] = field(default_factory=dict)
 
     def as_dict(self) -> Dict[str, Any]:
@@ -417,6 +470,8 @@ class VoiceArtifact:
             "ogg": self.ogg_path,
             "vtt": self.vtt_path,
             "chars": len(self.text),
+            "segments": len(self.segments),
+            "words": len(self.words),
         }
 
 
@@ -589,7 +644,8 @@ def synthesize(
                              duration_s=duration,
                              engine=settings["engine"], voice=settings["voice"],
                              vtt_path=str(vtt_path) if vtt_path.is_file() else "",
-                             srt_path=str(mp3_path.with_suffix(".srt")) if mp3_path.with_suffix(".srt").is_file() else "")
+                             srt_path=str(mp3_path.with_suffix(".srt")) if mp3_path.with_suffix(".srt").is_file() else "",
+                             words=_approximate_words(text, duration or 10.0))
 
     engine = settings["engine"]
     engine_used = voice_used = ""
@@ -672,11 +728,13 @@ def synthesize(
     duration = _duration_seconds(mp3_path)
     segments = _boundaries_to_segments(boundaries) if boundaries else _approximate_segments(text, duration or 10.0)
     subtitles = write_subtitles(segments, mp3_path)
+    words = _words_from_boundaries(boundaries) if boundaries else _approximate_words(text, duration or 10.0)
     return VoiceArtifact(
         post_id=post_id, text=text, mp3_path=str(mp3_path),
         ogg_path=str(ogg_path) if ogg_path.is_file() else "",
         duration_s=duration, engine=engine_used, voice=voice_used,
         vtt_path=subtitles.get("vtt", ""), srt_path=subtitles.get("srt", ""),
+        segments=segments, words=words,
     )
 
 

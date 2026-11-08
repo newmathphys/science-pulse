@@ -297,11 +297,29 @@ class Pipeline:
             except Exception as exc:  # A/B не должен блокировать публикацию
                 LOGGER.warning("Не удалось записать style_variant: %s", exc)
 
-        # Дизайн выпуска: реестр тем (academic/3b1b/blueprint/moku3d). В режиме
-        # `auto` стиль выбирает бандит Томпсона, иначе — фиксация оператора.
+        # Математический движок сигналов: объём поста против ёмкости канала.
+        signal_cfg = dict(self.config.raw.get("signal_engine") or {})
+        auto_visual = bool(signal_cfg.get("auto_visual", False))
+        try:
+            from .platforms_info import PlatformRules
+            from .signal_engine import SignalVolumeMatcher
+
+            volume = SignalVolumeMatcher(self.config).match_volume(
+                post, "telegram", PlatformRules.load(self.storage, self.config)
+            )
+            post.meta["signal_volume"] = volume
+            if auto_visual and not volume["fits"]:
+                post.meta["signal_visual_mode"] = volume["recommended_mode"]
+        except Exception as exc:  # pragma: no cover
+            LOGGER.debug("Signal volume: %s", exc)
+
+        # Дизайн выпуска: реестр тем (academic/3b1b/blueprint/moku3d/bookfilm).
+        # В режиме `auto` стиль выбирает бандит Томпсона, иначе — фиксация оператора.
         from .themes import record_reward, theme_for_post
 
         theme = theme_for_post(self.storage, self.config)
+        if auto_visual and post.meta.get("signal_visual_mode") == "bookfilm":
+            theme = "bookfilm"
         archetype = ""
         try:
             from .cards_academic import pick_visual_type
@@ -416,6 +434,7 @@ class Pipeline:
             if result.platform == "telegram" and result.ok:
                 telegram_file_id = str((result.meta or {}).get("file_id") or "")
         telegram_file_id = telegram_file_id or post.card_file_id
+        error = ""
 
         if any_ok:
             self.storage.mark_published(post.id, card_path=str(card.path), card_file_id=telegram_file_id)
@@ -432,6 +451,19 @@ class Pipeline:
             if bandit.get("enabled"):
                 self.sota.reward_domain(post.domain, success=False)
             record_reward(self.storage, theme, success=False)
+
+        # Контур РОС/УОС: сбой возвращается в накопитель, успех сбрасывает счётчик.
+        try:
+            from .signal_engine import FeedbackControllerUOS
+
+            feedback = FeedbackControllerUOS(self.storage, self.config).on_publish(post, any_ok, error)
+            if not any_ok and feedback.get("action") == "requeue":
+                requeued = self.storage.requeue_failed(post.id)
+                feedback["requeued"] = bool(requeued)
+                LOGGER.info("РОС: пост %s возвращён в очередь: %s", post.id, requeued)
+            self.storage.set_post_meta(post.id, "signal_feedback", feedback)
+        except Exception as exc:  # pragma: no cover - движок не должен ломать публикацию
+            LOGGER.warning("Signal feedback: %s", exc)
 
         # N+1 warm staging: сразу после успешной публикации готовим следующий
         # пост (лонгрид + паспорт + карточка + приёмка), чтобы он вышел «тёплым».

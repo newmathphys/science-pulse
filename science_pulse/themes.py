@@ -19,7 +19,7 @@ import json
 import random
 from typing import Any, Dict, List, Optional, Tuple
 
-THEMES: Tuple[str, ...] = ("academic", "3b1b", "blueprint", "moku3d")
+THEMES: Tuple[str, ...] = ("academic", "3b1b", "blueprint", "moku3d", "bookfilm")
 DEFAULT_THEME = "academic"
 AUTO = "auto"
 
@@ -32,6 +32,8 @@ ALIASES: Dict[str, str] = {
     "pillow": "3b1b",
     "studio": "3b1b",
     "film": "moku3d",
+    "book_film": "bookfilm",
+    "bookfilm": "bookfilm",
 }
 
 KV_ARMS = "theme_arms"
@@ -46,6 +48,7 @@ LABELS = {
     "3b1b": "Тёмный чертёж 3B1B",
     "blueprint": "Инженерный чертёж",
     "moku3d": "5-актовый фильм Moku3D",
+    "bookfilm": "Книжный фильм (ожившая страница)",
 }
 
 
@@ -208,8 +211,11 @@ def design_stats(storage: Any) -> List[Dict[str, Any]]:
     buckets: Dict[str, Dict[str, Any]] = {name: bucket(name) for name in THEMES}
     for post in posts:
         buckets.setdefault(theme_of[post.id], bucket(theme_of[post.id]))["posts"] += 1
+    series: Dict[str, List[float]] = {}
     with storage.cursor() as connection:
-        rows = connection.execute("SELECT post_id, views, likes, replies FROM metrics").fetchall()
+        rows = connection.execute(
+            "SELECT post_id, views, likes, replies FROM metrics ORDER BY id"
+        ).fetchall()
     for row in rows:
         theme = theme_of.get(row["post_id"])
         if not theme:
@@ -219,6 +225,18 @@ def design_stats(storage: Any) -> List[Dict[str, Any]]:
         item["likes"] += int(row["likes"] or 0)
         item["replies"] += int(row["replies"] or 0)
         item["measured"] += 1
+        score = int(row["views"] or 0) + 5 * int(row["likes"] or 0) + 8 * int(row["replies"] or 0)
+        series.setdefault(theme, []).append(float(score))
+
+    try:
+        from .signal_engine import KalmanFilter
+
+        for theme, values in series.items():
+            smoothed = KalmanFilter().smooth(values)
+            if theme in buckets:
+                buckets[theme]["smoothed_score"] = round(smoothed[-1], 2) if smoothed else 0.0
+    except Exception:
+        pass
 
     rates = win_rates(storage)
     scores: List[float] = []
@@ -230,6 +248,7 @@ def design_stats(storage: Any) -> List[Dict[str, Any]]:
             (item["views"] + 5 * item["likes"] + 8 * item["replies"]) / measured, 2
         )
         item["win_rate_pct"] = rates.get(item["theme"], 50.0)
+        item.setdefault("smoothed_score", item["engagement_score"])
         scores.append(item["engagement_score"])
     top = max(scores) if scores else 0.0
     for item in buckets.values():
@@ -252,9 +271,16 @@ def format_design_table(storage: Any, config: Any, html: bool = True) -> str:
             f"{index}. <b>{item['theme']}</b> — {LABELS.get(item['theme'], '')} · "
             f"постов: {item['posts']} · замеров: {item['measured']} · "
             f"ср. охват: {item['avg_views']:.0f} · реакции: {item['avg_likes']:.0f} · "
-            f"индекс: {item['index_pct']:.0f}% · WinRate: {item['win_rate_pct']:.0f}%{leader}"
+            f"индекс: {item['index_pct']:.0f}% · WinRate: {item['win_rate_pct']:.0f}%"
+            f" · сглажено: {item.get('smoothed_score', 0):.0f}{leader}"
         )
-    lines += ["", "Переключение: <code>/theme auto|academic|3b1b|blueprint|moku3d</code>"]
+    lines += ["", "Переключение: <code>/theme auto|academic|3b1b|blueprint|moku3d|bookfilm</code>"]
+    try:
+        from .signal_engine import format_signal_report
+
+        lines += ["", format_signal_report(storage, config, html=html)]
+    except Exception:
+        pass
     text = "\n".join(lines)
     if html:
         return text

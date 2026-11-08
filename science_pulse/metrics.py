@@ -120,6 +120,16 @@ class MetricsCollector:
             "errors": sum(1 for item in samples if item.status == "error"),
             "samples": [item.as_dict() for item in samples],
         }
+        try:
+            from .signal_engine import FeedbackControllerUOS
+
+            score = sum(
+                item.views + 5 * item.likes + 8 * item.replies
+                for item in samples if item.status == "ok"
+            )
+            summary["signal_feedback"] = FeedbackControllerUOS(self.storage, self.config).on_metrics(score)
+        except Exception as exc:  # pragma: no cover - движок не должен ломать сбор
+            LOGGER.warning("Signal feedback метрик: %s", exc)
         LOGGER.info("Метрики: сохранено %s замеров из %s целей", stored, len(targets))
         return summary
 

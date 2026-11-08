@@ -368,6 +368,26 @@ class Storage:
                 (utc_now(), card_path, card_file_id, post_id),
             )
 
+    def requeue_failed(self, post_id: str, max_attempts: int = 3) -> bool:
+        """РОС: вернуть failed-пост в очередь, если попыток меньше лимита."""
+        with self.cursor() as connection:
+            row = connection.execute("SELECT meta_json FROM posts WHERE id = ?", (post_id,)).fetchone()
+            if not row:
+                return False
+            try:
+                meta = json.loads(row["meta_json"] or "{}")
+            except (TypeError, ValueError):
+                meta = {}
+            attempts = int(meta.get("requeue_attempts") or 0)
+            if attempts >= max_attempts:
+                return False
+            meta["requeue_attempts"] = attempts + 1
+            connection.execute(
+                "UPDATE posts SET status = 'ready', published_at = NULL, meta_json = ? WHERE id = ?",
+                (json.dumps(meta, ensure_ascii=False), post_id),
+            )
+        return True
+
     def set_card_file_id(self, post_id: str, file_id: str) -> None:
         with self.cursor() as connection:
             connection.execute(

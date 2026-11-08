@@ -57,6 +57,25 @@ class SimulateTests(unittest.TestCase):
         # аттрактор ограничен: значения не улетают в бесконечность
         self.assertLess(float(np.abs(data["z"]).max()), 100.0)
 
+    def test_kotelnikov_sampling(self):
+        good = simulate.kotelnikov_sampling(oversample=2.0)
+        bad = simulate.kotelnikov_sampling(oversample=0.5)
+        self.assertLess(good["max_error"], 0.25)
+        self.assertGreater(bad["max_error"], good["max_error"])
+        self.assertTrue(bad["aliasing"])
+
+    def test_shannon_capacity(self):
+        data = simulate.shannon_capacity(bandwidth_hz=1.0, snr_db=20.0)
+        self.assertGreater(data["capacity_at_snr"], 6.0)
+        self.assertTrue(np.all(np.diff(data["capacity"]) > 0))
+
+    def test_hamming_7_4(self):
+        data = simulate.hamming_7_4()
+        self.assertTrue(data["orthogonal"])
+        self.assertEqual(data["min_distance"], 3)
+        self.assertTrue(data["corrected_ok"])
+        self.assertEqual(len(data["codewords"]), 16)
+
     def test_lennard_jones(self):
         data = simulate.lennard_jones()
         self.assertTrue(np.isfinite(data["V"]).all())

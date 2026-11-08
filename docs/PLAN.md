@@ -410,7 +410,7 @@ python -m unittest discover -v
 
 ```text
 $ python -m unittest discover -v
-Ran 153 tests
+Ran 595 tests
 OK
 ```
 
@@ -814,3 +814,19 @@ Discord, Mastodon и VK **не проверялись**: в среде нет и
     их не было (голос восстановлен, перевод из среды недоступен) — из-за этого
     англоязычные посты из сети уходят в карантин по кириллице (<42%).
 
+
+
+## 10. Signal Engine и Book Film (2026-11)
+
+Добавлены:
+
+- `science_pulse/signal_engine.py` — 5 законов книги Зюко–Кловского–Финка:
+  объём сигнала, энтропия/избыточность, РОС/УОС, Нейман–Пирсон + Калман,
+  ортогональные интервалы;
+- интеграции: `preflight`, `pipeline`, `kernel`, `metrics`, `trending`,
+  `scheduler`, `themes`, `admin`, `cli`, `voice`;
+- `science_pulse/book_film.py` — светлый книжный фильм с подсветкой слов;
+- `simulate.kotelnikov_sampling`, `simulate.shannon_capacity`,
+  `simulate.hamming_7_4`;
+- Lean-теоремы `hamming_7_4_orthogonal`, `sample_count`, `capacity_monotone`;
+- страница «Основные обозначения» в `book.py`.

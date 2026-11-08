@@ -33,6 +33,9 @@ CLI: `python -m science_pulse.cli formal [--json]`.
 | `insertOnce_idempotent` | INV-1 | повторная вставка записи не создаёт дубликат |
 | `insertOnce_contains` | INV-2 | после вставки запись присутствует |
 | `publish_reduces_ready` | INV-4 | публикация не увеличивает число готовых постов |
+| `hamming_7_4_orthogonal` | SIGNAL-1 | `G·Hᵀ ≡ 0 (mod 2)` для кода (7,4) |
+| `sample_count` | SIGNAL-2 | счётчик отсчётов `2·B·T` |
+| `capacity_monotone` | SIGNAL-3 | табличная ёмкость монотонна по S/N |
 
 Модель:
 
@@ -99,3 +102,16 @@ python -m science_pulse.cli formal --json
   соответствие «модель ↔ БД» обеспечивает `invariants.py` на реальных данных.
 - mathlib не подключён: доступны только ядровые тактики.
 - В CI версия Lean берётся `stable`; локально проверено на `4.34.0`.
+
+
+## Стенды теории сигналов
+
+Полные аналитические теоремы Котельникова и Шеннона требуют mathlib, поэтому
+в чистом ядре Lean 4 доказаны их **конечные алгебраические ядра**:
+
+- `hamming_7_4_orthogonal` — все 12 пар строк `G` и `H` ортогональны mod 2;
+- `sample_count` — число отсчётов при Найквисте `2·B·T`;
+- `capacity_monotone` — дискретная модель `C = B·S` монотонна по S/N.
+
+Исполняемые аналоги — `simulate.hamming_7_4`, `kotelnikov_sampling`,
+`shannon_capacity`.

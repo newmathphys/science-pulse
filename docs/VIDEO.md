@@ -107,3 +107,22 @@ python -m science_pulse.cli verify                 # медиа-smoke: звук 
 python -m unittest tests.test_sound_video -v
 ffprobe -v error -show_entries stream=codec_name -of default=nw=1 data/video/<id>.mp4
 ```
+
+## Book-фильм (`book_film.py`)
+
+Отдельный светлый видео-движок рядом с тёмным `moku_film`:
+
+- бумага `#FAF8F4`, тушь `#111827`, DejaVu Serif, формулы Computer Modern;
+- верх: `§ X.Y · дисциплина · эпоха`, заголовок и теорема/формула;
+- центр: реальные данные поста — stem plot `a(n)`, `f(x)` и `f'(x)`,
+  листинг кода с активной строкой, комплексная фазовая диаграмма `e^{iφ}`;
+- низ: текущая строка лекции, слова подсвечиваются по таймкодам `voice.py`;
+- форматы `1:1` 1080×1080 и `9:16` 1080×1920;
+- звук: голос Светланы + тихий пад −18 dB;
+- кэш: `data/book_films/<id>_<aspect>.mp4`.
+
+```bash
+python -m science_pulse.cli film --style book --post-id <id> --send
+```
+
+Пульт: `/film book [ID] [1:1|9:16]`. Тёмный `moku3d` не изменён.

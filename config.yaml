@@ -28,6 +28,34 @@ doctor:
 
 # Радар мировых новостей (/trending): Hacker News + GitHub + Reddit.
 # auto_enqueue_min_likes: при harvest самому добавлять хиты с таким числом лайков (0 = выкл).
+signal_engine:
+  enabled: true
+  reading_words_per_second: 3.2
+  formula_penalty_seconds: 1.5
+  code_line_penalty_seconds: 1.2
+  min_entropy_bits: 1.8
+  max_redundancy: 0.92
+  p_fa: 0.05
+  guard_hours: 4.0
+  enforce: false
+  auto_visual: false
+  trending_filter: true
+  kalman:
+    alpha: 0.3
+    process_noise: 0.01
+    measurement_noise: 0.1
+  uos:
+    drop_ratio: 0.8
+    recover_ratio: 1.2
+    baseline_alpha: 0.2
+  channels:
+    telegram: 8.5
+    threads: 4.2
+    bluesky: 2.5
+    discord: 16.0
+    mastodon: 4.2
+    vk: 32.0
+
 trending:
   enabled: true
   top: 5
@@ -149,6 +177,12 @@ card:
   engine: "auto"
 
 # Moku3D: 5-актовый фильм, собранный из одного уравнения (docs/MOKU3D.md).
+book_film:
+  fps: 24
+  size: 1080
+  aspect: "1:1"
+  max_frames: 1800
+
 moku3d:
   size: 720             # сторона кадра (для 9:16 — ширина)
   aspect: "1:1"         # 1:1 (лента Telegram) | 9:16 (Reels/Shorts/VK Клипы)

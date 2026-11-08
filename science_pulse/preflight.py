@@ -65,6 +65,39 @@ def preflight(pipeline: Any, domain: Optional[str] = None, with_media: bool = Tr
     else:
         checks.append({"name": "standards", "ok": True, "detail": f"{report.checked} рубежей пройдено"})
 
+    # Математический движок сигналов: объём поста и энтропия подписи.
+    try:
+        from .platforms_info import PlatformRules
+        from .signal_engine import ShannonTextCompressor, SignalVolumeMatcher
+
+        signal_cfg = dict((config.raw.get("signal_engine") or {}))
+        enforce = bool(signal_cfg.get("enforce", False))
+        rules = PlatformRules.load(storage, config)
+        volume = SignalVolumeMatcher(config).match_volume(post, "telegram", rules)
+        checks.append({
+            "name": "signal_volume",
+            "ok": bool(volume["fits"] or not enforce),
+            "detail": (
+                f"Vc={volume['volume']:.2f} / Vk={volume['capacity']:.2f} "
+                f"({volume['ratio']:.0%}) · режим: {volume['recommended_mode']}"
+            ),
+        })
+        entropy = ShannonTextCompressor().entropy_report(caption)
+        min_entropy = float(signal_cfg.get("min_entropy_bits", 1.8))
+        max_redundancy = float(signal_cfg.get("max_redundancy", 0.92))
+        entropy_ok = entropy["entropy_bits"] >= min_entropy and entropy["redundancy"] <= max_redundancy
+        checks.append({
+            "name": "signal_entropy",
+            "ok": bool(entropy_ok or not enforce),
+            "detail": (
+                f"i(s)={entropy['entropy_bits']:.2f} бит · "
+                f"избыточность={entropy['redundancy']:.0%} · "
+                f"порог {min_entropy:.1f}/{max_redundancy:.0%}"
+            ),
+        })
+    except Exception as exc:  # движок не должен ломать предполётную проверку
+        checks.append({"name": "signal_engine", "ok": True, "detail": f"пропущено: {str(exc)[:100]}"})
+
     # Медиа: звук и видео
     if with_media:
         from .video import video_available

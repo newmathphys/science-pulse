@@ -24,6 +24,7 @@ from .config import Config
 from .invariants import InvariantChecker
 from .models import Post
 from .radio import radio_status
+from .signal_engine import signal_status
 from .sota import epoch_slot_index, kadanov_block, preferred_domain
 from .storage import Storage
 from .syllabus_tree import syllabus_summary
@@ -281,6 +282,15 @@ class SciencePulseKernel:
         proof = build_post_proof(post)
         self.storage.set_post_meta(post.id, "longread_body", longread)
         self.storage.set_post_meta(post.id, "proof", proof)
+        try:
+            from .platforms_info import PlatformRules
+            from .signal_engine import SignalVolumeMatcher
+
+            rules = PlatformRules.load(self.storage, self.config)
+            volume = SignalVolumeMatcher(self.config).match_volume(post, "telegram", rules)
+            self.storage.set_post_meta(post.id, "signal_volume", volume)
+        except Exception as exc:  # pragma: no cover
+            LOGGER.debug("Signal volume: %s", exc)
         return {
             "chosen": {
                 "id": post.id,
@@ -318,7 +328,15 @@ class SciencePulseKernel:
             1 for marker in ("Раздел", "Фундаментальный вопрос", "Применение сегодня", "Эфир продолжается")
             if marker in script
         )
-        return {"post": post.id, "script_chars": len(script), "blocks": blocks, "voice": artifact}
+        entropy = {}
+        try:
+            from .signal_engine import ShannonTextCompressor
+
+            entropy = ShannonTextCompressor().entropy_report(script)
+            self.storage.set_post_meta(post.id, "signal_entropy", entropy)
+        except Exception as exc:  # pragma: no cover
+            LOGGER.debug("Signal entropy: %s", exc)
+        return {"post": post.id, "script_chars": len(script), "blocks": blocks, "voice": artifact, "entropy": entropy}
 
     # ------------------------------------------------------------------
     # Фаза 4: приёмочная комиссия и пред-подготовка N+1
@@ -383,6 +401,12 @@ class SciencePulseKernel:
             "epoch_slot": epoch_slot_index(),
             "slot": self.current_slot(),
         }
+        try:
+            from .signal_engine import signal_status
+
+            payload["signal_engine"] = signal_status(self.storage, self.config)
+        except Exception as exc:  # pragma: no cover
+            payload["signal_engine"] = {"ok": False, "error": str(exc)}
         if formal:
             try:
                 from .formal import check_lean
@@ -441,6 +465,7 @@ class SciencePulseKernel:
             },
             "radio": radio_status(posts, self.config),
             "invariants": report.as_dict(),
+            "signal_engine": signal_status(self.storage, self.config),
             "paused": self.storage.kv_get("paused", "0") == "1",
         }
 
@@ -466,4 +491,7 @@ class SciencePulseKernel:
             f" в эфире: {radio['now'] or '—'}",
             f"  Инварианты: {'✅ OK' if data['invariants']['ok'] else '❌ нарушения'}"
             f" ({data['invariants']['checked']} проверок)",
+            f"  Сигналы: {'✅' if data.get('signal_engine', {}).get('enabled', True) else 'off'}"
+            f" · УОС {data.get('signal_engine', {}).get('feedback', {}).get('mode', 'normal')}"
+            f" · интервалы {'OK' if data.get('signal_engine', {}).get('multiplexer', {}).get('ok') else '—'}",
         ])

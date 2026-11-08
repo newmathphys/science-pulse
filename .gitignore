@@ -19,6 +19,7 @@ data/audio/
 data/audiogram/
 data/video/
 data/films/
+data/book_films/
 
 # Случайные карточки в корне (артефакты ручных прогонов)
 /card_*.png

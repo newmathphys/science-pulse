@@ -41,9 +41,9 @@ HELP = """🎛 <b>Science Pulse — пульт</b>
 /about — как работает пульт, где Mini App и где хранится состояние
 /app — ссылка и кнопка Mini App «Пульт»
 /menu — добавить кнопку «Пульт» в меню чата (нужен HTTPS-адрес сайта)
-/theme [auto|academic|3b1b|blueprint|moku3d] — дизайн выпуска; без аргумента — рейтинг
+/theme [auto|academic|3b1b|blueprint|moku3d|bookfilm] — дизайн выпуска; без аргумента — рейтинг
 /ab — таблица эффективности дизайнов (A/B по живой аудитории)
-/film [ID] [1:1|9:16] — 5-актовый фильм Moku3D в этот чат (9:16 — для Reels)
+/film [book|3d] [ID] [1:1|9:16] — видео в этот чат (book — книжная страница)
 /audio — озвучить следующий пост и прислать аудио
 /radio — собрать радио-эфир и показать статус
 /kernel — паспорт ядра системы (фазы, часы эпохи)
@@ -663,30 +663,47 @@ class TelegramAdmin:
         return format_design_table(self.storage, self.config)
 
     def _film_text(self, args: List[str]) -> str:
-        """`/film [ID] [1:1|9:16]`: 5-актовый фильм Moku3D в админ-чат (без публикации)."""
-        from .moku_film import film_available, film_for_post
-
-        if not film_available():
-            return "Moku3D недоступен: не найден ffmpeg."
+        """`/film [book] [ID] [1:1|9:16]`: видео в админ-чат (без публикации)."""
+        style = "moku3d"
         aspect = None
         identifier = None
         for arg in args:
             token = str(arg).strip().lower()
-            if token in ("9:16", "916", "vertical", "portrait"):
+            if token in ("book", "книга"):
+                style = "book"
+            elif token in ("moku3d", "3d"):
+                style = "moku3d"
+            elif token in ("9:16", "916", "vertical", "portrait"):
                 aspect = "9:16"
             elif token in ("1:1", "11", "square"):
                 aspect = "1:1"
             elif token:
                 identifier = str(arg).strip()
+
+        if style == "book":
+            from .book_film import book_film_available, book_film_for_post
+
+            if not book_film_available():
+                return "Book-фильм недоступен: не найден ffmpeg."
+            build = book_film_for_post
+            label = "Book Film"
+        else:
+            from .moku_film import film_available, film_for_post
+
+            if not film_available():
+                return "Moku3D недоступен: не найден ffmpeg."
+            build = film_for_post
+            label = "Moku3D"
+
         post = self.storage.get_post(identifier) if identifier else None
         if post is None:
             post = self.pipeline.choose_next()
         if post is None:
             return "Очередь пуста — нечего экранировать."
-        path = film_for_post(post, self.config, aspect=aspect)
+        path = build(post, self.config, aspect=aspect)
         if not path:
-            return "Не удалось собрать фильм Moku3D."
-        caption = f"Moku3D · {html.escape(post.title)}"
+            return f"Не удалось собрать {label}."
+        caption = f"{label} · {html.escape(post.title)}"
         if aspect:
             caption += f" · {aspect}"
         if self.send_video(path, caption):
@@ -945,6 +962,12 @@ class TelegramAdmin:
                 f"OK ({report.checked} проверок)" if report.ok else f"нарушено {len(report.violations)}",
             )
         )
+        try:
+            from .signal_engine import format_signal_report
+
+            lines += ["", format_signal_report(self.storage, self.config, html=True)]
+        except Exception as exc:  # pragma: no cover
+            lines.append(f"🟡 <b>Сигналы</b>: {html.escape(str(exc)[:100])}")
         return "\n".join(lines)
 
     @staticmethod

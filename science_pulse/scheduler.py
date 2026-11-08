@@ -47,6 +47,15 @@ def run_daemon(
     timezone = ZoneInfo(config.timezone)
     schedule = parse_schedule(config.schedule)
     runs = 0
+    try:
+        from .signal_engine import OrthogonalMultiplexer
+
+        multiplexer = OrthogonalMultiplexer(float((config.raw.get("signal_engine") or {}).get("guard_hours", 4.0)))
+        guard = multiplexer.validate_schedule(config.schedule)
+        if not guard["ok"]:
+            LOGGER.warning("Защитные интервалы слотов нарушены: %s", guard)
+    except Exception as exc:  # pragma: no cover
+        LOGGER.debug("Мультиплексор слотов: %s", exc)
 
     if once:
         pipeline.run(dry_run=dry_run)
