@@ -21,6 +21,9 @@ import logging
 import re
 import shutil
 import subprocess
+import tempfile
+
+import requests
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -51,6 +54,7 @@ def voice_settings(config: Config) -> Dict[str, Any]:
         "max_chars": int(raw.get("max_chars", 900)),
         "publish": str(raw.get("publish", "voice")),
         "piper_model": str(raw.get("piper_model", "")),
+        "google_fallback": bool(raw.get("google_fallback", False)),
     }
 
 
@@ -195,7 +199,7 @@ def _canon_titles(ids: List[str]) -> List[str]:
     return titles
 
 
-def build_lecture_script(post: Post, max_chars: int = 900) -> str:
+def build_lecture_script(post: Post, max_chars: int = 900, closing: str = "post") -> str:
     """Пятиблочный лекционный сценарий для диктора (без URL, тегов и эмодзи).
 
     Блоки:
@@ -273,7 +277,8 @@ def build_lecture_script(post: Post, max_chars: int = 900) -> str:
     if unlocks:
         bridge.append(f"и открывает дорогу к теме: {', '.join(unlocks)}")
     if bridge:
-        parts.append(" ".join(bridge) + ". Эфир продолжается.")
+        ending = "Эфир продолжается." if str(closing) == "radio" else "Разбор завершён."
+        parts.append(" ".join(bridge) + f". {ending}")
 
     formula = _strip_links_tags(_speech_clean(post.formula_plain or ""))
     formula_spoken = math_to_spoken_russian(formula) if formula else ""
@@ -508,11 +513,47 @@ def _to_voice_ogg(mp3_path: Path, ogg_path: Path) -> bool:
         return False
 
 
+def _tts_chunks(text: str, limit: int = 260) -> List[str]:
+    """Режет длинную речь на короткие куски для стабильного edge-tts."""
+    sentences = [part.strip() for part in re.split(r"(?<=[.!?])\s+", text or "") if part.strip()]
+    chunks: List[str] = []
+    current = ""
+    for sentence in sentences:
+        if len(sentence) > limit:
+            if current:
+                chunks.append(current)
+                current = ""
+            words = sentence.split()
+            buffer = ""
+            for word in words:
+                candidate = f"{buffer} {word}".strip()
+                if len(candidate) <= limit:
+                    buffer = candidate
+                else:
+                    if buffer:
+                        chunks.append(buffer)
+                    buffer = word
+            if buffer:
+                chunks.append(buffer)
+            continue
+        candidate = f"{current} {sentence}".strip()
+        if len(candidate) <= limit:
+            current = candidate
+        else:
+            if current:
+                chunks.append(current)
+            current = sentence
+    if current:
+        chunks.append(current)
+    return chunks or [text[:limit]]
+
+
 def _synthesize_edge(text: str, out_mp3: Path, voice: str, rate: str = "+0%") -> Tuple[str, List[Any]]:
     """Онлайн-синтез Edge TTS с таймкодами слов (для субтитров).
 
-    Возвращает `(голос, boundaries)`: имя рабочего голоса и список
-    `(offset, duration, word)` в 100-нс единицах edge-tts.
+    Длинный текст режется на куски ≤260 символов: edge-tts нестабилен на
+    больших запросах и иногда отдаёт обрезанный файл. Куски склеиваются
+    ffmpeg, а таймкоды сдвигаются на длительность предыдущих.
     """
     try:
         import asyncio
@@ -522,35 +563,118 @@ def _synthesize_edge(text: str, out_mp3: Path, voice: str, rate: str = "+0%") ->
         return "", []
 
     candidates = [voice] + [item for item in EDGE_VOICES if item != voice]
+    chunks = _tts_chunks(text)
+    if not chunks:
+        return "", []
 
-    async def run(candidate: str) -> List[Any]:
-        communicate = edge_tts.Communicate(text, candidate, rate=rate)
+    async def synth_chunk(candidate: str, chunk: str, path: Path) -> List[Any]:
+        communicate = edge_tts.Communicate(chunk, candidate, rate=rate)
         boundaries: List[Any] = []
-        with open(out_mp3, "wb") as handle:
-            async for chunk in communicate.stream():
-                if chunk.get("type") == "audio":
-                    handle.write(chunk["data"])
-                elif chunk.get("type") in ("WordBoundary", "SentenceBoundary"):
-                    boundaries.append((chunk.get("offset", 0), chunk.get("duration", 0), chunk.get("text", "")))
-        if out_mp3.is_file() and out_mp3.stat().st_size > 1000:
-            return boundaries
-        return []
+        with open(path, "wb") as handle:
+            async for message in communicate.stream():
+                if message.get("type") == "audio":
+                    handle.write(message["data"])
+                elif message.get("type") in ("WordBoundary", "SentenceBoundary"):
+                    boundaries.append(
+                        (message.get("offset", 0), message.get("duration", 0), message.get("text", ""))
+                    )
+        return boundaries
 
     for candidate in candidates:
-        try:
-            boundaries = asyncio.run(run(candidate))
-        except Exception as exc:
-            LOGGER.warning("edge-tts %s: %s", candidate, str(exc)[:120])
-            boundaries = []
-        if boundaries:
-            return candidate, boundaries
-        if out_mp3.is_file() and out_mp3.stat().st_size > 1000:
-            return candidate, []
-        try:
-            out_mp3.unlink()
-        except OSError:
-            pass
+        with tempfile.TemporaryDirectory(prefix="sp_edge_") as tmp:
+            work = Path(tmp)
+            paths: List[Path] = []
+            all_boundaries: List[Any] = []
+            offset_100ns = 0
+            failed = False
+            for index, chunk in enumerate(chunks):
+                path = work / f"chunk_{index:03d}.mp3"
+                try:
+                    boundaries = asyncio.run(synth_chunk(candidate, chunk, path))
+                except Exception as exc:
+                    LOGGER.warning("edge-tts %s chunk %s: %s", candidate, index, str(exc)[:100])
+                    boundaries = []
+                if not path.is_file() or path.stat().st_size < 1000:
+                    failed = True
+                    break
+                duration = _duration_seconds(path)
+                for boundary_offset, boundary_duration, boundary_text in boundaries:
+                    all_boundaries.append(
+                        (int(boundary_offset) + offset_100ns, boundary_duration, boundary_text)
+                    )
+                offset_100ns += int((duration or 0.0) * 10_000_000)
+                paths.append(path)
+            if failed:
+                continue
+            if len(paths) == 1:
+                shutil.copyfile(paths[0], out_mp3)
+            else:
+                list_file = work / "list.txt"
+                list_file.write_text(
+                    "".join(f"file '{path.as_posix()}'\n" for path in paths),
+                    encoding="utf-8",
+                )
+                if not _which("ffmpeg"):
+                    continue
+                result = subprocess.run(
+                    ["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0",
+                     "-i", str(list_file), "-c", "copy", str(out_mp3)],
+                    capture_output=True, text=True, timeout=180, check=False,
+                )
+                if result.returncode != 0 or not out_mp3.is_file():
+                    LOGGER.warning("edge-tts concat: %s", (result.stderr or "")[:160])
+                    continue
+            if out_mp3.is_file() and out_mp3.stat().st_size > 1000:
+                return candidate, all_boundaries
     return "", []
+
+
+def _synthesize_google(text: str, out_mp3: Path, lang: str = "ru") -> bool:
+    """Резервный TTS без ключей: Google Translate TTS, куски ≤180 символов."""
+    if not _which("ffmpeg"):
+        return False
+    chunks = _tts_chunks(text, limit=180)
+    if not chunks:
+        return False
+    with tempfile.TemporaryDirectory(prefix="sp_gtts_") as tmp:
+        work = Path(tmp)
+        paths: List[Path] = []
+        for index, chunk in enumerate(chunks):
+            path = work / f"chunk_{index:03d}.mp3"
+            ok = False
+            for _attempt in range(2):
+                try:
+                    response = requests.get(
+                        "https://translate.google.com/translate_tts",
+                        params={"ie": "UTF-8", "client": "tw-ob", "tl": lang, "q": chunk},
+                        headers={"User-Agent": "Mozilla/5.0"},
+                        timeout=30,
+                    )
+                    if response.status_code == 200 and len(response.content) > 1000:
+                        path.write_bytes(response.content)
+                        ok = True
+                        break
+                except Exception:
+                    continue
+            if not ok:
+                return False
+            paths.append(path)
+        if len(paths) == 1:
+            shutil.copyfile(paths[0], out_mp3)
+        else:
+            list_file = work / "list.txt"
+            list_file.write_text(
+                "".join(f"file '{path.as_posix()}'\n" for path in paths),
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                ["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0",
+                 "-i", str(list_file), "-c", "copy", str(out_mp3)],
+                capture_output=True, text=True, timeout=180, check=False,
+            )
+            if result.returncode != 0:
+                return False
+    return out_mp3.is_file() and out_mp3.stat().st_size > 1000
 
 
 def _synthesize_piper(text: str, out_wav: Path, model: str) -> bool:
@@ -668,6 +792,11 @@ def synthesize(
             wav_path.unlink()
         except OSError:
             pass
+
+    if not ok and settings.get("google_fallback") and engine in ("edge", "auto", "google"):
+        if _synthesize_google(text, mp3_path):
+            ok = True
+            engine_used, voice_used = "google_tts", "google-ru"
 
     if not ok and post is not None:
         # Эшелон 3: офлайн-сонификация (без TTS) → mp3/ogg.

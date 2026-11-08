@@ -21,6 +21,7 @@ import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
+import numpy as np
 from PIL import Image, ImageDraw
 
 from .cards import extract_sequence
@@ -137,7 +138,7 @@ def _draw_word_line(
     return y + max_lines * line_height
 
 
-def _draw_stem_plot(draw: ImageDraw.ImageDraw, values: Sequence[int], box: Tuple[int, int, int, int], scale: float) -> None:
+def _draw_stem_plot(draw: ImageDraw.ImageDraw, values: Sequence[int], box: Tuple[int, int, int, int], scale: float, progress: float = 1.0) -> None:
     left, top, right, bottom = box
     if not values:
         return
@@ -147,7 +148,8 @@ def _draw_stem_plot(draw: ImageDraw.ImageDraw, values: Sequence[int], box: Tuple
     baseline = bottom - ((0 - y_min) / span) * (bottom - top)
     step = (right - left) / max(1, len(values) - 1)
     font = _serif_font(max(12, int(16 * scale)))
-    for index, value in enumerate(values[:24]):
+    visible = max(1, int(len(values[:24]) * max(0.0, min(1.0, progress))))
+    for index, value in enumerate(values[:visible]):
         px = left + index * step
         py = bottom - ((value - y_min) / span) * (bottom - top)
         draw.line([(px, baseline), (px, py)], fill=RULE, width=max(1, int(2 * scale)))
@@ -159,7 +161,7 @@ def _draw_stem_plot(draw: ImageDraw.ImageDraw, values: Sequence[int], box: Tuple
     draw.text((left, bottom - int(18 * scale)), "n = 1 …", fill=MUTED, font=font)
 
 
-def _draw_curve(draw: ImageDraw.ImageDraw, curve: Dict[str, Any], box: Tuple[int, int, int, int], scale: float) -> None:
+def _draw_curve(draw: ImageDraw.ImageDraw, curve: Dict[str, Any], box: Tuple[int, int, int, int], scale: float, progress: float = 1.0) -> None:
     left, top, right, bottom = box
     xs = curve["x"]
     ys = curve["re_y"]
@@ -184,6 +186,8 @@ def _draw_curve(draw: ImageDraw.ImageDraw, curve: Dict[str, Any], box: Tuple[int
     baseline = max(top, min(bottom, baseline))
     draw.line([(left, baseline), (right, baseline)], fill=RULE, width=max(1, int(1.5 * scale)))
     points = [point(xv, float(yv)) for xv, yv in zip(xs, ys)]
+    visible = max(2, int(len(points) * max(0.0, min(1.0, progress))))
+    points = points[:visible]
     draw.polygon(points + [(points[-1][0], baseline), (points[0][0], baseline)], fill=(238, 233, 223))
     draw.line(points, fill=INK, width=max(2, int(3 * scale)), joint="curve")
     derivative = curve.get("der_y")
@@ -192,12 +196,33 @@ def _draw_curve(draw: ImageDraw.ImageDraw, curve: Dict[str, Any], box: Tuple[int
         max_main = max((abs(float(value)) for value in ys), default=0.0)
         if max_der > 1e-6 and max_main > 1e-6:
             factor = max_main / max_der * 0.6
-            d_points = [point(xv, float(dv) * factor) for xv, dv in zip(xs, derivative)]
+            d_points = [point(xv, float(dv) * factor) for xv, dv in zip(xs, derivative)][:visible]
             for index in range(0, len(d_points) - 1, 4):
                 draw.line(d_points[index:index + 4], fill=ACCENT, width=max(1, int(2 * scale)))
     font = _serif_font(max(12, int(16 * scale)))
     draw.text((left, top), "f(x)", fill=INK, font=font)
     draw.text((left, bottom - int(18 * scale)), "x", fill=MUTED, font=font)
+
+
+def _draw_wave_packet(draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, int], progress: float, scale: float) -> None:
+    """Реальный волновой пакет: огибающая и фаза движутся во времени."""
+    left, top, right, bottom = box
+    xs = np.linspace(-3.6, 3.6, 420)
+    center = -2.8 + 5.6 * max(0.0, min(1.0, progress))
+    packet = np.exp(-((xs - center) ** 2) / 1.0) * np.cos(6.0 * (xs - center))
+    envelope = np.exp(-((xs - center) ** 2) / 1.0)
+    mid = (top + bottom) / 2
+    amp = (bottom - top) * 0.34
+    def points(values: Any) -> List[Tuple[float, float]]:
+        return [(left + (xv + 3.6) / 7.2 * (right - left), mid - float(yv) * amp) for xv, yv in zip(xs, values)]
+    main = points(packet)
+    draw.line(points(envelope), fill=RULE, width=max(1, int(2 * scale)))
+    draw.line(points(-envelope), fill=RULE, width=max(1, int(2 * scale)))
+    draw.line([(left, mid), (right, mid)], fill=RULE, width=max(1, int(1.2 * scale)))
+    draw.line(main, fill=INK, width=max(2, int(3 * scale)), joint="curve")
+    font = _serif_font(max(12, int(16 * scale)))
+    draw.text((left, top), "Re Ψ(x,t)", fill=INK, font=font)
+    draw.text((right - int(100 * scale), top), f"t/T = {progress:.2f}", fill=MUTED, font=font)
 
 
 def _draw_timeline(draw: ImageDraw.ImageDraw, timeline: Sequence[Dict[str, Any]], box: Tuple[int, int, int, int], progress: float, scale: float) -> None:
@@ -343,14 +368,20 @@ class BookFilmScene:
         progress = min(1.0, max(0.0, time_s / max(1e-6, self.duration)))
         timeline = (self.post.meta or {}).get("timeline")
         visual_type = str((self.post.meta or {}).get("visual_type") or "")
+        formula_text = f"{self.post.formula_latex} {self.post.formula_plain}"
+        canon_id = str((self.post.meta or {}).get("canon_id") or "")
+        wave_like = ("Ψ" in formula_text or "psi" in formula_text.lower()
+                     or canon_id in ("schrodinger", "tunneling", "heisenberg"))
         if self.post.code and self.post.domain == "cs":
             _draw_code(draw, self.post, box, progress, s)
+        elif wave_like:
+            _draw_wave_packet(draw, box, progress, s)
         elif visual_type == "timeline_evolution" and isinstance(timeline, list):
             _draw_timeline(draw, timeline, box, progress, s)
         elif self.sequence:
-            _draw_stem_plot(draw, self.sequence, box, s)
+            _draw_stem_plot(draw, self.sequence, box, s, progress)
         elif self.curve is not None:
-            _draw_curve(draw, self.curve, box, s)
+            _draw_curve(draw, self.curve, box, s, progress)
         elif re.search(r"e\^\{?i|e\^i", f"{self.post.formula_latex} {self.post.formula_plain}"):
             _draw_complex_phase(draw, box, progress, s, full_turn=False)
         else:

@@ -72,7 +72,7 @@ def _lecture_script(post: Post, max_chars: int = 900) -> str:
     try:
         from .voice import build_lecture_script
 
-        return build_lecture_script(post, max_chars)
+        return build_lecture_script(post, max_chars, closing="radio")
     except Exception:
         return " ".join(part for part in (post.title, post.hook, post.body) if part).strip()
 

@@ -82,6 +82,8 @@ voice:
   max_chars: 750                  # ≈55 секунд речи
   publish: "voice"                # voice (OGG/OPUS) | audio (MP3-подкаст)
   piper_model: ""
+  # Если edge-tts недоступен, использовать Google Translate TTS (без ключей).
+  google_fallback: true
 
 # Озвученные микро-видео: оживший чертёж + сонификация формулы (ffmpeg).
 # Выходят каждый N-й пост (или принудительно: publish --video, /force video).

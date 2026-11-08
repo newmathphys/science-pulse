@@ -8,6 +8,7 @@ from science_pulse.config import Config
 from science_pulse.models import Post
 from science_pulse.voice import (
     VoiceArtifact,
+    build_lecture_script,
     speech_text,
     synthesize,
     voice_available,
@@ -58,6 +59,14 @@ class SpeechTextTests(unittest.TestCase):
 
     def test_short_post_returns_text(self):
         self.assertGreater(len(speech_text(make_post())), 40)
+
+    def test_post_does_not_use_radio_closing(self):
+        post = make_post(prereq_ids=["pythagoras"])
+        post_text = build_lecture_script(post, max_chars=2000)
+        radio_text = build_lecture_script(post, max_chars=2000, closing="radio")
+        self.assertIn("Разбор завершён", post_text)
+        self.assertNotIn("Эфир продолжается", post_text)
+        self.assertIn("Эфир продолжается", radio_text)
 
 
 class VoiceSettingsTests(unittest.TestCase):
