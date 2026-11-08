@@ -448,6 +448,47 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_growth(args: argparse.Namespace) -> int:
+    """Рост аудитории: Threads-формат, UTM, реестр каналов."""
+    from .growth import AudienceRegistry, ThreadsGrowthEngine, format_plan, format_report, format_targets, telegram_url, utm_url
+
+    pipeline = _pipeline(args)
+    registry = AudienceRegistry(pipeline.config.data_dir / "growth.db")
+    action = args.action
+    if action == "plan":
+        post = pipeline.storage.get_post(args.post_id) if args.post_id else pipeline.choose_next()
+        if post is None:
+            print("Нет поста для плана.", file=sys.stderr)
+            return 1
+        engine = ThreadsGrowthEngine(pipeline.config)
+        plan = engine.plan(post, pipeline.config.site_base_url, telegram_url(pipeline.config))
+        if args.json:
+            print(json.dumps(plan, ensure_ascii=False, indent=2))
+        else:
+            print(format_plan(plan))
+        return 0
+    if action == "targets":
+        targets = registry.list(status=args.status, platform=args.platform, limit=args.limit)
+        print(json.dumps([item.__dict__ for item in targets], ensure_ascii=False, indent=2) if args.json else format_targets(targets))
+        return 0
+    if action == "target-add":
+        if not (args.platform and args.name and args.url):
+            print("Нужны --platform, --name, --url", file=sys.stderr)
+            return 2
+        target_id = registry.add(args.platform, args.name, args.url, args.topic, args.audience, args.notes)
+        print(f"Канал #{target_id}: {args.name} ({args.platform})")
+        return 0
+    if action == "report":
+        report = registry.report()
+        print(json.dumps(report, ensure_ascii=False, indent=2) if args.json else format_report(report))
+        return 0
+    if action == "utm":
+        print(utm_url(args.value or "", content=args.post_id or ""))
+        return 0
+    print("Действия: plan|targets|target-add|report|utm")
+    return 1
+
+
 def cmd_signal(args: argparse.Namespace) -> int:
     """Математический движок сигналов: объём, энтропия, УОС, интервалы."""
     from .signal_engine import format_signal_report, signal_status
@@ -1419,6 +1460,21 @@ def build_parser() -> argparse.ArgumentParser:
     doctor = subparsers.add_parser("doctor", help="светофор автономности (готовность к автопилоту)")
     doctor.add_argument("--send", action="store_true", help="отправить отчёт в админ-чат Telegram")
     doctor.set_defaults(func=cmd_doctor)
+
+    growth = subparsers.add_parser("growth", help="рост аудитории: Threads-формат, UTM, реестр каналов")
+    growth.add_argument("action", nargs="?", default="plan", choices=["plan", "targets", "target-add", "report", "utm"])
+    growth.add_argument("value", nargs="?", default=None, help="URL для utm")
+    growth.add_argument("--post-id", default=None)
+    growth.add_argument("--platform", default=None)
+    growth.add_argument("--name", default=None)
+    growth.add_argument("--url", default=None)
+    growth.add_argument("--topic", default="science")
+    growth.add_argument("--audience", type=int, default=0)
+    growth.add_argument("--notes", default="")
+    growth.add_argument("--status", default=None)
+    growth.add_argument("--limit", type=int, default=100)
+    growth.add_argument("--json", action="store_true")
+    growth.set_defaults(func=cmd_growth)
 
     signal = subparsers.add_parser("signal", help="математический движок сигналов (5 законов книги)")
     signal.add_argument("--json", action="store_true")

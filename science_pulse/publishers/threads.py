@@ -8,6 +8,7 @@ import requests
 
 from ..config import Config
 from ..models import CardArtifact, Post, PublishResult
+from ..growth import ThreadsGrowthEngine, telegram_url
 from ..text import split_text, truncate
 from .base import (
     Publisher,
@@ -51,35 +52,44 @@ class ThreadsPublisher(Publisher):
         limit = rules.limit(self.name, "max_caption_chars", 500)
         chain_parts = max(1, rules.limit(self.name, "max_chain_parts", 2))
 
-        text = build_short_text(post, limit=limit, site_url=context.site_url, include_link=False)
-        mode = rules.audio_mode(self.name)
-        # В режиме TEXT формулу оборачиваем в мобильную рамку (LaTeX не рендерится).
-        if mode in ("text", "link") and mode != "mp4":
-            frame = formula_frame(post)
-            if frame and len(frame) + 2 <= limit:
-                text = f"{frame}\n\n{truncate(text, max(40, limit - len(frame) - 2))}"
-        chunks = split_text(text, max(80, limit - 10))
+        growth = ThreadsGrowthEngine(self.config)
+        if growth.enabled:
+            chunks = growth.chain(
+                post,
+                site_url=context.site_url,
+                tg_url=telegram_url(self.config),
+                limit=max(80, limit - 10),
+            )
+        else:
+            text = build_short_text(post, limit=limit, site_url=context.site_url, include_link=False)
+            mode = rules.audio_mode(self.name)
+            # В режиме TEXT формулу оборачиваем в мобильную рамку (LaTeX не рендерится).
+            if mode in ("text", "link") and mode != "mp4":
+                frame = formula_frame(post)
+                if frame and len(frame) + 2 <= limit:
+                    text = f"{frame}\n\n{truncate(text, max(40, limit - len(frame) - 2))}"
+            chunks = split_text(text, max(80, limit - 10))
+            mode = rules.audio_mode(self.name)
+            # Звук: Threads не принимает .ogg/.mp3 — либо ссылка, либо видео-аудиограмма.
+            if mode == "mp4":
+                audiogram = audiogram_url(post, context.site_url)
+                if audiogram and chunks:
+                    chunks[0] = truncate(f"{chunks[0]}\n\nВидеоразбор: {audiogram}", limit)
+            elif mode == "link":
+                link = audio_link(post, context.site_url)
+                if link:
+                    chunks[-1] = truncate(f"{chunks[-1]}\n\nСлушать на сайте: {link}", limit)
+            if context.site_url:
+                chunks[-1] = truncate(f"{chunks[-1]}\n\n{context.site_url}", limit)
+
+            # Ответ на задачу уходит отдельным сообщением цепочки (спойлеров в Threads нет).
+            from .base import challenge_answer_line
+
+            answer_line = challenge_answer_line(post)
+            if answer_line:
+                chunks.append(answer_line)
         if not chunks:
             return PublishResult(platform=self.name, ok=False, error="пустой текст")
-        mode = rules.audio_mode(self.name)
-        # Звук: Threads не принимает .ogg/.mp3 — либо ссылка, либо видео-аудиограмма.
-        if mode == "mp4":
-            audiogram = audiogram_url(post, context.site_url)
-            if audiogram and chunks:
-                chunks[0] = truncate(f"{chunks[0]}\n\nВидеоразбор: {audiogram}", limit)
-        elif mode == "link":
-            link = audio_link(post, context.site_url)
-            if link:
-                chunks[-1] = truncate(f"{chunks[-1]}\n\nСлушать на сайте: {link}", limit)
-        if context.site_url:
-            chunks[-1] = truncate(f"{chunks[-1]}\n\n{context.site_url}", limit)
-
-        # Ответ на задачу уходит отдельным сообщением цепочки (спойлеров в Threads нет).
-        from .base import challenge_answer_line
-
-        answer_line = challenge_answer_line(post)
-        if answer_line:
-            chunks.append(answer_line)
 
         first_id: Optional[str] = None
         previous_id: Optional[str] = None

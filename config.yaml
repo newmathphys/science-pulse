@@ -75,6 +75,12 @@ trending:
 
 # A/B стилей карточки: classic (обычный) / compact (плотнее, без крючка).
 # Вариант выбирается детерминированно по id поста; результат пишется в meta.
+growth:
+  threads:
+    enabled: true
+    max_chars: 480
+    utm: true
+
 abtest:
   enabled: false
   variants: ["classic", "compact"]

@@ -32,6 +32,9 @@ case "$cmd" in
   knowledge)
     "$PY" -m science_pulse.cli knowledge "$@"
     ;;
+  growth)
+    "$PY" -m science_pulse.cli growth "$@"
+    ;;
   launch)
     echo "=== SCM launch: Telegram + Threads ==="
     "$PY" -m science_pulse.cli auth-check

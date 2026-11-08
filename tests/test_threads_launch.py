@@ -81,6 +81,27 @@ class ThreadsLaunchTests(unittest.TestCase):
         self.assertEqual(calls[1]["media_type"], "TEXT")
         self.assertEqual(result.external_id, "post-text")
 
+    def test_growth_chain_when_enabled(self):
+        config = Config(raw={"threads": {"user_id": "123"}, "growth": {"threads": {"enabled": True}}})
+        publisher = ThreadsPublisher(config)
+        calls = []
+
+        def fake_post(url, data=None, timeout=None):
+            calls.append(dict(data or {}))
+            if url.endswith("/threads"):
+                return FakeResponse({"id": f"c{len(calls)}"})
+            return FakeResponse({"id": f"p{len(calls)}"})
+
+        with patch("science_pulse.publishers.threads.requests.post", side_effect=fake_post), \
+                patch("science_pulse.publishers.threads.time.sleep", return_value=None):
+            result = publisher.publish(make_post(), self.card, PublishContext(site_url="https://example.org/post/th1"))
+
+        self.assertTrue(result.ok)
+        texts = [call.get("text", "") for call in calls if call.get("text")]
+        self.assertGreaterEqual(len(texts), 2)
+        self.assertNotIn("https://", texts[0])
+        self.assertIn("example.org", texts[1])
+
     def test_image_mode(self):
         self.assertIn(self.publisher.image_mode(), {"text", "site"})
         with patch.dict(os.environ, {"CF_WORKER_URL": "https://worker.example"}, clear=False):
