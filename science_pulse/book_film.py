@@ -46,6 +46,7 @@ FPS = 24
 SIZE = 1080
 MAX_FRAMES = 1800
 MIN_SECONDS = 3.0
+ACT_ROMAN = ("I", "II", "III", "IV", "V")
 
 
 def book_film_available() -> bool:
@@ -309,6 +310,32 @@ def _formula_image(post: Post, temp_dir: Path, scale: float) -> Optional[Image.I
     return image
 
 
+def _act_times(text: str, words: Sequence[Tuple[float, float, str]], duration: float) -> List[float]:
+    """Границы пяти блоков лекции по маркерам сценария."""
+    markers = ("Раздел ", "Фундаментальный вопрос:", "Применение сегодня:", "Задача слушателю:", "Разбор завершён.")
+    clean = str(text or "")
+    times: List[float] = [0.0]
+    for marker in markers[1:]:
+        position = clean.find(marker)
+        if position < 0:
+            continue
+        word_index = len(clean[:position].split())
+        if words and word_index < len(words):
+            times.append(float(words[word_index][0]))
+        else:
+            times.append(duration * position / max(1, len(clean)))
+    times = sorted(set(round(value, 3) for value in times))
+    if len(times) < 5:
+        if words:
+            times = [
+                round(float(words[min(len(words) - 1, int(len(words) * index / 5))][0]), 3)
+                for index in range(5)
+            ]
+        else:
+            times = [round(duration * index / 5.0, 3) for index in range(5)]
+    return times[:5]
+
+
 class BookFilmScene:
     """Один пост → кадры книжной страницы с реальной геометрией поста."""
 
@@ -321,6 +348,7 @@ class BookFilmScene:
         self.duration = max(MIN_SECONDS, float(getattr(artifact, "duration_s", 0.0) or 8.0))
         self.text = str(getattr(artifact, "text", "") or build_lecture_script(post, max_chars=900))
         self.words = list(getattr(artifact, "words", []) or _approx_words(self.text, self.duration))
+        self.act_times = _act_times(self.text, self.words, self.duration)
         self.sequence = extract_sequence(post)
         self.curve = None
         expression = post.meta.get("plot_expr") or post.formula_plain or ""
@@ -334,6 +362,13 @@ class BookFilmScene:
 
     def close(self) -> None:
         shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    def act_at(self, time_s: float) -> int:
+        index = 0
+        for position, start in enumerate(self.act_times):
+            if time_s >= start:
+                index = position
+        return min(4, index)
 
     def render(self, time_s: float) -> Image.Image:
         image = Image.new("RGB", (self.width, self.height), PAPER)
@@ -362,7 +397,7 @@ class BookFilmScene:
         draw.line((margin, y, margin + width, y), fill=RULE, width=max(1, int(1.5 * s)))
 
         # Центр: только реальные данные.
-        box = (margin + int(16 * s), y + int(24 * s), margin + width - int(16 * s), int(self.height * 0.66))
+        box = (margin + int(16 * s), y + int(24 * s), margin + width - int(16 * s), int(self.height * 0.88))
         draw.rectangle([box[0] - int(8 * s), box[1] - int(8 * s), box[2] + int(8 * s), box[3] + int(8 * s)],
                        outline=RULE, width=max(1, int(1.2 * s)))
         progress = min(1.0, max(0.0, time_s / max(1e-6, self.duration)))
@@ -372,17 +407,28 @@ class BookFilmScene:
         canon_id = str((self.post.meta or {}).get("canon_id") or "")
         wave_like = ("Ψ" in formula_text or "psi" in formula_text.lower()
                      or canon_id in ("schrodinger", "tunneling", "heisenberg"))
+        act_index = self.act_at(time_s)
+        draw.text(
+            (margin + width - int(120 * s), int(44 * s)),
+            f"АКТ {ACT_ROMAN[act_index]} / V",
+            fill=MUTED,
+            font=font_small,
+        )
         if self.post.code and self.post.domain == "cs":
             _draw_code(draw, self.post, box, progress, s)
+        elif wave_like and act_index in (1, 2):
+            _draw_wave_packet(draw, box, progress, s)
+        elif wave_like and act_index == 4 and re.search(r"e\^\{?i|e\^i", formula_text):
+            _draw_complex_phase(draw, box, progress, s, full_turn=False)
+        elif visual_type == "timeline_evolution" and isinstance(timeline, list) and act_index in (0, 3):
+            _draw_timeline(draw, timeline, box, progress, s)
         elif wave_like:
             _draw_wave_packet(draw, box, progress, s)
-        elif visual_type == "timeline_evolution" and isinstance(timeline, list):
-            _draw_timeline(draw, timeline, box, progress, s)
         elif self.sequence:
             _draw_stem_plot(draw, self.sequence, box, s, progress)
         elif self.curve is not None:
             _draw_curve(draw, self.curve, box, s, progress)
-        elif re.search(r"e\^\{?i|e\^i", f"{self.post.formula_latex} {self.post.formula_plain}"):
+        elif re.search(r"e\^\{?i|e\^i", formula_text):
             _draw_complex_phase(draw, box, progress, s, full_turn=False)
         else:
             # Честная книжная плашка: без выдуманного графика.
@@ -398,13 +444,6 @@ class BookFilmScene:
                     draw.text((box[0] + int(16 * s), yy), wrapped, fill=INK, font=font)
                     yy += int(28 * s)
 
-        # Низ: живая строка лекции с подсветкой слов.
-        draw.line((margin, int(self.height * 0.70), margin + width, int(self.height * 0.70)), fill=RULE, width=max(1, int(1.5 * s)))
-        narration_font = _serif_font(max(14, int(22 * s)))
-        _draw_word_line(
-            draw, self.words, time_s, margin, int(self.height * 0.73), width,
-            narration_font, int(30 * s), max_lines=3,
-        )
         footer_font = _serif_font(max(10, int(14 * s)))
         draw.text((margin, self.height - int(34 * s)), "Science Pulse · академический разбор · без LLM",
                   fill=MUTED, font=footer_font)

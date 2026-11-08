@@ -22,6 +22,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 
 import requests
 from dataclasses import dataclass, field
@@ -589,11 +590,19 @@ def _synthesize_edge(text: str, out_mp3: Path, voice: str, rate: str = "+0%") ->
             failed = False
             for index, chunk in enumerate(chunks):
                 path = work / f"chunk_{index:03d}.mp3"
-                try:
-                    boundaries = asyncio.run(synth_chunk(candidate, chunk, path))
-                except Exception as exc:
-                    LOGGER.warning("edge-tts %s chunk %s: %s", candidate, index, str(exc)[:100])
-                    boundaries = []
+                boundaries: List[Any] = []
+                for attempt in range(5):
+                    try:
+                        boundaries = asyncio.run(synth_chunk(candidate, chunk, path))
+                    except Exception as exc:
+                        LOGGER.warning(
+                            "edge-tts %s chunk %s attempt %s: %s",
+                            candidate, index, attempt + 1, str(exc)[:90],
+                        )
+                        boundaries = []
+                    if path.is_file() and path.stat().st_size >= 1000:
+                        break
+                    time.sleep(1.2)
                 if not path.is_file() or path.stat().st_size < 1000:
                     failed = True
                     break
