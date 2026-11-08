@@ -35,6 +35,14 @@ class ThreadsPublisher(Publisher):
     def available(self) -> bool:
         return bool(self.user_id and self.token)
 
+    def image_mode(self) -> str:
+        """Откуда Threads возьмёт картинку: cloudflare | site | text."""
+        if self.config.cf_worker_url:
+            return "cloudflare"
+        if self.config.site_base_url:
+            return "site"
+        return "text"
+
     def publish(self, post: Post, card: CardArtifact, context: PublishContext) -> PublishResult:
         if not self.available():
             return result_skipped(self.name, "TH_USER_ID/TH_ACCESS_TOKEN не заданы")

@@ -50,9 +50,15 @@ Threads принимает картинку **только по публично
 
 Если нужен именно IMAGE:
 
-- задайте `CF_WORKER_URL` (Cloudflare Worker из `cloudflare/`), либо
-- задайте `SP_SITE_BASE_URL` и убедитесь, что карточка уже лежит на сайте
+- задайте `CF_WORKER_URL` (Cloudflare Worker из `cloudflare/`) — рекомендуемый путь;
+- либо задайте `SP_SITE_BASE_URL` и убедитесь, что карточка уже лежит на сайте
   (`/cards/<id>.png`).
+
+`./sp launch` печатает режим:
+
+```text
+Threads image: cloudflare | site | text
+```
 
 Без этого Threads не падает: он честно уходит в TEXT.
 

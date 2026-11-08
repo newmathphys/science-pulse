@@ -35,6 +35,7 @@ case "$cmd" in
   launch)
     echo "=== SCM launch: Telegram + Threads ==="
     "$PY" -m science_pulse.cli auth-check
+    "$PY" -c "from science_pulse.config import load_config; from science_pulse.publishers.threads import ThreadsPublisher; print('Threads image:', ThreadsPublisher(load_config()).image_mode())"
     echo
     "$PY" -m science_pulse.cli preflight --no-media
     echo

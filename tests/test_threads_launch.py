@@ -81,6 +81,11 @@ class ThreadsLaunchTests(unittest.TestCase):
         self.assertEqual(calls[1]["media_type"], "TEXT")
         self.assertEqual(result.external_id, "post-text")
 
+    def test_image_mode(self):
+        self.assertIn(self.publisher.image_mode(), {"text", "site"})
+        with patch.dict(os.environ, {"CF_WORKER_URL": "https://worker.example"}, clear=False):
+            self.assertEqual(ThreadsPublisher(self.config).image_mode(), "cloudflare")
+
     def test_unavailable_without_keys(self):
         with patch.dict(os.environ, {"TH_ACCESS_TOKEN": ""}, clear=False):
             publisher = ThreadsPublisher(self.config)
