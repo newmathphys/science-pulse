@@ -830,3 +830,15 @@ Discord, Mastodon и VK **не проверялись**: в среде нет и
   `simulate.hamming_7_4`;
 - Lean-теоремы `hamming_7_4_orthogonal`, `sample_count`, `capacity_monotone`;
 - страница «Основные обозначения» в `book.py`.
+
+
+## 11. Что доделать после текущего релиза
+
+- [ ] Threads: получить `TH_USER_ID`/`TH_ACCESS_TOKEN`, проверить `./sp next`, `./sp launch`, первый пост.
+- [ ] «Радио моей ветки» в `radio.html`.
+- [ ] Команда боту `?start=branch_<id>`.
+- [ ] Полная разбивка трекера `90Days` по неделям/ступеням.
+- [ ] RU/EN-пары без машинного перевода.
+- [ ] R2 включить и проверить edge-синхронизацию.
+- [ ] Остальные площадки: Bluesky, Discord, Mastodon, VK.
+- [ ] Коммерческая ветка и внешние оракулы.

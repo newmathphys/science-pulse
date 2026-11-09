@@ -15,6 +15,7 @@
 | `PLAN.md` | план разработки и статус |
 | `PROD_CHECKLIST.md` | боевой запуск по шагам |
 | `LAUNCH_TG_THREADS.md` | релиз продукта: только ключи Telegram + Threads |
+| `THREADS_CHECKLIST.md` | пошагово: Meta app → Threads Tester → токен |
 | `GROWTH.md` | рост аудитории: Threads-форматы, UTM, реестр каналов |
 | `KERNEL.md` | 6-фазное ядро |
 | `QUALITY.md` | 7 рубежей и verify |
