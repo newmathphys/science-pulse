@@ -1639,7 +1639,7 @@ def build_parser() -> argparse.ArgumentParser:
     recard.set_defaults(func=cmd_recard)
 
     theme = subparsers.add_parser("theme", help="дизайн выпуска: A/B-рейтинг или переключение")
-    theme.add_argument("name", nargs="?", help="auto|academic|3b1b|blueprint|moku3d|bookfilm|explainer")
+    theme.add_argument("name", nargs="?", help="auto|academic|3b1b|blueprint|moku3d|bookfilm")
     theme.set_defaults(func=cmd_theme)
 
     film = subparsers.add_parser("film", help="5-актовый фильм Moku3D (moku_film)")

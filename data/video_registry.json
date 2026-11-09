@@ -34,5 +34,29 @@
     "bytes": 1097566,
     "sha256_16": "b45e15f2a1b9e27a",
     "created_at": "2026-11-09T12:45:39+00:00"
+  },
+  "0212a505f66fee75:book:1:1": {
+    "key": "0212a505f66fee75:book:1:1",
+    "post_id": "0212a505f66fee75",
+    "title": "Ньютон: закон всемирного тяготения",
+    "style": "book",
+    "aspect": "1:1",
+    "path": "data/book_films/0212a505f66fee75_1x1.mp4",
+    "engine": "book",
+    "bytes": 806557,
+    "sha256_16": "8648b0e19eb52cbf",
+    "created_at": "2026-11-09T13:06:51+00:00"
+  },
+  "b063d20371654588:book:1:1": {
+    "key": "b063d20371654588:book:1:1",
+    "post_id": "b063d20371654588",
+    "title": "Пифагор: теорема о метрике евклидова пространства",
+    "style": "book",
+    "aspect": "1:1",
+    "path": "data/book_films/b063d20371654588_1x1.mp4",
+    "engine": "book",
+    "bytes": 844306,
+    "sha256_16": "0c33a7a349b4e845",
+    "created_at": "2026-11-09T13:11:17+00:00"
   }
 }

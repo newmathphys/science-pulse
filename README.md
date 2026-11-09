@@ -99,7 +99,7 @@ python -m science_pulse.cli metrics --collect  # метрики площадок
 python -m science_pulse.cli trending    # 🔥 радар мировых новостей (HN + GitHub)
 python -m science_pulse.cli doctor      # 🚦 светофор автономности (--send в чат)
 python -m science_pulse.cli theme       # дизайн выпуска: A/B-рейтинг (auto|academic|3b1b|blueprint|moku3d)
-python -m science_pulse.cli film        # 5-актовый фильм Moku3D (--post-id ID --domain math --aspect 9:16 --send)
+python -m science_pulse.cli film        # 5-актовый фильм Moku3D (--post-id ID --domain math --aspect 1:1 --send)
 python -m science_pulse.cli auth-check  # живой тестер ключей всех 6 площадок (read-only)
 python -m science_pulse.cli sync-platform threads --limit 5   # довыгрузить летопись с § 1.1
 python -m science_pulse.cli sensors     # живые датчики Планеты и Космоса (USGS, NOAA, LIGO, МКС)
@@ -169,7 +169,7 @@ python -m science_pulse.cli radio --rtmp rtmps://dc4.rtmp.t.me/s/KEY --run  # п
 /lang ru|en          язык описаний площадок
 /about               как работает пульт, где Mini App и где хранится состояние
 /theme [стиль]       дизайн выпуска; без аргумента — рейтинг A/B (алиас /ab)
-/film [ID] [9:16]   5-актовый фильм Moku3D в этот чат (9:16 — для Reels/Shorts)
+/film [ID] [1:1]    5-актовый фильм Moku3D в этот чат
 /auth                живой тестер ключей всех 6 площадок (read-only)
 /sync platform [N]   довыгрузить пропущенное начало летописи на площадку
 /book                📕 собрать PDF-книгу проекта и прислать файл

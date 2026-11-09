@@ -226,8 +226,12 @@ class StandardsChecker:
             size = getattr(card, "data", b"") or b""
             if (width, height) != (self.standards.card_size, self.standards.card_size):
                 violations.append(Violation("card", f"размер {width}×{height} ≠ {self.standards.card_size}"))
-            elif len(size) < self.standards.min_card_bytes:
-                violations.append(Violation("card", f"вес {len(size)} < {self.standards.min_card_bytes}"))
+            else:
+                # Порог веса масштабируется с размером: маленькая карточка
+                # не должна уходить в карантин только из-за меньшего PNG.
+                threshold = max(2_000, int(self.standards.min_card_bytes * min(width, height) / 1080))
+                if len(size) < threshold:
+                    violations.append(Violation("card", f"вес {len(size)} < {threshold}"))
 
         checked += 1
         balanced, detail = html_balanced(caption)

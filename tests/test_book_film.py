@@ -47,7 +47,7 @@ class BookFilmTests(unittest.TestCase):
         square = book_film_settings(self.config, "1:1")
         vertical = book_film_settings(self.config, "9:16")
         self.assertEqual((square["width"], square["height"]), (1080, 1080))
-        self.assertEqual((vertical["width"], vertical["height"]), (1080, 1920))
+        self.assertEqual((vertical["width"], vertical["height"]), (1080, 1080))
 
     def test_scene_frame_is_paper_book(self):
         scene = BookFilmScene(make_post(), 540, 540)

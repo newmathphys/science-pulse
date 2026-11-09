@@ -38,7 +38,7 @@ from .cards_academic import (
 )
 from .models import Post
 from .plotting import evaluate_curve
-from .voice import VoiceArtifact, build_lecture_script, film_voice_for_post, voice_for_post
+from .voice import VoiceArtifact, build_film_blocks, build_lecture_script, film_voice_for_post, voice_for_post
 
 LOGGER = logging.getLogger(__name__)
 
@@ -47,6 +47,7 @@ SIZE = 1080
 MAX_FRAMES = 1800
 MIN_SECONDS = 3.0
 ACT_ROMAN = ("I", "II", "III", "IV", "V")
+SCENE_NAMES = ("Паспорт открытия", "Живой чертёж", "Формула и величины", "Вычислительная проверка", "Применение и мост")
 
 
 def book_film_available() -> bool:
@@ -55,13 +56,10 @@ def book_film_available() -> bool:
 
 def book_film_settings(config: Any = None, aspect: Optional[str] = None) -> Dict[str, Any]:
     raw = dict((getattr(config, "raw", {}) or {}).get("book_film") or {}) if config else {}
-    value = str(aspect or raw.get("aspect", "1:1")).replace(" ", "")
-    if value in ("9:16", "916", "vertical", "portrait"):
-        width, height = 1080, 1920
-    else:
-        width, height = int(raw.get("size", SIZE)), int(raw.get("size", SIZE))
+    # Единый стандарт: только 1080×1080, без вертикальных вариантов.
+    width = height = int(raw.get("size", SIZE))
     return {
-        "aspect": "9:16" if height > width else "1:1",
+        "aspect": "1:1",
         "width": width,
         "height": height,
         "fps": int(raw.get("fps", FPS)),
@@ -415,6 +413,33 @@ def _act_times(text: str, words: Sequence[Tuple[float, float, str]], duration: f
     return times[:5]
 
 
+def _draw_text_block(draw: ImageDraw.ImageDraw, text: str, x: int, y: int, width: int,
+                     size: int, color: Any = INK, bold: bool = False,
+                     line_gap: int = 8, max_lines: int = 5) -> int:
+    font = _serif_font(size, bold=bold)
+    lines = _wrap(draw, str(text or ""), font, width)[:max_lines]
+    for index, line in enumerate(lines):
+        draw.text((x, y + index * (size + line_gap)), line, fill=color, font=font)
+    return y + len(lines) * (size + line_gap)
+
+
+def _block_times(blocks: Sequence[str], words: Sequence[Tuple[float, float, str]], duration: float) -> List[float]:
+    """Границы 5 блоков по словам: точная синхронизация сцены и речи."""
+    counts = [max(1, len(str(block).split())) for block in blocks]
+    total = sum(counts)
+    times: List[float] = []
+    consumed = 0
+    for count in counts:
+        if words:
+            index = min(len(words) - 1, consumed)
+            times.append(round(float(words[index][0]), 3))
+        else:
+            times.append(round(duration * consumed / max(1, total), 3))
+        consumed += count
+    times[0] = 0.0
+    return sorted(set(times))[:5]
+
+
 class BookFilmScene:
     """Один пост → кадры книжной страницы с реальной геометрией поста."""
 
@@ -425,9 +450,10 @@ class BookFilmScene:
         self.scale = min(width, height) / 1080.0
         self.artifact = artifact
         self.duration = max(MIN_SECONDS, float(getattr(artifact, "duration_s", 0.0) or 8.0))
-        self.text = str(getattr(artifact, "text", "") or build_lecture_script(post, max_chars=900))
+        self.blocks = build_film_blocks(post)
+        self.text = str(getattr(artifact, "text", "") or " ".join(self.blocks))
         self.words = list(getattr(artifact, "words", []) or _approx_words(self.text, self.duration))
-        self.act_times = _act_times(self.text, self.words, self.duration)
+        self.act_times = _block_times(self.blocks, self.words, self.duration)
         self.sequence = extract_sequence(post)
         self.curve = None
         expression = post.meta.get("plot_expr") or post.formula_plain or ""
@@ -453,109 +479,218 @@ class BookFilmScene:
         image = Image.new("RGB", (self.width, self.height), PAPER)
         draw = ImageDraw.Draw(image)
         s = self.scale
-        margin = int(64 * s)
+        margin = int(72 * s)
         width = self.width - 2 * margin
+        meta = getattr(self.post, "meta", {}) or {}
 
-        # Верх: книжный колонтитул, заголовок, теорема.
-        header = f"{_section(self.post)} · {self.post.label} · {_era(self.post)}".strip(" ·")
-        font_small = _serif_font(max(12, int(18 * s)), bold=True)
-        draw.text((margin, int(42 * s)), header.upper(), fill=ACCENT, font=font_small)
-        draw.line((margin, int(74 * s), margin + width, int(74 * s)), fill=RULE, width=max(1, int(1.5 * s)))
+        # Полиграфическая рамка.
+        draw.rectangle([32 * s, 32 * s, self.width - 32 * s, self.height - 32 * s],
+                       outline=RULE, width=max(1, int(2 * s)))
 
-        title_font, title_lines = _fit(draw, self.post.plain_title if hasattr(self.post, "plain_title") else self.post.title,
-                                       width, int(38 * s), int(22 * s), 2, bold=True)
-        y = int(94 * s)
-        for line in title_lines:
+        # ЗОНА 1 — только рубрика и крупный заголовок.
+        section = str(meta.get("section_num") or "").strip()
+        era = str(meta.get("era") or "").strip()
+        rubric = " · ".join(part for part in (
+            f"§ {section}" if section else "", self.post.label.upper(), era.upper()
+        ) if part)
+        accent = {"math": (30, 58, 138), "physics": (159, 18, 57), "cs": (6, 95, 70)}.get(self.post.domain, ACCENT)
+        draw.text((margin, int(64 * s)), rubric, fill=accent, font=_serif_font(max(12, int(20 * s)), bold=True, mono=True))
+        draw.line((margin, int(106 * s), margin + width, int(106 * s)), fill=INK, width=max(1, int(2 * s)))
+        title_font, title_lines = _fit(draw, self.post.plain_title, width, int(40 * s), int(30 * s), 2, bold=True)
+        y = int(124 * s)
+        for line in title_lines[:2]:
             draw.text((margin, y), line, fill=INK, font=title_font)
-            y += int(44 * s)
+            y += int(getattr(title_font, "size", 40 * s) * 1.16)
 
-        if self.formula is not None:
-            y += int(10 * s)
-            image.paste(self.formula, (margin + (width - self.formula.width) // 2, y), self.formula)
-            y += self.formula.height + int(8 * s)
-        draw.line((margin, y, margin + width, y), fill=RULE, width=max(1, int(1.5 * s)))
-
-        # Центр: только реальные данные.
-        box = (margin + int(16 * s), y + int(24 * s), margin + width - int(16 * s), int(self.height * 0.88))
-        draw.rectangle([box[0] - int(8 * s), box[1] - int(8 * s), box[2] + int(8 * s), box[3] + int(8 * s)],
-                       outline=RULE, width=max(1, int(1.2 * s)))
-        progress = min(1.0, max(0.0, time_s / max(1e-6, self.duration)))
-        timeline = (self.post.meta or {}).get("timeline")
-        visual_type = str((self.post.meta or {}).get("visual_type") or "")
-        formula_text = f"{self.post.formula_latex} {self.post.formula_plain}"
-        canon_id = str((self.post.meta or {}).get("canon_id") or "")
-        wave_like = ("Ψ" in formula_text or "psi" in formula_text.lower()
-                     or canon_id in ("schrodinger", "tunneling", "heisenberg"))
-        act_index = self.act_at(time_s)
-        act_start = self.act_times[act_index]
-        act_end = self.act_times[act_index + 1] if act_index + 1 < len(self.act_times) else self.duration
-        act_progress = min(1.0, max(0.0, (time_s - act_start) / max(1e-6, act_end - act_start)))
-        draw.text(
-            (margin + width - int(120 * s), int(44 * s)),
-            f"АКТ {ACT_ROMAN[act_index]} / V",
-            fill=MUTED,
-            font=font_small,
-        )
-        content_box = (box[0], box[1] + int(30 * s), box[2], box[3])
-        has_complex = bool(re.search(r"e\^\{?i|e\^i", formula_text))
-        if self.post.code and self.post.domain == "cs" and act_index < 4:
-            _draw_code(draw, self.post, content_box, act_progress, s)
-        elif wave_like:
-            if act_index == 0 and isinstance(timeline, list):
-                _draw_timeline(draw, timeline, content_box, act_progress, s)
-            elif act_index == 1:
-                _draw_equation_parts(draw, content_box, s, formula_text)
-            elif act_index == 2:
-                _draw_wave_packet(draw, content_box, act_progress, s)
-            elif act_index == 3:
-                _draw_tunneling(draw, content_box, act_progress, s)
-            else:
-                _draw_invariant(image, draw, self.formula, content_box, s)
-        elif self.sequence:
-            if act_index == 0 and isinstance(timeline, list):
-                _draw_timeline(draw, timeline, content_box, act_progress, s)
-            elif act_index == 1:
-                _draw_equation_parts(draw, content_box, s, formula_text)
-            elif act_index in (2, 3):
-                _draw_stem_plot(draw, self.sequence, content_box, s, act_progress)
-            else:
-                _draw_invariant(image, draw, self.formula, content_box, s)
-        elif self.curve is not None:
-            if act_index == 0 and isinstance(timeline, list):
-                _draw_timeline(draw, timeline, content_box, act_progress, s)
-            elif act_index == 1:
-                _draw_equation_parts(draw, content_box, s, formula_text)
-            elif act_index in (2, 3):
-                _draw_curve(draw, self.curve, content_box, s, act_progress)
-            else:
-                _draw_invariant(image, draw, self.formula, content_box, s)
-        elif isinstance(timeline, list) and act_index in (0, 2, 3):
-            _draw_timeline(draw, timeline, content_box, act_progress, s)
-        elif act_index == 1:
-            _draw_equation_parts(draw, content_box, s, formula_text)
-        elif has_complex and act_index in (2, 3):
-            _draw_complex_phase(draw, content_box, act_progress, s, full_turn=False)
-        elif act_index == 4:
-            _draw_invariant(image, draw, self.formula, content_box, s)
+        # ЗОНА 2 — одно окно контекста, меняется по 5 блокам речи.
+        box = (margin, int(235 * s), margin + width, int(825 * s))
+        draw.rectangle(box, outline=RULE, width=max(1, int(1.5 * s)))
+        content = (box[0] + int(18 * s), box[1] + int(18 * s), box[2] - int(18 * s), box[3] - int(18 * s))
+        act = self.act_at(time_s)
+        act_start = self.act_times[act]
+        act_end = self.act_times[act + 1] if act + 1 < len(self.act_times) else self.duration
+        progress = min(1.0, max(0.0, (time_s - act_start) / max(1e-6, act_end - act_start)))
+        if act == 0:
+            self._draw_passport(draw, content, s, meta)
+        elif act == 1:
+            self._draw_live_chart(draw, content, s, progress)
+        elif act == 2:
+            self._draw_formula_scene(image, draw, content, s, meta)
+        elif act == 3:
+            self._draw_computation(draw, content, s, progress, meta)
         else:
-            # Честная книжная плашка: без выдуманного графика.
-            font = _serif_font(max(14, int(20 * s)))
-            lines = [
-                f"Дисциплина: {self.post.label}",
-                f"Источник: {self.post.source_name or 'Science Pulse'}",
-                "Формула — в верхнем блоке; график не подменяется декором.",
-            ]
-            yy = box[1] + int(28 * s)
-            for line in lines:
-                for wrapped in _wrap(draw, line, font, box[2] - box[0] - int(24 * s))[:2]:
-                    draw.text((box[0] + int(16 * s), yy), wrapped, fill=INK, font=font)
-                    yy += int(28 * s)
+            self._draw_application(draw, content, s, meta)
 
-        footer_font = _serif_font(max(10, int(14 * s)))
-        draw.text((margin, self.height - int(34 * s)), "Science Pulse · академический разбор · без LLM",
-                  fill=MUTED, font=footer_font)
+        # ЗОНА 3 — неподвижная формула.
+        formula_box = (margin, int(845 * s), margin + width, int(1000 * s))
+        draw.rectangle(formula_box, fill=(243, 240, 234))
+        draw.rectangle((formula_box[0], formula_box[1], formula_box[0] + int(6 * s), formula_box[3]), fill=accent)
+        if self.formula is not None:
+            fx = (formula_box[0] + formula_box[2] - self.formula.width) // 2
+            fy = (formula_box[1] + formula_box[3] - self.formula.height) // 2
+            image.paste(self.formula, (fx, fy), self.formula)
+        else:
+            formula = self.post.formula_plain or self.post.formula_latex or ""
+            if formula:
+                draw.text((formula_box[0] + int(24 * s), formula_box[1] + int(48 * s)),
+                          formula[:80], fill=INK, font=_serif_font(max(16, int(30 * s)), bold=True))
+
+        # Подвал: глава + сайт, без караоке и мусора.
+        footer_font = _serif_font(max(10, int(14 * s)), mono=True)
+        chapter = f"Часть {act + 1} из 5 · {SCENE_NAMES[act]}"
+        draw.text((margin, int(1012 * s)), chapter, fill=MUTED, font=footer_font)
+        site = "newmathphys.com · @newmathphys"
+        draw.text((margin + width - draw.textlength(site, font=footer_font), int(1012 * s)), site, fill=MUTED, font=footer_font)
         return image
 
+    def _draw_passport(self, draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, int], s: float, meta: Dict[str, Any]) -> None:
+        left, top, right, bottom = box
+        scientist = str(meta.get("scientist") or self.post.source_name or "Учёный")
+        era = str(meta.get("era") or "")
+        year_match = re.search(r"(\d{1,4})", era)
+        year = year_match.group(1) if year_match else era[:8]
+        era_label = era.replace(year, "", 1).strip(" •·") if year_match else ""
+        draw.text((left, top + int(18 * s)), "ПАСПОРТ ОТКРЫТИЯ", fill=MUTED, font=_serif_font(max(12, int(20 * s)), bold=True, mono=True))
+        draw.text((left, top + int(50 * s)), year, fill=ACCENT, font=_serif_font(max(32, int(56 * s)), bold=True))
+        if era_label:
+            draw.text((left, top + int(116 * s)), era_label[:40], fill=MUTED, font=_serif_font(max(12, int(22 * s))))
+        draw.text((left, top + int(150 * s)), scientist, fill=INK, font=_serif_font(max(20, int(38 * s)), bold=True))
+        source = str(self.post.source_name or "")
+        draw.text((left, top + int(190 * s)), source[:70], fill=MUTED, font=_serif_font(max(12, int(24 * s))))
+        prereqs = [str(item) for item in (meta.get("prereq_ids") or [])][:2]
+        if prereqs:
+            draw.text((left, top + int(240 * s)), f"Опирается на: {', '.join(prereqs)}", fill=ACCENT,
+                      font=_serif_font(max(12, int(22 * s))))
+
+    def _draw_live_chart(self, draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, int], s: float, progress: float) -> None:
+        timeline = (self.post.meta or {}).get("timeline")
+        formula_text = f"{self.post.formula_latex} {self.post.formula_plain}"
+        wave_like = ("Ψ" in formula_text or "psi" in formula_text.lower()
+                     or str((self.post.meta or {}).get("canon_id") or "") in ("schrodinger", "tunneling", "heisenberg"))
+        canon_id = str((self.post.meta or {}).get("canon_id") or (self.post.meta or {}).get("foundation_id") or "")
+        if canon_id == "pythagoras" or "a² + b² = c²" in str(self.post.formula_plain or ""):
+            self._draw_triangle(draw, box, s)
+        elif wave_like:
+            _draw_wave_packet(draw, box, progress, s)
+        elif self.sequence:
+            _draw_stem_plot(draw, self.sequence, box, s, progress)
+        elif self.curve is not None:
+            _draw_curve(draw, self.curve, box, s, progress)
+        elif isinstance(timeline, list):
+            _draw_timeline(draw, timeline, box, progress, s)
+        else:
+            self._draw_simple_curve(draw, box, s, progress)
+
+    def _draw_triangle(self, draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, int], s: float) -> None:
+        left, top, right, bottom = box
+        ax, ay = left + int(70 * s), bottom - int(60 * s)
+        bx, by = right - int(90 * s), bottom - int(60 * s)
+        cx, cy = left + int(70 * s), top + int(70 * s)
+        draw.line((ax, ay, bx, by), fill=INK, width=max(2, int(3 * s)))
+        draw.line((bx, by, cx, cy), fill=ACCENT, width=max(2, int(4 * s)))
+        draw.line((cx, cy, ax, ay), fill=INK, width=max(2, int(3 * s)))
+        draw.rectangle((ax, ay - int(26 * s), ax + int(26 * s), ay), outline=RULE, width=max(1, int(2 * s)))
+        font = _serif_font(max(16, int(34 * s)), bold=True)
+        draw.text((ax - int(10 * s), ay + int(10 * s)), "a", fill=INK, font=font)
+        draw.text((bx + int(8 * s), by + int(10 * s)), "b", fill=INK, font=font)
+        draw.text(((cx + bx) // 2 + int(8 * s), (cy + by) // 2), "c", fill=ACCENT, font=font)
+        draw.text((left + int(20 * s), top + int(18 * s)), "a² + b² = c²", fill=MUTED,
+                  font=_serif_font(max(14, int(26 * s)), mono=True))
+
+    def _draw_simple_curve(self, draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, int],
+                           s: float, progress: float) -> None:
+        """Чистый график по формуле: для r — обратная квадратичная, иначе f(x)."""
+        left, top, right, bottom = box
+        formula = f"{self.post.formula_plain} {self.post.formula_latex}".lower()
+        xs = np.linspace(0.35, 3.6, 160)
+        if "r" in formula or "r²" in formula or "r^2" in formula:
+            ys = 1.0 / (xs ** 2)
+            label = "F(r) ~ 1/r²"
+        else:
+            ys = 0.55 + 0.35 * np.sin(xs * 1.8)
+            label = "f(x)"
+        peak = float(np.max(np.abs(ys))) or 1.0
+        ys = ys / peak
+        x0, x1 = left + int(60 * s), right - int(50 * s)
+        y0, y1 = top + int(30 * s), bottom - int(50 * s)
+        mid = (y0 + y1) // 2
+        draw.line((x0, mid, x1, mid), fill=RULE, width=max(1, int(1.5 * s)))
+        draw.line((x0, y0, x0, y1), fill=RULE, width=max(1, int(1.5 * s)))
+        points = []
+        visible = max(2, int(len(xs) * max(0.05, min(1.0, progress))))
+        for index in range(visible):
+            px = x0 + (xs[index] - xs[0]) / (xs[-1] - xs[0]) * (x1 - x0)
+            py = mid - float(ys[index]) * (y1 - y0) * 0.45
+            points.append((px, py))
+        if len(points) > 1:
+            draw.line(points, fill=ACCENT, width=max(2, int(3.2 * s)), joint="curve")
+        if points:
+            draw.ellipse((points[-1][0] - 6 * s, points[-1][1] - 6 * s,
+                          points[-1][0] + 6 * s, points[-1][1] + 6 * s), fill=ACCENT)
+        draw.text((left + int(24 * s), top + int(18 * s)), label, fill=INK,
+                  font=_serif_font(max(12, int(22 * s)), bold=True, mono=True))
+
+    def _draw_formula_scene(self, image: Image.Image, draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, int],
+                            s: float, meta: Dict[str, Any]) -> None:
+        left, top, right, bottom = box
+        draw.text((left, top + int(18 * s)), "РАЗБОР ФОРМУЛЫ", fill=MUTED,
+                  font=_serif_font(max(12, int(20 * s)), bold=True, mono=True))
+        meanings = {
+            "G": "гравитационная постоянная", "m": "масса тела", "M": "масса центрального тела",
+            "r": "расстояние между центрами", "R": "радиус", "F": "сила", "v": "скорость",
+            "T": "период", "E": "энергия", "p": "импульс", "N": "число элементов",
+            "P": "доля/вероятность", "n": "индекс/число", "c": "скорость света",
+            "h": "постоянная Планка", "k": "коэффициент", "t": "время",
+        }
+        variables = str(meta.get("formula_vars") or "").strip()
+        if not variables:
+            formula = f"{self.post.formula_plain} {self.post.formula_latex}"
+            symbols = []
+            for symbol in re.findall(r"\b[A-Za-z]\b", formula):
+                if symbol not in symbols:
+                    symbols.append(symbol)
+            variables = ", ".join(symbols[:6])
+        lines = [part.strip() for part in re.split(r"[,;]", variables) if part.strip()][:5]
+        y = top + int(70 * s)
+        for line in lines:
+            key = line[:1]
+            meaning = meanings.get(key, "величина в формуле")
+            draw.text((left + int(20 * s), y), f"▸ {line} — {meaning}", fill=INK,
+                      font=_serif_font(max(12, int(24 * s))))
+            y += int(40 * s)
+
+    def _draw_computation(self, draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, int],
+                          s: float, progress: float, meta: Dict[str, Any]) -> None:
+        left, top, right, bottom = box
+        if self.post.code:
+            _draw_code(draw, self.post, box, progress, s)
+            return
+        computed = str(meta.get("computed_example") or "").strip()
+        numbers = re.findall(r"\d+(?:[.,]\d+)?", f"{self.post.formula_plain} {self.post.body}")[:4]
+        draw.text((left, top + int(18 * s)), "ВЫЧИСЛИТЕЛЬНАЯ ПРОВЕРКА", fill=MUTED,
+                  font=_serif_font(max(12, int(20 * s)), bold=True, mono=True))
+        draw.text((left, top + int(58 * s)), "Подстановка эталонных значений", fill=INK,
+                  font=_serif_font(max(16, int(30 * s)), bold=True))
+        for index, number in enumerate(numbers):
+            draw.text((left + int(24 * s), top + int(110 * s) + index * int(40 * s)), f"{index + 1}. {number}",
+                      fill=ACCENT, font=_serif_font(max(14, int(26 * s)), mono=True))
+        if computed:
+            draw.text((left, top + int(280 * s)), computed[:100], fill=INK, font=_serif_font(max(12, int(22 * s))))
+
+    def _draw_application(self, draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, int],
+                          s: float, meta: Dict[str, Any]) -> None:
+        left, top, right, bottom = box
+        application = str(meta.get("modern_application") or "Применение в науке и инженерии")
+        unlocks = [str(item) for item in (meta.get("unlocks_concepts") or [])][:3]
+        draw.text((left, top + int(18 * s)), "ГДЕ РАБОТАЕТ СЕГОДНЯ", fill=MUTED,
+                  font=_serif_font(max(12, int(20 * s)), bold=True, mono=True))
+        _draw_text_block(draw, application, left, top + int(60 * s), right - left,
+                         int(32 * s), INK, True, int(8 * s), 4)
+        if unlocks:
+            draw.text((left, top + int(230 * s)), "Открывает путь к:", fill=ACCENT,
+                      font=_serif_font(max(12, int(22 * s)), bold=True))
+            _draw_text_block(draw, ", ".join(unlocks), left, top + int(265 * s), right - left,
+                             int(24 * s), MUTED, False, int(6 * s), 3)
 
 def _mux(frames_dir: Path, audio_path: Optional[Path], out_path: Path, fps: float) -> bool:
     if not book_film_available():

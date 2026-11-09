@@ -616,6 +616,56 @@ def write_subtitles(segments: List[Any], base_path: str | Path) -> Dict[str, str
     return {"vtt": str(vtt_path), "srt": str(srt_path)}
 
 
+def build_film_blocks(post: Post) -> List[str]:
+    """5 смысловых блоков для синхронного книжного видео."""
+    meta = getattr(post, "meta", {}) or {}
+    section = str(meta.get("section_num") or "").strip()
+    era = str(meta.get("era") or "").strip()
+    scientist = str(meta.get("scientist") or post.source_name or "учёный").strip()
+    lineage = meta.get("source_lineage") if isinstance(meta.get("source_lineage"), dict) else {}
+    primary = str((lineage or {}).get("primary_work") or "").strip()
+    title = _strip_links_tags(_speech_clean(post.title))
+    block1 = " ".join(part for part in (
+        f"Раздел {section}." if section else "",
+        f"{era}." if era else "",
+        f"{scientist}.",
+        f"{title[:80]}." if title else "",
+    ) if part)
+
+    hook = _strip_links_tags(_speech_clean(post.hook or ""))
+    body = _strip_links_tags(_speech_clean(post.body or ""))
+    first_sentence = re.split(r"(?<=[.!?])\s+", body)[0] if body else ""
+    block2 = f"Вопрос: {hook} Суть: {first_sentence[:110]}.".strip()
+
+    formula = post.formula_plain or post.formula_latex or ""
+    spoken_formula = math_to_spoken_russian(formula_to_unicode(formula, 220)) if formula else "формула"
+    variables = str(meta.get("formula_vars") or "").strip()
+    if not variables:
+        used = [str(item) for item in (meta.get("constants_used") or [])]
+        variables = ", ".join(used[:6])
+    block3 = f"Формула: {spoken_formula}."
+    if variables:
+        block3 += f" Где: {variables[:70]}."
+
+    computed = str(meta.get("computed_example") or "").strip()
+    if not computed:
+        numbers = re.findall(r"\d+(?:[.,]\d+)?", f"{post.formula_plain} {post.body}")[:3]
+        computed = ("Подставим эталонные значения " + ", ".join(numbers) + " и проверим результат."
+                    if numbers else "Подставим эталонные значения и проверим результат.")
+    block4 = f"Проверка: {computed[:90]}"
+
+    application = _strip_links_tags(_speech_clean(str(meta.get("modern_application") or "")))
+    unlocks = [str(item) for item in (meta.get("unlocks_concepts") or [])][:3]
+    block5 = f"Применение: {application or 'наука и инженерия'}."
+    if unlocks:
+        block5 += f" Дальше: {', '.join(unlocks[:2])}."
+    return [block1, block2, block3, block4, block5]
+
+
+def build_film_script(post: Post) -> str:
+    return " ".join(block for block in build_film_blocks(post) if block)
+
+
 def speech_text(post: Post, max_chars: int = 900) -> str:
     """Текст для озвучки: лекционный сценарий диктора (см. build_lecture_script)."""
     return build_lecture_script(post, max_chars)
@@ -1303,13 +1353,13 @@ def audiogram_for_post(post: Post, config: Config, card_path: str | Path | None 
 
 
 def film_voice_for_post(post: Post, config: Config, out_dir: str | Path | None = None,
-                        max_chars: int = 360) -> Optional[VoiceArtifact]:
+                        max_chars: int = 520) -> Optional[VoiceArtifact]:
     """Короткая озвучка для book-фильма: 5 актов по 5–7 секунд."""
     settings = voice_settings(config)
     settings = dict(settings)
     settings["max_chars"] = int(max_chars)
     directory = Path(out_dir) if out_dir else config.data_dir / "audio"
-    text = build_lecture_script(post, max_chars=max_chars)
+    text = build_film_script(post)
     if len(text) < 40:
         return None
     return synthesize(text, directory, f"{post.id}_film", config, settings, post=post)

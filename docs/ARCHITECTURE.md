@@ -290,7 +290,7 @@ Post → voice.py
 ```text
 Post → book_film.py: 5 актов, книжная страница
   → voice.film_voice_for_post() или sonify
-  → ffmpeg MP4 1:1 / 9:16
+  → ffmpeg MP4 1080×1080
 ```
 
 ### Explainer-фильм
@@ -301,7 +301,7 @@ Post → explainer_film.py
   HUD: прогресс, сцена, множитель
   бегущий счётчик формулы
   караоке-субтитры с плашкой
-  → ffmpeg MP4 1:1 / 9:16
+  → ffmpeg MP4 1080×1080
 ```
 
 ## 8. Текст, перевод и языки

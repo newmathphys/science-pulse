@@ -123,7 +123,7 @@ video:
   enabled: true
   every_nth_post: 3
   seconds: 3.6
-  frames: 30
+  frames: 108
   with_sound: true
 
 # Правила площадок (переопределение лимитов и звука без правок кода).

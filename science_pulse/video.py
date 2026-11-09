@@ -29,8 +29,8 @@ LOGGER = logging.getLogger(__name__)
 PAPER = "#FAF8F4"
 INK = "#111827"
 ACCENT = "#8B2635"
-FRAME_COUNT = 30
-CANVAS = 720
+FRAME_COUNT = 108
+CANVAS = 1080
 
 
 def video_available() -> bool:
@@ -167,13 +167,13 @@ def _render_frames(post: Post, out_dir: Path, frames: int = FRAME_COUNT) -> int:
     xs = np.linspace(-3.2, 3.2, 400)
     fig = plt.figure(figsize=(CANVAS / 100.0, CANVAS / 100.0), dpi=100)
     fig.text(0.5, 0.955, _title_lines(post), ha="center", va="top",
-             fontsize=15, fontweight="bold", linespacing=1.3)
+             fontsize=22, fontweight="bold", linespacing=1.3)
     ax = fig.add_axes([0.09, 0.30, 0.82, 0.53])
     formula = _formula_mathtext(post)
     if formula:
-        fig.text(0.5, 0.185, formula, ha="center", va="center", fontsize=19, color=INK)
-    fig.text(0.5, 0.05, "Science Pulse · оживший чертёж · без LLM",
-             ha="center", fontsize=9, color="#6B6458")
+        fig.text(0.5, 0.17, formula, ha="center", va="center", fontsize=28, color=INK)
+    fig.text(0.5, 0.055, "newmathphys.com · @newmathphys",
+             ha="center", fontsize=12, color="#6B6458")
 
     written = 0
     for index in range(frames):

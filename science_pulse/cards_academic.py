@@ -1000,11 +1000,11 @@ def _draw_code_listing(canvas: Image.Image, draw: ImageDraw.ImageDraw, post: Pos
 def _paste_fitted(canvas: Image.Image, img_path: Path, y: int, center_x: int, max_w: int, max_h: int) -> int:
     """Вклеивает картинку с сохранением пропорций; возвращает нижнюю границу."""
     with Image.open(img_path) as image:
-        img = image.convert("RGB")
+        img = image.convert("RGBA")
         ratio = min(max_w / img.width, max_h / img.height)
         new_size = (max(1, int(img.width * ratio)), max(1, int(img.height * ratio)))
         img = img.resize(new_size, Image.Resampling.LANCZOS)
-    canvas.paste(img, (center_x - img.width // 2, y))
+    canvas.paste(img, (center_x - img.width // 2, y), img)
     return y + img.height
 
 
@@ -1270,170 +1270,130 @@ def _draw_mini_dag(draw: ImageDraw.ImageDraw, post: Post, x: int, y: int, scale:
     return cursor
 
 
-def render_academic_card(post: Post, out_path: str | Path, size: int = 1080) -> Optional[CardArtifact]:
-    """Книжная карточка академической серии (бумага, тушь, DejaVu Serif, CM-формулы).
+def _draw_right_triangle(draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, int], scale: int) -> None:
+    """Чистая геометрия Пифагора: прямоугольный треугольник a-b-c."""
+    left, top, right, bottom = box
+    ax, ay = left + int(70 * scale), bottom - int(60 * scale)
+    bx, by = right - int(90 * scale), bottom - int(60 * scale)
+    cx, cy = left + int(70 * scale), top + int(70 * scale)
+    draw.line((ax, ay, bx, by), fill=INK, width=max(2, int(3 * scale)))
+    draw.line((bx, by, cx, cy), fill=ACCENT, width=max(2, int(4 * scale)))
+    draw.line((cx, cy, ax, ay), fill=INK, width=max(2, int(3 * scale)))
+    draw.rectangle((ax, ay - int(26 * scale), ax + int(26 * scale), ay), outline=RULE, width=max(1, int(2 * scale)))
+    font = _serif_font(max(16, int(34 * scale)), bold=True)
+    draw.text((ax - int(10 * scale), ay + int(10 * scale)), "a", fill=INK, font=font)
+    draw.text((bx + int(8 * scale), by + int(10 * scale)), "b", fill=INK, font=font)
+    draw.text(((cx + bx) // 2 + int(8 * scale), (cy + by) // 2), "c", fill=ACCENT, font=font)
+    draw.text((left + int(20 * scale), top + int(18 * scale)), "a² + b² = c²", fill=MUTED,
+              font=_serif_font(max(14, int(26 * scale)), mono=True))
 
-    Возвращает `CardArtifact` (PNG ровно `size×size`, RGB) или `None`, если
-    сборка не удалась (тогда вызывающий код падает на другой движок).
+
+def render_academic_card(post: Post, out_path: str | Path, size: int = 1080) -> Optional[CardArtifact]:
+    """Карточка по правилу «3 чистые зоны»: 1080×1080, бумага, тушь.
+
+    Зона 1 — рубрика + заголовок; зона 2 — один крупный чертёж;
+    зона 3 — одна крупная формула. Без QR, DAG, абзацев и мелкого мусора.
     """
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    work = out_path.parent
     scale = 2
-    canvas_size = size * scale
-    margin = 84 * scale
-    width = canvas_size - 2 * margin
-    center_x = canvas_size // 2
-
+    canvas = size * scale
+    margin = 72 * scale
+    width = canvas - 2 * margin
+    meta = getattr(post, "meta", {}) or {}
+    accent = {"math": (30, 58, 138), "physics": (159, 18, 57), "cs": (6, 95, 70)}.get(post.domain, ACCENT)
+    formula_png = out_path.parent / f"_clean_formula_{post.id}.png"
+    chart_png = out_path.parent / f"_clean_chart_{post.id}.png"
+    left_png = out_path.parent / f"_clean_left_{post.id}.png"
+    right_png = out_path.parent / f"_clean_right_{post.id}.png"
     try:
-        visual = pick_visual_type(post)
-        chart_wide = work / f"_acad_wide_{post.id}.png"
-        chart_left = work / f"_acad_left_{post.id}.png"
-        chart_right = work / f"_acad_right_{post.id}.png"
-        formula_png = work / f"_acad_formula_{post.id}.png"
-
-        image = Image.new("RGB", (canvas_size, canvas_size), PAPER)
+        image = Image.new("RGB", (canvas, canvas), PAPER)
         draw = ImageDraw.Draw(image)
-        y_cursor = 64 * scale
+        draw.rectangle([32 * scale, 32 * scale, canvas - 32 * scale, canvas - 32 * scale],
+                       outline=RULE, width=2 * scale)
 
-        # ── Шапка книжной серии ─────────────────────────────────────────
-        badge = f"SCIENCE PULSE · КНИЖНАЯ СЕРИЯ · {DOMAIN_LABELS.get(post.domain, post.domain.upper())}"
-        draw.text((margin, y_cursor), badge, fill=ACCENT, font=_serif_font(19 * scale, bold=True, mono=True))
-        section = str((getattr(post, "meta", {}) or {}).get("section_num") or "").strip()
-        if section:
-            draw.text((margin + width - 150 * scale, y_cursor), f"§ {section}", fill=INK,
-                      font=_serif_font(20 * scale, bold=True, mono=True))
-        y_cursor += 32 * scale
-        draw.line((margin, y_cursor, margin + width, y_cursor), fill=RULE, width=scale)
-        y_cursor += 16 * scale
+        # ЗОНА 1 — верх: рубрика + заголовок, без мелкого текста.
+        section = str(meta.get("section_num") or "").strip()
+        era = str(meta.get("era") or "").strip().upper()
+        rubric = " · ".join(part for part in (
+            f"§ {section}" if section else "", DOMAIN_LABELS.get(post.domain, post.domain.upper()), era
+        ) if part)
+        draw.text((margin, 64 * scale), rubric, fill=accent,
+                  font=_serif_font(20 * scale, bold=True, mono=True))
+        draw.line((margin, 106 * scale, margin + width, 106 * scale), fill=INK, width=2 * scale)
+        title_font, title_lines = _fit(draw, post.plain_title, width, 40 * scale, 30 * scale, 2, bold=True)
+        y = 124 * scale
+        for line in title_lines[:2]:
+            draw.text((margin, y), line, fill=INK, font=title_font)
+            y += int(getattr(title_font, "size", 40 * scale) * 1.16)
 
-        # ── Эпоха и учёный («Тройная связь времени») ─────────────────────
-        meta = getattr(post, "meta", {}) or {}
-        era_line = " · ".join(part for part in (str(meta.get("era", "")).upper(), str(meta.get("scientist", ""))) if part)
-        if era_line:
-            draw.text((margin, y_cursor), era_line[:120], fill=MUTED, font=_serif_font(21 * scale, italic=True))
-            y_cursor += 34 * scale
-
-        # ── Заголовок и лид ────────────────────────────────────────────
-        title_font, title_lines = _fit(draw, post.plain_title, width, 46 * scale, 26 * scale, 3, bold=True)
-        title_step = int(getattr(title_font, "size", 46 * scale) * 1.16)
-        for line in title_lines[:3]:
-            draw.text((margin, y_cursor), line, fill=INK, font=title_font)
-            y_cursor += title_step
-        y_cursor += 10 * scale
-
-        from .text import lead_sentence
-
-        lead_raw = post.plain_hook or lead_sentence(post.body, 190)
-        if lead_raw:
-            lead_font, lead_lines = _fit(draw, lead_raw, width, 24 * scale, 18 * scale, 3, italic=True)
-            lead_step = int(getattr(lead_font, "size", 24 * scale) * 1.32)
-            for line in lead_lines[:3]:
-                draw.text((margin, y_cursor), line, fill=MUTED, font=lead_font)
-                y_cursor += lead_step
-            y_cursor += 14 * scale
-
-        # ── Визуальный блок (архетип чертежа) ───────────────────────────
-        if visual == "diptych_insar":
-            caption_left, caption_right = _chart_diptych(post, chart_left, chart_right)
-            panel_w = (width - 24 * scale) // 2
-            panel_h = 330 * scale
-            left_bottom = _paste_fitted(image, chart_left, y_cursor, margin + panel_w // 2, panel_w, panel_h)
-            right_bottom = _paste_fitted(image, chart_right, y_cursor,
-                                         margin + panel_w + 24 * scale + panel_w // 2, panel_w, panel_h)
-            caption_y = max(left_bottom, right_bottom) + 8 * scale
-            caption_font = _serif_font(16 * scale, mono=True)
-            draw.text((margin, caption_y), caption_left[:52], fill=MUTED, font=caption_font)
-            draw.text((margin + panel_w + 24 * scale, caption_y), caption_right[:52], fill=MUTED, font=caption_font)
-            y_cursor = caption_y + 34 * scale
-        elif visual == "timeline_evolution":
-            _chart_timeline(post, chart_wide)
-            y_cursor = _paste_fitted(image, chart_wide, y_cursor, center_x, width, 340 * scale) + 18 * scale
-        elif visual == "cheatsheet_table":
-            draw.text((margin, y_cursor), "СВОДНАЯ ТАБЛИЦА · ШПАРГАЛКА", fill=ACCENT,
-                      font=_serif_font(17 * scale, bold=True, mono=True))
-            y_cursor += 30 * scale
-            y_cursor = _draw_table(image, draw, post, y_cursor, margin, width, scale)
+        # ЗОНА 2 — один крупный чертёж/код, 936×590.
+        box = (margin, 235 * scale, margin + width, 825 * scale)
+        draw.rectangle(box, outline=RULE, width=scale)
+        visual = pick_visual_type(post)
+        inner = (box[0] + 12 * scale, box[1] + 12 * scale, box[2] - 12 * scale, box[3] - 12 * scale)
+        canon_id = str(meta.get("canon_id") or meta.get("foundation_id") or "")
+        if canon_id == "pythagoras" or "a² + b² = c²" in str(post.formula_plain or ""):
+            _draw_right_triangle(draw, inner, scale)
+        elif visual == "diptych_insar":
+            _chart_diptych(post, left_png, right_png)
+            panel_w = (inner[2] - inner[0] - 16 * scale) // 2
+            _paste_fitted(image, left_png, inner[1], inner[0] + panel_w // 2, panel_w, inner[3] - inner[1])
+            _paste_fitted(image, right_png, inner[1], inner[0] + panel_w + 16 * scale + panel_w // 2,
+                          panel_w, inner[3] - inner[1])
         elif visual == "code_booktabs":
-            y_cursor = _draw_code_listing(image, draw, post, y_cursor, margin, width, scale)
+            _draw_code_listing(image, draw, post, inner[1], inner[0], inner[2] - inner[0], scale)
+        elif visual == "timeline_evolution":
+            _chart_timeline(post, chart_png)
+            _paste_fitted(image, chart_png, inner[1], (inner[0] + inner[2]) // 2,
+                          inner[2] - inner[0], inner[3] - inner[1])
+        elif visual == "cheatsheet_table":
+            _draw_table(image, draw, post, inner[1], inner[0], inner[2] - inner[0], scale)
         elif visual == "logic_proof":
-            y_cursor = _draw_logic_proof(image, draw, post, y_cursor, margin, width, scale)
+            _draw_logic_proof(image, draw, post, inner[1], inner[0], inner[2] - inner[0], scale)
         elif visual == "number_sequence":
-            y_cursor = _draw_number_sequence(image, draw, post, y_cursor, margin, width, scale)
+            _draw_number_sequence(image, draw, post, inner[1], inner[0], inner[2] - inner[0], scale)
         elif visual == "matrix_grid":
-            y_cursor = _draw_matrix_grid(image, draw, post, y_cursor, margin, width, scale)
+            _draw_matrix_grid(image, draw, post, inner[1], inner[0], inner[2] - inner[0], scale)
         elif visual == "prob_tree":
-            y_cursor = _draw_prob_tree(image, draw, post, y_cursor, margin, width, scale)
-        else:  # standard_plot
-            _chart_standard(post, chart_wide)
-            y_cursor = _paste_fitted(image, chart_wide, y_cursor, center_x, width, 360 * scale) + 16 * scale
+            _draw_prob_tree(image, draw, post, inner[1], inner[0], inner[2] - inner[0], scale)
+        else:
+            _chart_standard(post, chart_png)
+            _paste_fitted(image, chart_png, inner[1], (inner[0] + inner[2]) // 2,
+                          inner[2] - inner[0], inner[3] - inner[1])
 
-        # ── Блок формулы (Computer Modern) ──────────────────────────────
-        formula = (getattr(post, "formula_latex", "") or getattr(post, "formula_plain", "") or "").strip()
-        if formula and visual != "code_booktabs":
-            draw.line((margin, y_cursor, margin + width, y_cursor), fill=RULE, width=scale)
-            y_cursor += 12 * scale
-            if render_formula_png(formula, formula_png, color=INK, fontset="cm"):
-                y_cursor = _paste_fitted(image, formula_png, y_cursor, center_x, width - 40 * scale, 110 * scale)
-            else:
-                from .text import formula_to_unicode
+        # ЗОНА 3 — нижняя плашка с одной крупной формулой.
+        formula_box = (margin, 845 * scale, margin + width, 1000 * scale)
+        draw.rectangle(formula_box, fill=(243, 240, 234))
+        draw.rectangle((formula_box[0], formula_box[1], formula_box[0] + 6 * scale, formula_box[3]), fill=accent)
+        formula = (post.formula_latex or post.formula_plain or "").strip()
+        if formula and render_formula_png(formula, formula_png, color=INK, fontset="cm"):
+            _paste_fitted(image, formula_png, formula_box[1] + 12 * scale,
+                          (formula_box[0] + formula_box[2]) // 2,
+                          formula_box[2] - formula_box[0] - 48 * scale,
+                          formula_box[3] - formula_box[1] - 24 * scale)
+        elif formula:
+            from .text import formula_to_unicode
+            text = formula_to_unicode(formula, 80)
+            font = _serif_font(30 * scale, bold=True)
+            tw = draw.textlength(text, font=font)
+            draw.text(((canvas - tw) / 2, formula_box[1] + 48 * scale), text, fill=INK, font=font)
 
-                draw.text((margin, y_cursor), formula_to_unicode(formula, 120), fill=INK,
-                          font=_serif_font(22 * scale))
-                y_cursor += 30 * scale
-            y_cursor += 12 * scale
-            draw.line((margin, y_cursor, margin + width, y_cursor), fill=RULE, width=scale)
-            y_cursor += 16 * scale
-
-        # ── Экспликация «где: …» под формулой ───────────────────────────
-        where = str(meta.get("formula_vars") or "").strip()
-        if not where:
-            used = [str(symbol) for symbol in (meta.get("constants_used") or [])]
-            if used:
-                where = "где: " + ", ".join(used[:5])
-        if where:
-            where_font, where_lines = _fit(draw, where, width, 18 * scale, 13 * scale, 2, italic=True)
-            for line in where_lines[:2]:
-                draw.text((margin, y_cursor), line, fill=MUTED, font=where_font)
-                y_cursor += int(getattr(where_font, "size", 18 * scale) * 1.3)
-            y_cursor += 8 * scale
-
-        # ── Тройная связь времени: где работает сегодня ─────────────────
-        application = str(meta.get("modern_application") or "").strip()
-        if application:
-            app_font, app_lines = _fit(draw, f"ГДЕ РАБОТАЕТ СЕГОДНЯ: {application}", width, 19 * scale, 15 * scale, 2)
-            for line in app_lines[:2]:
-                draw.text((margin, y_cursor), line, fill=ACCENT, font=app_font)
-                y_cursor += int(getattr(app_font, "size", 19 * scale) * 1.3)
-            y_cursor += 8 * scale
-
-        # ── Подвал ─────────────────────────────────────────────────────
-        footer_y = canvas_size - 78 * scale
-        _draw_mini_dag(draw, post, margin, footer_y - 42 * scale, scale)
-        draw.line((margin, footer_y, margin + width, footer_y), fill=RULE, width=scale)
-        source = (getattr(post, "source_name", "") or "Science Pulse")[:60]
-        draw.text((margin, footer_y + 14 * scale), source, fill=MUTED, font=_serif_font(16 * scale, mono=True))
-        draw.text((margin + width - 430 * scale, footer_y + 14 * scale),
-                  "детерминированный рендер · без LLM", fill=MUTED, font=_serif_font(16 * scale, mono=True))
-        # ── QR-код ссылки на разбор (правый нижний угол) ────────────────
-        import os
-
-        site_url = (os.getenv("SP_SITE_BASE_URL") or str(meta.get("site_url") or "")).rstrip("/")
-        link = f"{site_url}/post/{post.id}.html" if site_url else f"post/{post.id}.html"
-        qr = qr_image(link, 68 * scale)
-        if qr is not None:
-            image.paste(qr, (margin + width - 72 * scale, footer_y - 84 * scale))
+        # Подпись — без QR и без технического мусора.
+        footer = _serif_font(14 * scale, mono=True)
+        label = "newmathphys.com · @newmathphys"
+        draw.text(((canvas - draw.textlength(label, font=footer)) / 2, 1012 * scale),
+                  label, fill=MUTED, font=footer)
 
         final = image.resize((size, size), Image.Resampling.LANCZOS)
         final.save(out_path, format="PNG", optimize=True)
         data = out_path.read_bytes()
         return CardArtifact(path=str(out_path), data=data, width=size, height=size)
     except Exception as exc:
-        LOGGER.warning("Книжная карточка не собралась (%s)", exc)
+        LOGGER.warning("Чистая карточка не собралась (%s)", exc)
         return None
     finally:
-        for temp in (work / f"_acad_wide_{post.id}.png", work / f"_acad_left_{post.id}.png",
-                     work / f"_acad_right_{post.id}.png", work / f"_acad_formula_{post.id}.png"):
+        for temp in (formula_png, chart_png, left_png, right_png):
             try:
                 temp.unlink()
             except OSError:

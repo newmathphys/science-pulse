@@ -19,7 +19,7 @@ import json
 import random
 from typing import Any, Dict, List, Optional, Tuple
 
-THEMES: Tuple[str, ...] = ("academic", "3b1b", "blueprint", "moku3d", "bookfilm", "explainer")
+THEMES: Tuple[str, ...] = ("academic", "3b1b", "blueprint", "moku3d", "bookfilm")
 DEFAULT_THEME = "academic"
 AUTO = "auto"
 
@@ -34,8 +34,6 @@ ALIASES: Dict[str, str] = {
     "film": "moku3d",
     "book_film": "bookfilm",
     "bookfilm": "bookfilm",
-    "infographic": "explainer",
-    "explainer": "explainer",
 }
 
 KV_ARMS = "theme_arms"
@@ -51,7 +49,6 @@ LABELS = {
     "blueprint": "Инженерный чертёж",
     "moku3d": "5-актовый фильм Moku3D",
     "bookfilm": "Книжный фильм (ожившая страница)",
-    "explainer": "Инфографический explainer",
 }
 
 
@@ -277,7 +274,7 @@ def format_design_table(storage: Any, config: Any, html: bool = True) -> str:
             f"индекс: {item['index_pct']:.0f}% · WinRate: {item['win_rate_pct']:.0f}%"
             f" · сглажено: {item.get('smoothed_score', 0):.0f}{leader}"
         )
-    lines += ["", "Переключение: <code>/theme auto|academic|3b1b|blueprint|moku3d|bookfilm|explainer</code>"]
+    lines += ["", "Переключение: <code>/theme auto|academic|3b1b|blueprint|moku3d|bookfilm</code>"]
     try:
         from .signal_engine import format_signal_report
 
