@@ -20,7 +20,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 from PIL import Image, ImageDraw, ImageFont
 
 from .models import Post
-from .voice import VoiceArtifact, film_voice_for_post
+from .voice import VoiceArtifact, synthesize, voice_settings
 
 BG = "#0B1021"
 GRID = "#162038"
@@ -95,6 +95,36 @@ def _draw_text_block(draw: ImageDraw.ImageDraw, text: str, x: int, y: int, width
     for index, line in enumerate(lines):
         draw.text((x, y + index * (size + line_gap)), line, font=font, fill=color)
     return y + len(lines) * (size + line_gap)
+
+
+def build_explainer_script(post: Post) -> str:
+    """Короткий сценарий ровно под 5 сцен: по одному смысловому блоку."""
+    meta = getattr(post, "meta", {}) or {}
+    scientist = str(meta.get("scientist") or post.source_name or "учёный")
+    era = str(meta.get("era") or "").strip()
+    year_match = re.search(r"\b(1[0-9]{3}|20[0-9]{2})\b", era)
+    year = year_match.group(1) if year_match else era
+    formula = (post.formula_plain or post.formula_latex or "формула").replace("\n", " ")
+    application = str(meta.get("modern_application") or "применение в науке и инженерии")
+    hook = post.hook or post.title
+    parts = [
+        f"Парадокс: {hook}",
+        f"Паспорт открытия: {scientist}, {year}.",
+        f"Формула: {formula}. Считаем, как меняется результат.",
+        "Наглядный расчёт: сорок часов сжимаются, узкое место видно на сетке.",
+        f"Вывод: {application}.",
+    ]
+    return " ".join(part.strip() for part in parts if part.strip())[:900]
+
+
+def _explainer_voice(post: Post, config: Any) -> Optional[VoiceArtifact]:
+    settings = dict(voice_settings(config))
+    settings["max_chars"] = 420
+    text = build_explainer_script(post)
+    if len(text) < 40:
+        return None
+    return synthesize(text, config.data_dir / "audio", f"{post.id}_explainer",
+                      config, settings, post=post)
 
 
 def _numbers(text: str) -> List[float]:
@@ -422,7 +452,7 @@ def render_explainer_film(post: Post, out_path: str | Path, config: Any,
     settings = explainer_settings(config, aspect)
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    artifact = artifact or film_voice_for_post(post, config, max_chars=520)
+    artifact = artifact or _explainer_voice(post, config)
     scene = ExplainerScene(post, settings["width"], settings["height"], artifact)
     duration = min(float(max_seconds or scene.duration), MAX_SECONDS)
     scene.duration = duration
@@ -456,7 +486,9 @@ def explainer_film_for_post(post: Post, config: Any, aspect: Optional[str] = Non
     directory = Path(out_dir) if out_dir else config.data_dir / "explainer_films"
     target = directory / f"{post.id}_{settings['aspect'].replace(':', 'x')}.mp4"
     key_path = directory / f"{post.id}_{settings['aspect'].replace(':', 'x')}.key"
-    key = f"{post.id}|{post.title}|{post.formula_plain}|{settings['aspect']}|{settings['fps']}"
+    import hashlib
+    script_hash = hashlib.sha1(build_explainer_script(post).encode("utf-8")).hexdigest()[:12]
+    key = f"{post.id}|{post.title}|{post.formula_plain}|{settings['aspect']}|{settings['fps']}|{script_hash}"
     if target.is_file() and key_path.is_file() and key_path.read_text(encoding="utf-8") == key:
         return target
     produced = render_explainer_film(post, target, config, aspect=aspect)

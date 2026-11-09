@@ -52,7 +52,7 @@ def settings(config: Any) -> Dict[str, Any]:
     weights.update({key: int(value) for key, value in (raw.get("weights") or {}).items() if key in MODES})
     return {
         "enabled": bool(raw.get("enabled", True)),
-        "challenge_every_nth": max(1, int(raw.get("challenge_every_nth", 4))),
+        "challenge_every_nth": max(0, int(raw.get("challenge_every_nth", 4))),
         "weights": weights,
     }
 
@@ -89,7 +89,7 @@ def mode_for_post(storage: Any, config: Any, post: Any, theme: str = "") -> str:
     counter = storage.kv_int(KV_COUNTER, 0) + 1 if storage is not None else 1
     if storage is not None:
         storage.kv_set(KV_COUNTER, str(counter))
-    if counter % conf["challenge_every_nth"] == 0:
+    if conf["challenge_every_nth"] and counter % conf["challenge_every_nth"] == 0:
         return "interactive_challenge"
     if str(theme or "").strip().lower() in ("moku3d", "explainer"):
         return "moku3d_film"

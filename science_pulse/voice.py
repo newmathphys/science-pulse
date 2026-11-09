@@ -467,7 +467,9 @@ def build_lecture_script(post: Post, max_chars: int = 900, closing: str = "post"
         )
     except Exception:  # pragma: no cover - защитный контур
         challenge_question = ""
-    if challenge_question:
+    from .post_modes import shows_challenge
+
+    if challenge_question and shows_challenge(str(meta.get("post_mode") or "")):
         parts.append(f"Задача слушателю: {challenge_question} Ответ проверите на тренажёре сайта.")
 
     prereqs = _canon_titles([str(item) for item in (meta.get("prereq_ids") or [])])

@@ -4,6 +4,11 @@
 «решите задачу», читатель привыкает и перестаёт читать низ поста. Поэтому задача
 выходит **дозированно**, а основную массу ленты составляет чистое знание.
 
+**Сейчас тренажёр/задача в постах выключены** (`challenge_every_nth: 0`).
+На сайте тренажёр остаётся. Когда появится аудитория, задачу можно вернуть
+раз в месяц, поставив `challenge_every_nth: 30` (при 1 посте/день) или
+отдельным ручным режимом.
+
 Модуль `science_pulse/post_modes.py` назначает каждому выпуску один из пяти
 режимов и записывает его в `post.meta["post_mode"]`.
 
@@ -21,7 +26,8 @@
 2. Дизайн `moku3d` → `moku3d_film`.
 3. `meta["simulation"]` или архетип `diptych_insar` → `satellite_lab`.
 4. Архетип `cheatsheet_table` → `cheatsheet_save`.
-5. Каждый `challenge_every_nth`-й выпуск (по умолчанию 4) → `interactive_challenge`.
+5. Если `challenge_every_nth > 0`, каждый N-й выпуск → `interactive_challenge`.
+   Сейчас `0` — задача в постах не выходит.
 6. Иначе — детерминированная взвешенная ротация (`WEIGHTS`, без случайности).
 
 ## Ответ на задачу
@@ -36,7 +42,7 @@
 ```yaml
 post_modes:
   enabled: true
-  challenge_every_nth: 4
+  challenge_every_nth: 0   # 0 = тренажёр в постах выключен
   weights:
     pure_knowledge: 6
     satellite_lab: 2

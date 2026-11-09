@@ -223,10 +223,18 @@ class PresentationTests(unittest.TestCase):
         self.assertNotIn("<tg-spoiler>", caption)
 
     def test_lecture_script_has_task_and_bridge(self):
-        script = build_lecture_script(make_post(), max_chars=3000)
+        post = make_post()
+        post.meta["post_mode"] = "interactive_challenge"
+        script = build_lecture_script(post, max_chars=3000)
         self.assertIn("Задача слушателю", script)
         self.assertIn("Фундаментальный вопрос", script)
         self.assertIn("Применение сегодня", script)
+
+    def test_lecture_script_pure_knowledge_has_no_task(self):
+        post = make_post()
+        post.meta["post_mode"] = "pure_knowledge"
+        script = build_lecture_script(post, max_chars=3000)
+        self.assertNotIn("Задача слушателю", script)
 
     def test_site_block_reveals_answer(self):
         from science_pulse.site import SiteBuilder

@@ -152,7 +152,7 @@ live_sensors:
 post_modes:
   enabled: true
   # Задача выпуска выходит дозированно: каждый 4-й пост, чтобы не утомлять ленту.
-  challenge_every_nth: 4
+  challenge_every_nth: 0   # тренажёр в постах выключен; на сайте остаётся
   weights:
     pure_knowledge: 6
     satellite_lab: 2
