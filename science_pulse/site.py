@@ -676,6 +676,7 @@ class SiteBuilder:
         self._write_llms(posts + programme, dist)
         self._write_poincare(posts, dist)
         self._write_bibtex(posts, dist)
+        self._write_legal(dist)
         self._write_radio(posts + programme, dist)
         self._write_pwa(dist)
         (dist / "robots.txt").write_text("User-agent: *\nAllow: /\n", encoding="utf-8")
@@ -882,7 +883,7 @@ class SiteBuilder:
   <div class="stats">{self._stats_html(posts_count=self.storage.count("published"))}</div>
 </header>
 {content}
-<footer>Science Pulse · источники: Stack Exchange, OEIS, Wikipedia, arXiv, Rosetta Code, GitHub raw, Numbers API, SymPy/CODATA. Без LLM в контенте.</footer>
+<footer>Science Pulse · источники: Stack Exchange, OEIS, Wikipedia, arXiv, Rosetta Code, GitHub raw, Numbers API, SymPy/CODATA. Без LLM в контенте. · <a href="{prefix}privacy.html">Политика конфиденциальности</a> · <a href="{prefix}data-deletion.html">Удаление данных</a></footer>
 </div>
 <script>if ('serviceWorker' in navigator) {{ window.addEventListener('load', () => navigator.serviceWorker.register('{prefix}sw.js').catch(() => {{}})); }}</script>
 <script>{BRANCH_JS}</script>
@@ -937,6 +938,56 @@ class SiteBuilder:
             "</div>"
             f"</{tag}>"
         )
+
+    def _write_legal(self, dist: Path) -> None:
+        """Публичные страницы для Meta Go Live: privacy и data deletion."""
+        email = "newmathphys@gmail.com"
+        privacy = f"""
+<article>
+  <div class="badge">PRIVACY</div>
+  <h1>Политика конфиденциальности</h1>
+  <p class="lead">Science Pulse — статический научный сайт. Мы не создаём аккаунты и не собираем персональные данные на сервере.</p>
+  <h2>Что хранится</h2>
+  <ul>
+    <li>Прогресс чтения («Моя ветка») хранится только в вашем браузере: <code>localStorage["scm_branch_v1"]</code>.</li>
+    <li>Сайт размещён на GitHub Pages; GitHub может вести технические журналы по своей политике.</li>
+    <li>Публикация в Telegram/Threads выполняется через официальные API этих платформ; их политики применяются отдельно.</li>
+  </ul>
+  <h2>Чего мы не делаем</h2>
+  <ul>
+    <li>Не продаём данные.</li>
+    <li>Не используем рекламные трекеры.</li>
+    <li>Не генерируем контент LLM.</li>
+  </ul>
+  <h2>Контакты</h2>
+  <p>Вопросы: <a href="mailto:{email}">{email}</a> · Telegram: <a href="https://t.me/newmathphys">@newmathphys</a></p>
+</article>
+"""
+        deletion = f"""
+<article>
+  <div class="badge">DATA DELETION</div>
+  <h1>Удаление данных</h1>
+  <p class="lead">У Science Pulse нет серверных аккаунтов. Удалить локальный прогресс можно самостоятельно.</p>
+  <h2>Локальный прогресс на сайте</h2>
+  <ol>
+    <li>Откройте сайт Science Pulse.</li>
+    <li>Откройте консоль браузера (F12 → Console).</li>
+    <li>Выполните: <code>localStorage.removeItem("scm_branch_v1")</code>.</li>
+    <li>Обновите страницу.</li>
+  </ol>
+  <h2>Данные в Telegram/Threads</h2>
+  <p>Сообщения и реакции хранятся на стороне платформ. Их можно удалить средствами Telegram или Threads. Для запроса по публикациям Science Pulse напишите на
+  <a href="mailto:{email}">{email}</a> или в <a href="https://t.me/newmathphys">@newmathphys</a>; ответ — в течение 30 дней.</p>
+  <h2>Что удаляется</h2>
+  <ul>
+    <li>локальный прогресс веток — сразу, в браузере;</li>
+    <li>переписка и запросы — по обращению;</li>
+    <li>публичные посты — через инструменты платформы.</li>
+  </ul>
+</article>
+"""
+        (dist / "privacy.html").write_text(self._page("Политика конфиденциальности", privacy), encoding="utf-8")
+        (dist / "data-deletion.html").write_text(self._page("Удаление данных", deletion), encoding="utf-8")
 
     def _branch_html(self, posts: List[Post], current: str = "", prefix: str = "") -> str:
         payload = {
