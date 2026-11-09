@@ -39,6 +39,9 @@ case "$cmd" in
   next)
     "$PY" -m science_pulse.cli next "$@"
     ;;
+  watch)
+    "$PY" -m science_pulse.cli watch "$@"
+    ;;
   launch)
     echo "=== SCM launch: Telegram + Threads ==="
     "$PY" -m science_pulse.cli auth-check
@@ -80,6 +83,7 @@ SCM operator entry
   ./sp check            тесты + verify + preflight + knowledge integrity
   ./sp knowledge ...    index|search|stats|claim|note|integrity|export
   ./sp next             что осталось до релиза: Threads + Cloudflare
+  ./sp watch            что изменилось в API площадок
   ./sp launch           проверить ключи Telegram/Threads и готовность
   ./sp publish [args]   опубликовать следующий пост
   ./sp site             пересобрать сайт

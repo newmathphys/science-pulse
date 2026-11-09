@@ -1,0 +1,46 @@
+{
+  "telegram": {
+    "hash": "872e17f81fdd2c69ddc7548ede852ab747d7ada1f1f771c4da653b97ffc8b331",
+    "latest": "August 24, 2026 · Bot API 10.3",
+    "items": [
+      "August 24, 2026 · Bot API 10.3",
+      "July 14, 2026 · Bot API 10.2",
+      "June 11, 2026 · Bot API 10.1",
+      "May 8, 2026 · Bot API 10.0"
+    ],
+    "checked_at": "2026-11-09T10:42:12+00:00"
+  },
+  "threads": {
+    "hash": "6ddad207fe341d9f5d9cad082b20df3b9dfcbd183296a612c7854965da4c64a7",
+    "latest": "Nov 3, 2026 · Теперь вы можете встроить общедоступный профиль Threads, передав его URL в Threads oEmbed API. Подробнее см. в статье Вставка публикации Threads .",
+    "items": [
+      "Nov 3, 2026 · Теперь вы можете встроить общедоступный профиль Threads, передав его URL в Threads oEmbed API. Подробнее см. в статье Вставка публикации Threads .",
+      "Oct 30, 2026 · Чтобы помечать публикации с текстом, изображениями, видео и кольцевыми галереями, сгенерированные ИИ, задайте is_made_with_ai=true при создании контейнера медиафайла. Для публикаци",
+      "Aug 18, 2026 · Теперь вы можете вызывать Threads Debug Token API ( /debug_token ) с использованием маркера доступа приложения в качестве альтернативы маркеру доступа пользователя-тестировщика Thr",
+      "Aug 12, 2026 · Ответ с краткосрочным маркером доступа от конечной точки POST /oauth/access_token теперь содержит token_type , что обеспечивает согласованность с конечными точками маркера доступа"
+    ],
+    "checked_at": "2026-11-09T10:42:12+00:00"
+  },
+  "cloudflare": {
+    "hash": "02cee3cd97df32285ffa4ffefc11aa8ee323b4526253cc08bde91c374856fd60",
+    "latest": "2026-10-22 · Hyperdrive bindings expose ip , and node:dns resolves a binding's host to it. Workers traces now include spans for queue.metrics() calls.",
+    "items": [
+      "2026-10-22 · Hyperdrive bindings expose ip , and node:dns resolves a binding's host to it. Workers traces now include spans for queue.metrics() calls.",
+      "2026-09-28 · Updated v8 to version 15.5.",
+      "2026-09-14 · Updated v8 to version 15.4.",
+      "2026-08-28 · Updated v8 to version 15.3."
+    ],
+    "checked_at": "2026-11-09T10:42:12+00:00"
+  },
+  "github_actions": {
+    "hash": "81b61c4efc920b7324141fd4c59c2561dfd2f8a979aae3ac5d75b9b98d8aa00e",
+    "latest": "Mon, 02 Nov 2026 15:14:46 +0000 · pull_request_target blocked by default December 2",
+    "items": [
+      "Mon, 02 Nov 2026 15:14:46 +0000 · pull_request_target blocked by default December 2",
+      "Wed, 28 Oct 2026 15:30:15 +0000 · GitHub Agentic Workflows generally available",
+      "Wed, 28 Oct 2026 15:30:00 +0000 · GitHub Actions adds multi-cloud compute to improve reliability",
+      "Wed, 28 Oct 2026 15:30:00 +0000 · GitHub Actions workflow lockfiles are generally available"
+    ],
+    "checked_at": "2026-11-09T10:42:12+00:00"
+  }
+}

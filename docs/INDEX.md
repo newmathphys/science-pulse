@@ -18,6 +18,7 @@
 | `KERNEL.md` | 6-фазное ядро |
 | `QUALITY.md` | 7 рубежей и verify |
 | `INTEGRATIONS.md` | карта всех API: ключи, лимиты, куда добавлять |
+| `PLATFORM_WATCH.md` | еженедельный мониторинг changelog'ов API |
 | `PLATFORMS.md` | площадки и лимиты |
 | `TOKENS.md` | где взять токены |
 | `VIDEO.md` | микро-видео и book-фильм |

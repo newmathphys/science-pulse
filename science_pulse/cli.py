@@ -858,6 +858,29 @@ def cmd_film(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_watch(args: argparse.Namespace) -> int:
+    """Мониторинг changelog'ов площадок: что изменилось и что обновить."""
+    from .platform_watch import format_watch_report, watch_platforms
+
+    pipeline = _pipeline(args)
+    report = watch_platforms(pipeline.config, force=getattr(args, "force", False))
+    if getattr(args, "json", False):
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+    else:
+        print(format_watch_report(report, html=False))
+    if getattr(args, "send", False):
+        from .admin import TelegramAdmin
+
+        admin = TelegramAdmin(pipeline.config, pipeline)
+        if not admin.available():
+            print("Не могу отправить: нужны TG_BOT_TOKEN и TG_ADMIN_CHAT_ID", file=sys.stderr)
+            return 1
+        admin.send(format_watch_report(report, html=True))
+        print("Отчёт отправлен в админ-чат.")
+    _checkpoint(pipeline)
+    return 0 if not report.get("errors") else 1
+
+
 def cmd_next(args: argparse.Namespace) -> int:
     """Что осталось до релиза: Threads, Cloudflare, режим картинки."""
     from .release_check import format_release, release_status
@@ -1616,6 +1639,12 @@ def build_parser() -> argparse.ArgumentParser:
     next_parser = subparsers.add_parser("next", help="что осталось до релиза: Threads + Cloudflare")
     next_parser.add_argument("--json", action="store_true")
     next_parser.set_defaults(func=cmd_next)
+
+    watch = subparsers.add_parser("watch", help="мониторинг changelog'ов Telegram/Threads/Cloudflare/GitHub")
+    watch.add_argument("--json", action="store_true")
+    watch.add_argument("--send", action="store_true", help="отправить отчёт в админ-чат")
+    watch.add_argument("--force", action="store_true", help="считать всё изменённым")
+    watch.set_defaults(func=cmd_watch)
 
     sync_platform_parser = subparsers.add_parser(
         "sync-platform", help="довыгрузить пропущенную летопись на новую площадку"

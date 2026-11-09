@@ -322,7 +322,21 @@ cooldown — `docs/VOICE.md`.
 | R2 error 10042 | R2 не включён | Dashboard → R2 → Enable |
 | Telegram `chat not found` | бот не админ/неверный id | добавить бота в канал |
 
-## 12. Официальные индексы документации
+## 12. Мониторинг изменений API
+
+Раз в неделю GitHub Actions запускает `./sp watch` и присылает отчёт:
+что изменилось в Telegram Bot API, Threads API, Cloudflare Workers и
+GitHub Actions. Снимок — `data/platform_watch.json`.
+
+```bash
+./sp watch
+./sp watch --send
+./sp watch --json
+```
+
+Подробно: `docs/PLATFORM_WATCH.md`.
+
+## 13. Официальные индексы документации
 
 - Meta Threads: https://developers.facebook.com/documentation/threads
 - Cloudflare Workers: https://developers.cloudflare.com/workers/
