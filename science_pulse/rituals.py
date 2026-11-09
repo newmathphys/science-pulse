@@ -126,7 +126,7 @@ def refresh_threads_token(config: Any, http: Optional[Callable[..., Dict[str, An
             return {"status": response.status_code, "data": response.json()}
 
     payload = client(
-        "https://graph.threads.net/refresh_access_token",
+        "https://graph.threads.com/refresh_access_token",
         params={"grant_type": "th_refresh_token", "access_token": token},
     )
     data = payload.get("data") or {}

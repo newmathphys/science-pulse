@@ -74,7 +74,7 @@ def _threads(config: Any, http: Callable[..., Dict[str, Any]]) -> Dict[str, str]
     if not token or not user_id:
         return {"state": "no_keys", "detail": "нужны TH_USER_ID и TH_ACCESS_TOKEN"}
     payload = http(
-        "GET", "https://graph.threads.net/v1.0/me",
+        "GET", "https://graph.threads.com/v1.0/me",
         params={"fields": "id,username", "access_token": token},
     )
     data = payload.get("data") or {}

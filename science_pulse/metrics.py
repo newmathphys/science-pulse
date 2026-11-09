@@ -14,7 +14,7 @@ from .storage import Storage
 LOGGER = logging.getLogger(__name__)
 
 BLUESKY_BASE = "https://bsky.social/xrpc"
-THREADS_BASE = "https://graph.threads.net/v1.0"
+THREADS_BASE = "https://graph.threads.com/v1.0"
 VK_API = "https://api.vk.com/method"
 VK_VERSION = "5.199"
 

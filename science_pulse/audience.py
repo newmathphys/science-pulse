@@ -26,7 +26,7 @@ from .storage import Storage
 LOGGER = logging.getLogger(__name__)
 
 TELEGRAM_API = "https://api.telegram.org/bot{token}/{method}"
-THREADS_API = "https://graph.threads.net/v1.0/{user}"
+THREADS_API = "https://graph.threads.com/v1.0/{user}"
 
 
 def _now() -> str:

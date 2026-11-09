@@ -30,13 +30,22 @@ python -m science_pulse.cli publish --target telegram
 3. В приложении Threads принять приглашение.
 4. Generate Access Token → `TH_ACCESS_TOKEN` (long-lived, 60 дней) и `TH_USER_ID`.
 
+Важно: у Threads-приложения **свои** App ID и App Secret, они не совпадают
+с обычными Meta App ID/Secret. Для OAuth-получения токена можно использовать
+официальный sample: `github.com/fbsamples/threads_api`. Для публикации в SCM
+достаточно только `TH_USER_ID` и `TH_ACCESS_TOKEN`.
+
+API-хост публикации — `https://graph.threads.com/v1.0/...` (не `.net`).
+Перед `threads_publish` SCM ждёт статус контейнера `FINISHED`/`PUBLISHED`
+и делает fallback на TEXT при ошибке IMAGE.
+
 Картинка в Threads передаётся только по публичному URL. Наш Telegram-адаптер
 возвращает `file_id`; Cloudflare Worker (`CF_WORKER_URL`) отдаёт его как
 `/tg-cdn/{file_id}.png`, не раскрывая токен бота. Без Worker'а Threads
 получит текстовый пост.
 
 Продление токена: раз в 30 дней вызвать
-`GET https://graph.threads.net/refresh_access_token?grant_type=th_refresh_token&access_token=...`
+`GET https://graph.threads.com/refresh_access_token?grant_type=th_refresh_token&access_token=...`
 (в текущей версии — вручную/кроном; модуль бессмертия — следующий этап).
 
 ## 3. Bluesky

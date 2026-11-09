@@ -31,7 +31,8 @@ class ThreadsPublisher(Publisher):
         self.config = config
         self.user_id = config.threads_user_id
         self.token = config.threads_token
-        self.base = f"https://graph.threads.net/v1.0/{self.user_id}"
+        self.api = "https://graph.threads.com/v1.0"
+        self.base = f"{self.api}/{self.user_id}"
 
     def available(self) -> bool:
         return bool(self.user_id and self.token)
@@ -120,7 +121,20 @@ class ThreadsPublisher(Publisher):
                         error=str(creation.get("error") or creation)[:200],
                     )
 
-            time.sleep(1.2)
+            ready, wait_error = self._wait_container(creation["id"])
+            if not ready:
+                if index == 0 and context.public_card_url:
+                    payload["media_type"] = "TEXT"
+                    payload.pop("image_url", None)
+                    creation = self._create_container(payload)
+                    if creation.get("id"):
+                        ready, wait_error = self._wait_container(creation["id"])
+                if not ready:
+                    return PublishResult(
+                        platform=self.name, ok=False,
+                        error=f"контейнер не готов: {wait_error}"[:200],
+                    )
+
             published_id = self._publish_container(creation["id"])
             if not published_id:
                 return PublishResult(platform=self.name, ok=False, error="threads_publish не вернул id")
@@ -135,6 +149,36 @@ class ThreadsPublisher(Publisher):
             url=f"https://www.threads.net/t/{first_id}" if first_id else None,
             meta={"published_ids": published, "chunks": len(published)},
         )
+
+    def _wait_container(self, creation_id: str, attempts: int = 15, pause: float = 2.0) -> tuple[bool, str]:
+        """Ждёт обработки контейнера: FINISHED/PUBLISHED, ERROR/EXPIRED.
+
+        Документация Threads рекомендует подождать ~30 секунд перед
+        threads_publish. Если статус не удаётся получить, пробуем публиковать.
+        """
+        last = ""
+        for attempt in range(max(1, attempts)):
+            try:
+                response = requests.get(
+                    f"{self.api}/{creation_id}",
+                    params={
+                        "fields": "status,error_message",
+                        "access_token": self.token,
+                    },
+                    timeout=25,
+                )
+                payload = response.json()
+                status = str(payload.get("status") or "").upper()
+                last = status or last
+                if status in ("FINISHED", "PUBLISHED"):
+                    return True, ""
+                if status in ("ERROR", "EXPIRED"):
+                    return False, str(payload.get("error_message") or status)
+            except Exception as exc:
+                last = str(exc)[:120]
+            if attempt < attempts - 1:
+                time.sleep(pause)
+        return True, last
 
     def _create_container(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         try:

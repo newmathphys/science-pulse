@@ -21,7 +21,7 @@ class FakeResponse:
 def fake_get(url, params=None, timeout=None):
     if "getChatMemberCount" in url:
         return FakeResponse({"ok": True, "result": 123})
-    if "graph.threads.net" in url:
+    if "graph.threads.com" in url:
         return FakeResponse({"id": "1", "username": "scm", "followers_count": 456})
     raise AssertionError(url)
 

@@ -50,6 +50,7 @@ class ThreadsLaunchTests(unittest.TestCase):
             return FakeResponse({"id": "post-1"})
 
         with patch("science_pulse.publishers.threads.requests.post", side_effect=fake_post), \
+                patch.object(ThreadsPublisher, "_wait_container", return_value=(True, "")), \
                 patch("science_pulse.publishers.threads.time.sleep", return_value=None):
             result = self.publisher.publish(make_post(), self.card, PublishContext())
 
@@ -71,6 +72,7 @@ class ThreadsLaunchTests(unittest.TestCase):
             return FakeResponse({"id": "post-text"})
 
         with patch("science_pulse.publishers.threads.requests.post", side_effect=fake_post), \
+                patch.object(ThreadsPublisher, "_wait_container", return_value=(True, "")), \
                 patch("science_pulse.publishers.threads.time.sleep", return_value=None):
             result = self.publisher.publish(
                 make_post(), self.card, PublishContext(public_card_url="https://example.org/card.png")
@@ -93,6 +95,7 @@ class ThreadsLaunchTests(unittest.TestCase):
             return FakeResponse({"id": f"p{len(calls)}"})
 
         with patch("science_pulse.publishers.threads.requests.post", side_effect=fake_post), \
+                patch.object(ThreadsPublisher, "_wait_container", return_value=(True, "")), \
                 patch("science_pulse.publishers.threads.time.sleep", return_value=None):
             result = publisher.publish(make_post(), self.card, PublishContext(site_url="https://example.org/post/th1"))
 
@@ -101,6 +104,20 @@ class ThreadsLaunchTests(unittest.TestCase):
         self.assertGreaterEqual(len(texts), 2)
         self.assertNotIn("https://", texts[0])
         self.assertIn("example.org", texts[1])
+
+    def test_wait_container_finished(self):
+        with patch("science_pulse.publishers.threads.requests.get",
+                   return_value=FakeResponse({"status": "FINISHED"})):
+            ok, error = self.publisher._wait_container("c1")
+        self.assertTrue(ok)
+        self.assertEqual(error, "")
+
+    def test_wait_container_error(self):
+        with patch("science_pulse.publishers.threads.requests.get",
+                   return_value=FakeResponse({"status": "ERROR", "error_message": "bad image"})):
+            ok, error = self.publisher._wait_container("c1")
+        self.assertFalse(ok)
+        self.assertIn("bad image", error)
 
     def test_image_mode(self):
         self.assertIn(self.publisher.image_mode(), {"text", "site"})
