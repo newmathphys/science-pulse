@@ -48,6 +48,7 @@ TG_ADMIN_CHAT_ID
 | Telegram Bot API | https://core.telegram.org/bots/api | `publishers/telegram.py`, `models.py` |
 | Meta Threads API | https://developers.facebook.com/docs/threads/changelog | `publishers/threads.py`, `config.yaml` |
 | Cloudflare Workers | https://developers.cloudflare.com/workers/platform/changelog/ | `cloudflare/worker.js`, `wrangler.toml` |
+| Telegram WebK | https://t.me/s/WebK_ru | `docs/PLATFORM_WATCH.md` |
 | GitHub Actions | https://github.blog/changelog/label/actions/feed/ | `.github/workflows/*.yml` |
 
 Снимок хранится в `data/platform_watch.json`: хеш разобранного содержимого,
@@ -104,7 +105,7 @@ python -m unittest tests.test_platform_watch -v
 Ожидаемо:
 
 ```text
-sources: 4
+sources: 5
 changed: []            # после baseline
 errors: []
 ```

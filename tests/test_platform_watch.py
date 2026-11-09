@@ -11,6 +11,7 @@ from science_pulse.platform_watch import (
     parse_cloudflare,
     parse_rss,
     parse_telegram,
+    parse_telegram_web,
     parse_threads,
     watch_platforms,
 )
@@ -26,6 +27,15 @@ class ParserTests(unittest.TestCase):
         self.assertIn("Nov 3, 2026", result["latest"])
         self.assertIn("oEmbed", result["latest"])
         self.assertNotIn("Get notified", result["latest"])
+
+    def test_telegram_web(self):
+        page = (
+            '<time datetime="2024-03-18T10:00:00+00:00"></time>'
+            '<div class="tgme_widget_message_text">New WebK feature</div>'
+        )
+        result = parse_telegram_web(page)
+        self.assertIn("2024-03-18", result["latest"])
+        self.assertIn("New WebK feature", result["latest"])
 
     def test_cloudflare(self):
         result = parse_cloudflare("2026-10-22 Changed Hyperdrive. 2026-09-28 Updated v8.")
@@ -55,6 +65,8 @@ class WatchTests(unittest.TestCase):
                     return type("R", (), {"text": "Search Changelog Nov 3, 2026 Added oEmbed."})()
                 if "cloudflare" in url:
                     return type("R", (), {"text": "2026-10-22 Changed Hyperdrive."})()
+                if "WebK_ru" in url:
+                    return type("R", (), {"text": '<time datetime="2024-03-18T10:00:00+00:00"></time><div class="tgme_widget_message_text">WebK update</div>'})()
                 return type("R", (), {"text": "<rss><channel><item><title>Actions</title></item></channel></rss>"})()
 
             first = watch_platforms(config, http_get=get, state_path=state)
@@ -82,7 +94,7 @@ class WatchTests(unittest.TestCase):
 
             report = watch_platforms(config, http_get=broken, state_path=Path(tmp) / "watch.json")
             self.assertTrue(report["errors"])
-            self.assertEqual(len(report["sources"]), 4)
+            self.assertEqual(len(report["sources"]), 5)
 
 
 if __name__ == "__main__":

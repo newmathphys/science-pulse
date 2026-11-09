@@ -325,8 +325,8 @@ cooldown — `docs/VOICE.md`.
 ## 12. Мониторинг изменений API
 
 Раз в неделю GitHub Actions запускает `./sp watch` и присылает отчёт:
-что изменилось в Telegram Bot API, Threads API, Cloudflare Workers и
-GitHub Actions. Снимок — `data/platform_watch.json`.
+что изменилось в Telegram Bot API, Threads API, Cloudflare Workers,
+Telegram WebK и GitHub Actions. Снимок — `data/platform_watch.json`.
 
 ```bash
 ./sp watch

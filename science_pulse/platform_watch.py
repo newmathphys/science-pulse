@@ -48,6 +48,14 @@ SOURCES: List[Dict[str, str]] = [
         "doc": "docs/EDGE.md",
     },
     {
+        "id": "telegram_web",
+        "name": "Telegram WebK (WebK_ru)",
+        "url": "https://t.me/s/WebK_ru",
+        "kind": "telegram_web",
+        "code": "docs/PLATFORM_WATCH.md",
+        "doc": "https://web.telegram.org/k/",
+    },
+    {
         "id": "github_actions",
         "name": "GitHub Actions",
         "url": "https://github.blog/changelog/label/actions/feed/",
@@ -127,6 +135,20 @@ def parse_cloudflare(page: str) -> Dict[str, Any]:
     return {"latest": latest, "items": _first(items)}
 
 
+def parse_telegram_web(page: str) -> Dict[str, Any]:
+    """Последние сообщения публичного канала WebK_ru (t.me/s/...)."""
+    texts = []
+    for match in re.finditer(r'<div class="tgme_widget_message_text[^"]*"[^>]*>(.*?)</div>', page or "", re.S):
+        body = _strip_html(match.group(1))
+        if body:
+            texts.append(body)
+    dates = re.findall(r'<time[^>]+datetime="([^"]+)"', page or "")
+    pairs = list(zip(dates, texts))
+    items = [f"{date[:10]} · {body[:180]}" for date, body in pairs[-MAX_ITEMS:][::-1]]
+    latest = items[0] if items else ""
+    return {"latest": latest, "items": _first(items)}
+
+
 def parse_rss(xml_text: str) -> Dict[str, Any]:
     try:
         root = ET.fromstring(xml_text)
@@ -145,6 +167,7 @@ PARSERS = {
     "telegram": parse_telegram,
     "threads": parse_threads,
     "cloudflare": parse_cloudflare,
+    "telegram_web": parse_telegram_web,
     "rss": parse_rss,
 }
 
