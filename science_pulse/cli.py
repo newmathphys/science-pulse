@@ -1191,13 +1191,16 @@ def cmd_book(args: argparse.Namespace) -> int:
 
 def cmd_voice(args: argparse.Namespace) -> int:
     """Озвучить пост (или очередь) и показать результат."""
-    from .voice import speech_text, voice_available, voice_for_post, voice_settings
+    from .voice import format_voice_engines, speech_text, voice_available, voice_for_post, voice_settings
 
     pipeline = _pipeline(args)
     config = pipeline.config
     settings = voice_settings(config)
+    if getattr(args, "engines", False):
+        print(format_voice_engines(config))
+        return 0
     if not voice_available(config):
-        print("Движок озвучки недоступен: pip install edge-tts (или piper + модель)", file=sys.stderr)
+        print("Нет доступного TTS: edge-tts / piper / google / espeak-ng", file=sys.stderr)
         return 1
 
     if args.post_id:
@@ -1411,6 +1414,7 @@ def build_parser() -> argparse.ArgumentParser:
     voice.add_argument("--status", default="ready", help="статус постов (по умолчанию ready)")
     voice.add_argument("--limit", type=int, default=1, help="сколько постов озвучить")
     voice.add_argument("--text-only", action="store_true", help="только показать текст для диктора")
+    voice.add_argument("--engines", action="store_true", help="показать состояние TTS-движков и лимитов")
     voice.set_defaults(func=cmd_voice)
 
     standards = subparsers.add_parser("standards", help="пороги качества: показать/настроить/проверить")

@@ -86,19 +86,35 @@ abtest:
   variants: ["classic", "compact"]
 
 # Озвучка постов: голосовое сообщение (OGG/OPUS) или аудио-подкаст (MP3).
-# Движок edge — онлайн, бесплатно, без ключей (pip install edge-tts).
-# Движок piper — офлайн (нужны бинарь piper и ONNX-модель в piper_model).
+# Адаптивная цепочка: edge (онлайн, Светлана) → piper (офлайн) →
+# google_tts → espeak-ng → сонификация. Облачные движки при лимите уходят
+# в cooldown и возвращаются автоматически.
 voice:
   enabled: true
-  engine: "edge"                  # auto | edge | piper
+  engine: "auto"                  # auto | edge | piper | google_tts | espeak
   voice: "ru-RU-SvetlanaNeural"   # проверенный рабочий русский голос
   rate: "+0%"
   max_chars: 750                  # ≈55 секунд речи
   publish: "voice"                # voice (OGG/OPUS) | audio (MP3-подкаст)
-  piper_model: ""
-  # Резервный Google TTS выключен: эталон — только ru-RU-SvetlanaNeural.
-  # Включайте вручную, если готовы принять другой голос.
-  google_fallback: false
+  piper_model: ""                 # ONNX-модель для офлайн-резерва
+  # Автоцепочка: edge → piper → google_tts → espeak → sonification.
+  # Если облачный движок упёрся в лимит, он уходит в cooldown и возвращается
+  # автоматически после паузы; остальные движки продолжают работу.
+  priority: ["edge", "piper", "google_tts", "espeak", "sonification"]
+  edge:
+    failure_threshold: 2
+    cooldown_minutes: 60
+    max_cooldown_minutes: 360
+  google:
+    failure_threshold: 1
+    cooldown_minutes: 120
+    max_cooldown_minutes: 360
+  espeak:
+    enabled: true
+    voice: "ru"
+    speed: 150
+  # Резервный Google TTS: бесплатный, включается после edge/piper.
+  google_fallback: true
 
 # Озвученные микро-видео: оживший чертёж + сонификация формулы (ffmpeg).
 # Выходят каждый N-й пост (или принудительно: publish --video, /force video).

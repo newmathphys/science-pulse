@@ -904,7 +904,7 @@ class TelegramAdmin:
             )
         )
 
-        from .voice import voice_available, voice_settings
+        from .voice import format_voice_engines, voice_available, voice_settings
 
         vsettings = voice_settings(self.config)
         if not vsettings["enabled"]:
@@ -913,8 +913,10 @@ class TelegramAdmin:
             voice_state = "ok"
             voice_detail = f"{vsettings['engine']} · {vsettings['voice']} · {vsettings['publish']}"
         else:
-            voice_state, voice_detail = "warn", "движок не установлен: pip install edge-tts (или piper)"
+            voice_state, voice_detail = "warn", "нет ни одного TTS: edge/piper/google/espeak"
         lines.append(self._light(voice_state, "Озвучка постов", voice_detail))
+        if vsettings["enabled"]:
+            lines.append(format_voice_engines(self.config))
 
         site = self.config.site_base_url or ""
         site_state = "ok" if site.startswith("https://") else ("warn" if site else "off")

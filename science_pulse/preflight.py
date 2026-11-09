@@ -104,7 +104,7 @@ def preflight(pipeline: Any, domain: Optional[str] = None, with_media: bool = Tr
         from .voice import voice_available
 
         checks.append({"name": "voice", "ok": voice_available(config),
-                       "detail": "edge-tts/piper готов" if voice_available(config) else "движок не установлен"})
+                       "detail": "TTS-цепочка готова" if voice_available(config) else "нет ни одного TTS"})
         checks.append({"name": "video", "ok": video_available(),
                        "detail": "ffmpeg готов" if video_available() else "ffmpeg не найден"})
 

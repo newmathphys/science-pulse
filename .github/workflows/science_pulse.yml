@@ -47,7 +47,7 @@ jobs:
       - name: Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg
+          sudo apt-get install -y ffmpeg espeak-ng
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
@@ -94,7 +94,6 @@ jobs:
           STACKEXCHANGE_API_KEY: ${{ secrets.STACKEXCHANGE_API_KEY }}
           SP_SITE_BASE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
           SP_SITE_TITLE: Science Pulse
-          SP_TRANSLATE: "1"
         run: |
           COMMAND="${{ github.event.inputs.command || 'run' }}"
           python -m science_pulse.cli "$COMMAND"
@@ -118,7 +117,6 @@ jobs:
           TH_USER_ID: ${{ secrets.TH_USER_ID }}
           TH_ACCESS_TOKEN: ${{ secrets.TH_ACCESS_TOKEN }}
           SP_SITE_BASE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
-          SP_TRANSLATE: "1"
         run: python -m science_pulse.cli doctor
 
       - name: Checkpoint WAL
@@ -131,6 +129,7 @@ jobs:
           git config user.name "science-pulse-bot"
           git config user.email "science-pulse-bot@users.noreply.github.com"
           git add data/science.db
+          git add -f data/audio/voice_health.json 2>/dev/null || true
           if ! git diff --cached --quiet; then
             git commit -m "chore: science pulse state $(date -u +%Y-%m-%dT%H:%M:%SZ)"
             git push

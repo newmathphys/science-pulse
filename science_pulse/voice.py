@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import re
 import shutil
@@ -38,10 +39,189 @@ LOGGER = logging.getLogger(__name__)
 # Проверенный на живом синтезе набор голосов (Dmitry/Aria в 2026 не отдают аудио).
 EDGE_VOICES = ("ru-RU-SvetlanaNeural", "ru-RU-DmitryNeural", "en-US-AriaNeural")
 DEFAULT_VOICE = "ru-RU-SvetlanaNeural"
+ENGINE_PRIORITY = ("edge", "piper", "google_tts", "espeak", "sonification")
+ENGINE_LABELS = {
+    "edge": "Edge TTS (Светлана)",
+    "piper": "Piper (офлайн)",
+    "google_tts": "Google TTS",
+    "espeak": "espeak-ng",
+    "sonification": "сонификация",
+}
+# Последняя ошибка движка: нужна для классификации лимитов/сети/пустого аудио.
+_LAST_ERRORS: Dict[str, str] = {}
 
 
 def _which(binary: str) -> Optional[str]:
     return shutil.which(binary)
+
+
+# ---------------------------------------------------------------------------
+# Адаптивные движки: circuit breaker для бесплатных облачных TTS.
+# ---------------------------------------------------------------------------
+
+def _health_defaults() -> Dict[str, Any]:
+    return {
+        "failures": 0,
+        "blocked_until": 0.0,
+        "last_error": "",
+        "last_ok": 0.0,
+        "last_kind": "",
+    }
+
+
+def _health_path(config: Config, path: Path | None = None) -> Path:
+    return Path(path) if path else config.data_dir / "audio" / "voice_health.json"
+
+
+def _read_health_file(path: Path) -> Dict[str, Any]:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _load_health(config: Config, engine: str, path: Path | None = None) -> Dict[str, Any]:
+    """Состояние движка из JSON (переживает перезапуски и CI)."""
+    data = _health_defaults()
+    loaded = _read_health_file(_health_path(config, path)).get(engine)
+    if isinstance(loaded, dict):
+        data.update(loaded)
+    return data
+
+
+def _save_health(config: Config, engine: str, data: Dict[str, Any], path: Path | None = None) -> None:
+    target = _health_path(config, path)
+    all_data = _read_health_file(target)
+    all_data[engine] = data
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        temp = target.with_suffix(".tmp")
+        temp.write_text(json.dumps(all_data, ensure_ascii=False, indent=2), encoding="utf-8")
+        temp.replace(target)
+    except OSError as exc:
+        LOGGER.debug("voice health write %s: %s", engine, exc)
+
+
+def _classify_error(error: str) -> str:
+    text = (error or "").lower()
+    if any(token in text for token in ("429", "too many", "rate limit", "quota", "limit exceeded")):
+        return "rate_limit"
+    if any(token in text for token in ("timeout", "timed out", "connection", "network", "dns", "unreachable")):
+        return "network"
+    if any(token in text for token in ("not installed", "no module", "missing", "not found", "model")):
+        return "missing"
+    if any(token in text for token in ("empty", "too small", "no audio", "пуст")):
+        return "empty"
+    return "error"
+
+
+def _cooldown_seconds(settings: Dict[str, Any], engine: str, kind: str, failures: int) -> int:
+    if kind == "rate_limit":
+        base = int(settings.get(f"{engine}_cooldown_minutes", 60)) * 60
+        cap = int(settings.get(f"{engine}_max_cooldown_minutes", 360)) * 60
+        threshold = 1
+        return min(cap, base * (2 ** max(0, failures - threshold)))
+    if kind == "network":
+        return 10 * 60
+    if kind == "empty":
+        return 10 * 60
+    return 5 * 60
+
+
+def _record_success(config: Config, engine: str, path: Path | None = None) -> None:
+    data = _load_health(config, engine, path)
+    data.update({
+        "failures": 0,
+        "blocked_until": 0.0,
+        "last_error": "",
+        "last_ok": time.time(),
+        "last_kind": "ok",
+    })
+    _save_health(config, engine, data, path)
+
+
+def _record_failure(config: Config, engine: str, error: str, settings: Dict[str, Any], path: Path | None = None) -> None:
+    data = _load_health(config, engine, path)
+    kind = _classify_error(error)
+    failures = int(data.get("failures") or 0) + 1
+    threshold = 1 if kind == "rate_limit" else int(settings.get(f"{engine}_failure_threshold", 2))
+    blocked_until = float(data.get("blocked_until") or 0.0)
+    if kind != "missing" and failures >= threshold:
+        blocked_until = max(blocked_until, time.time() + _cooldown_seconds(settings, engine, kind, failures))
+    data.update({
+        "failures": failures,
+        "blocked_until": blocked_until,
+        "last_error": (error or kind)[:240],
+        "last_kind": kind,
+    })
+    _save_health(config, engine, data, path)
+    LOGGER.warning("voice %s: %s (%s), failures=%s", engine, data["last_error"], kind, failures)
+
+
+def _engine_blocked(config: Config, engine: str, path: Path | None = None) -> bool:
+    data = _load_health(config, engine, path)
+    return float(data.get("blocked_until") or 0.0) > time.time()
+
+
+def _engine_ready(config: Config, engine: str, settings: Dict[str, Any]) -> bool:
+    if engine == "edge":
+        import importlib.util
+
+        return importlib.util.find_spec("edge_tts") is not None
+    if engine == "piper":
+        model = str(settings.get("piper_model") or "")
+        return bool(_which("piper") and model and Path(model).is_file())
+    if engine == "google_tts":
+        return bool(settings.get("google_fallback")) and bool(_which("ffmpeg"))
+    if engine == "espeak":
+        return bool(settings.get("espeak_enabled", True)) and bool(_which("espeak-ng") or _which("espeak"))
+    if engine == "sonification":
+        return True
+    return False
+
+
+def voice_engine_status(config: Config) -> List[Dict[str, Any]]:
+    """Состояние цепочки движков для /doctor и `voice --engines`."""
+    settings = voice_settings(config)
+    now = time.time()
+    result: List[Dict[str, Any]] = []
+    for engine in settings.get("priority") or ENGINE_PRIORITY:
+        health = _load_health(config, engine)
+        blocked_for = max(0.0, float(health.get("blocked_until") or 0.0) - now)
+        ready = _engine_ready(config, engine, settings)
+        if not ready:
+            state = "missing"
+        elif blocked_for > 0:
+            state = "cooldown"
+        else:
+            state = "ok"
+        result.append({
+            "engine": engine,
+            "label": ENGINE_LABELS.get(engine, engine),
+            "state": state,
+            "ready": ready,
+            "blocked_for_s": int(blocked_for),
+            "last_error": str(health.get("last_error") or ""),
+            "failures": int(health.get("failures") or 0),
+        })
+    return result
+
+
+def format_voice_engines(config: Config) -> str:
+    lines: List[str] = []
+    for item in voice_engine_status(config):
+        icon = {"ok": "🟢", "cooldown": "🟡", "missing": "⚪"}.get(item["state"], "⚪")
+        detail = item["label"]
+        if item["state"] == "cooldown":
+            minutes = max(1, item["blocked_for_s"] // 60)
+            detail += f" · лимит, ещё ~{minutes} мин"
+        elif item["state"] == "missing":
+            detail += " · недоступен"
+        elif item["last_error"]:
+            detail += f" · последняя ошибка: {item['last_error'][:60]}"
+        lines.append(f"{icon} {detail}")
+    return "\n".join(lines)
 
 
 def voice_settings(config: Config) -> Dict[str, Any]:
@@ -56,6 +236,16 @@ def voice_settings(config: Config) -> Dict[str, Any]:
         "publish": str(raw.get("publish", "voice")),
         "piper_model": str(raw.get("piper_model", "")),
         "google_fallback": bool(raw.get("google_fallback", False)),
+        "priority": list(raw.get("priority") or ENGINE_PRIORITY),
+        "edge_failure_threshold": int((raw.get("edge") or {}).get("failure_threshold", 2)),
+        "edge_cooldown_minutes": int((raw.get("edge") or {}).get("cooldown_minutes", 60)),
+        "edge_max_cooldown_minutes": int((raw.get("edge") or {}).get("max_cooldown_minutes", 360)),
+        "google_failure_threshold": int((raw.get("google") or {}).get("failure_threshold", 1)),
+        "google_cooldown_minutes": int((raw.get("google") or {}).get("cooldown_minutes", 120)),
+        "google_max_cooldown_minutes": int((raw.get("google") or {}).get("max_cooldown_minutes", 360)),
+        "espeak_enabled": bool((raw.get("espeak") or {}).get("enabled", True)),
+        "espeak_voice": str((raw.get("espeak") or {}).get("voice", "ru")),
+        "espeak_speed": int((raw.get("espeak") or {}).get("speed", 150)),
     }
 
 
@@ -561,6 +751,7 @@ def _synthesize_edge(text: str, out_mp3: Path, voice: str, rate: str = "+0%") ->
 
         import edge_tts
     except ImportError:
+        _LAST_ERRORS["edge"] = "edge_tts not installed"
         return "", []
 
     candidates = [voice] + [item for item in EDGE_VOICES if item != voice]
@@ -595,6 +786,7 @@ def _synthesize_edge(text: str, out_mp3: Path, voice: str, rate: str = "+0%") ->
                     try:
                         boundaries = asyncio.run(synth_chunk(candidate, chunk, path))
                     except Exception as exc:
+                        _LAST_ERRORS["edge"] = f"{type(exc).__name__}: {exc}"[:240]
                         LOGGER.warning(
                             "edge-tts %s chunk %s attempt %s: %s",
                             candidate, index, attempt + 1, str(exc)[:90],
@@ -634,16 +826,20 @@ def _synthesize_edge(text: str, out_mp3: Path, voice: str, rate: str = "+0%") ->
                     LOGGER.warning("edge-tts concat: %s", (result.stderr or "")[:160])
                     continue
             if out_mp3.is_file() and out_mp3.stat().st_size > 1000:
+                _LAST_ERRORS.pop("edge", None)
                 return candidate, all_boundaries
+    _LAST_ERRORS.setdefault("edge", "empty audio from all Edge voices")
     return "", []
 
 
 def _synthesize_google(text: str, out_mp3: Path, lang: str = "ru") -> bool:
     """Резервный TTS без ключей: Google Translate TTS, куски ≤180 символов."""
     if not _which("ffmpeg"):
+        _LAST_ERRORS["google_tts"] = "ffmpeg missing"
         return False
     chunks = _tts_chunks(text, limit=180)
     if not chunks:
+        _LAST_ERRORS["google_tts"] = "empty text"
         return False
     with tempfile.TemporaryDirectory(prefix="sp_gtts_") as tmp:
         work = Path(tmp)
@@ -663,7 +859,12 @@ def _synthesize_google(text: str, out_mp3: Path, lang: str = "ru") -> bool:
                         path.write_bytes(response.content)
                         ok = True
                         break
-                except Exception:
+                    if response.status_code == 429:
+                        _LAST_ERRORS["google_tts"] = "HTTP 429 rate limit"
+                    else:
+                        _LAST_ERRORS["google_tts"] = f"HTTP {response.status_code} / empty audio"
+                except Exception as exc:
+                    _LAST_ERRORS["google_tts"] = f"{type(exc).__name__}: {exc}"[:240]
                     continue
             if not ok:
                 return False
@@ -682,44 +883,92 @@ def _synthesize_google(text: str, out_mp3: Path, lang: str = "ru") -> bool:
                 capture_output=True, text=True, timeout=180, check=False,
             )
             if result.returncode != 0:
+                _LAST_ERRORS["google_tts"] = f"ffmpeg concat: {(result.stderr or '')[:120]}"
                 return False
-    return out_mp3.is_file() and out_mp3.stat().st_size > 1000
+    ok = out_mp3.is_file() and out_mp3.stat().st_size > 1000
+    if ok:
+        _LAST_ERRORS.pop("google_tts", None)
+    else:
+        _LAST_ERRORS.setdefault("google_tts", "empty audio")
+    return ok
 
 
 def _synthesize_piper(text: str, out_wav: Path, model: str) -> bool:
     """Офлайн-синтез Piper (нужны бинарь `piper` и ONNX-модель)."""
     piper = _which("piper")
-    if not piper or not model or not Path(model).is_file():
+    if not piper:
+        _LAST_ERRORS["piper"] = "piper not installed"
+        return False
+    if not model or not Path(model).is_file():
+        _LAST_ERRORS["piper"] = "piper model missing"
         return False
     try:
         result = subprocess.run(
             [piper, "--model", model, "--output_file", str(out_wav)],
             input=text.encode("utf-8"), capture_output=True, timeout=300, check=False,
         )
-        return result.returncode == 0 and out_wav.is_file() and out_wav.stat().st_size > 1000
+        ok = result.returncode == 0 and out_wav.is_file() and out_wav.stat().st_size > 1000
+        if ok:
+            _LAST_ERRORS.pop("piper", None)
+        else:
+            _LAST_ERRORS["piper"] = (result.stderr or b"empty audio").decode("utf-8", "replace")[:240]
+        return ok
     except Exception as exc:
+        _LAST_ERRORS["piper"] = f"{type(exc).__name__}: {exc}"[:240]
         LOGGER.warning("piper: %s", exc)
+        return False
+
+
+def _synthesize_espeak(text: str, out_wav: Path, voice: str = "ru", speed: int = 150) -> bool:
+    """Rule-based TTS без нейросети: espeak-ng/espeak, офлайн."""
+    binary = _which("espeak-ng") or _which("espeak")
+    if not binary:
+        _LAST_ERRORS["espeak"] = "espeak-ng not installed"
+        return False
+    try:
+        result = subprocess.run(
+            [binary, "-v", voice, "-s", str(speed), "-w", str(out_wav)],
+            input=text.encode("utf-8"), capture_output=True, timeout=180, check=False,
+        )
+        ok = result.returncode == 0 and out_wav.is_file() and out_wav.stat().st_size > 1000
+        if ok:
+            _LAST_ERRORS.pop("espeak", None)
+        else:
+            _LAST_ERRORS["espeak"] = (result.stderr or b"empty audio").decode("utf-8", "replace")[:240]
+        return ok
+    except Exception as exc:
+        _LAST_ERRORS["espeak"] = f"{type(exc).__name__}: {exc}"[:240]
+        LOGGER.warning("espeak: %s", exc)
         return False
 
 
 def voice_available(config: Config) -> bool:
     """Доступен ли хоть один движок озвучки (для светофора /doctor)."""
     settings = voice_settings(config)
-    engine = settings["engine"]
-    if engine in ("edge", "auto"):
-        import importlib.util
-
-        if importlib.util.find_spec("edge_tts") is not None:
-            return True
-    if engine in ("piper", "auto"):
-        if _which("piper") and settings["piper_model"]:
-            return True
-    return False
+    engines = _candidate_engines(settings)
+    return any(engine != "sonification" and _engine_ready(config, engine, settings) for engine in engines)
 
 
-def _cache_key(text: str, settings: Dict[str, Any]) -> str:
-    payload = f"{text}|{settings['engine']}|{settings['voice']}|{settings['rate']}"
+def _candidate_engines(settings: Dict[str, Any]) -> List[str]:
+    """Порядок движков: явный engine → приоритет; sonification всегда последний."""
+    configured = str(settings.get("engine", "auto") or "auto")
+    priority = [str(item) for item in (settings.get("priority") or ENGINE_PRIORITY)]
+    if configured != "auto":
+        ordered = [configured, "sonification"]
+    else:
+        ordered = priority
+    if "sonification" not in ordered:
+        ordered.append("sonification")
+    return ordered
+
+
+def _cache_key(text: str, settings: Dict[str, Any], engine: str) -> str:
+    payload = f"{text}|{engine}|{settings.get('voice', '')}|{settings.get('rate', '')}"
     return hashlib.sha1(payload.encode("utf-8")).hexdigest()[:16]
+
+
+def _engine_paths(out_dir: Path, post_id: str, engine: str) -> Tuple[Path, Path]:
+    return out_dir / f"{post_id}.{engine}.mp3", out_dir / f"{post_id}.{engine}.key"
 
 
 def mix_voice_with_pad(
@@ -746,6 +995,17 @@ def mix_voice_with_pad(
     return result.returncode == 0 and Path(out_path).is_file()
 
 
+def _wav_to_mp3(wav_path: Path, mp3_path: Path) -> bool:
+    if not _which("ffmpeg"):
+        return False
+    result = subprocess.run(
+        ["ffmpeg", "-y", "-loglevel", "error", "-i", str(wav_path),
+         "-b:a", "96k", str(mp3_path)],
+        capture_output=True, text=True, timeout=180, check=False,
+    )
+    return result.returncode == 0 and mp3_path.is_file() and mp3_path.stat().st_size > 1000
+
+
 def synthesize(
     text: str,
     out_dir: str | Path,
@@ -755,57 +1015,91 @@ def synthesize(
     use_cache: bool = True,
     post: Any = None,
 ) -> Optional[VoiceArtifact]:
-    """Синтезирует речь и возвращает `VoiceArtifact` (или None при неудаче)."""
+    """Синтезирует речь с адаптивной цепочкой движков и circuit breaker.
+
+    Порядок: edge → piper → google_tts → espeak → sonification.
+    Кэш хранится по движку, поэтому возврат качественного движка после
+    лимита автоматически вытесняет низкокачественный fallback.
+    """
     settings = settings or voice_settings(config)
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     mp3_path = out_dir / f"{post_id}.mp3"
     ogg_path = out_dir / f"{post_id}.ogg"
     key_path = out_dir / f"{post_id}.key"
-    key = _cache_key(text, settings)
 
-    if use_cache and mp3_path.is_file() and key_path.is_file() and key_path.read_text(encoding="utf-8") == key:
-        if not ogg_path.is_file():
-            _to_voice_ogg(mp3_path, ogg_path)
-        duration = _duration_seconds(mp3_path)
-        vtt_path = mp3_path.with_suffix(".vtt")
-        if not vtt_path.is_file():
-            # Кэш без таймкодов: строим приблизительные субтитры по тексту.
-            write_subtitles(_approximate_segments(text, duration or 10.0), mp3_path)
-        return VoiceArtifact(post_id=post_id, text=text, mp3_path=str(mp3_path),
-                             ogg_path=str(ogg_path) if ogg_path.is_file() else "",
-                             duration_s=duration,
-                             engine=settings["engine"], voice=settings["voice"],
-                             vtt_path=str(vtt_path) if vtt_path.is_file() else "",
-                             srt_path=str(mp3_path.with_suffix(".srt")) if mp3_path.with_suffix(".srt").is_file() else "",
-                             words=_approximate_words(text, duration or 10.0))
-
-    engine = settings["engine"]
+    engines = _candidate_engines(settings)
     engine_used = voice_used = ""
     boundaries: List[Any] = []
     ok = False
-    if engine in ("edge", "auto"):
-        voice_used, boundaries = _synthesize_edge(text, mp3_path, settings["voice"], settings["rate"])
-        ok = bool(voice_used)
-        engine_used = "edge" if ok else ""
-    if not ok and engine in ("piper", "auto"):
-        wav_path = out_dir / f"{post_id}.wav"
-        if _synthesize_piper(text, wav_path, settings["piper_model"]) and _which("ffmpeg"):
-            convert = subprocess.run(
-                ["ffmpeg", "-y", "-loglevel", "error", "-i", str(wav_path), "-b:a", "96k", str(mp3_path)],
-                capture_output=True, text=True, timeout=180, check=False,
-            )
-            ok = convert.returncode == 0 and mp3_path.is_file()
-            engine_used, voice_used = ("piper", "piper") if ok else ("", "")
-        try:
-            wav_path.unlink()
-        except OSError:
-            pass
 
-    if not ok and settings.get("google_fallback") and engine in ("edge", "auto", "google"):
-        if _synthesize_google(text, mp3_path):
-            ok = True
-            engine_used, voice_used = "google_tts", "google-ru"
+    for engine in engines:
+        if engine == "sonification":
+            break
+        if not _engine_ready(config, engine, settings):
+            continue
+        cache_mp3, cache_key_path = _engine_paths(out_dir, post_id, engine)
+        key = _cache_key(text, settings, engine)
+        if use_cache and cache_mp3.is_file() and cache_key_path.is_file():
+            try:
+                if cache_key_path.read_text(encoding="utf-8") == key:
+                    shutil.copyfile(cache_mp3, mp3_path)
+                    engine_used = engine
+                    voice_used = (
+                        str(settings.get("voice") or DEFAULT_VOICE) if engine == "edge"
+                        else "piper" if engine == "piper"
+                        else "google-ru" if engine == "google_tts"
+                        else f"espeak-{settings.get('espeak_voice', 'ru')}"
+                    )
+                    ok = True
+                    break
+            except OSError:
+                pass
+        health_path = out_dir / "voice_health.json"
+        if _engine_blocked(config, engine, health_path):
+            LOGGER.info("voice %s: пропуск, cooldown", engine)
+            continue
+
+        tmp_mp3 = out_dir / f".{post_id}.{engine}.tmp.mp3"
+        tmp_wav = out_dir / f".{post_id}.{engine}.tmp.wav"
+        try:
+            if engine == "edge":
+                voice_used, boundaries = _synthesize_edge(
+                    text, tmp_mp3, str(settings.get("voice") or DEFAULT_VOICE),
+                    str(settings.get("rate") or "+0%"),
+                )
+                ok = bool(voice_used)
+            elif engine == "piper":
+                ok = _synthesize_piper(text, tmp_wav, str(settings.get("piper_model") or ""))
+                if ok:
+                    ok = _wav_to_mp3(tmp_wav, tmp_mp3)
+                voice_used = "piper" if ok else ""
+            elif engine == "google_tts":
+                ok = _synthesize_google(text, tmp_mp3)
+                voice_used = "google-ru" if ok else ""
+            elif engine == "espeak":
+                ok = _synthesize_espeak(
+                    text, tmp_wav, str(settings.get("espeak_voice") or "ru"),
+                    int(settings.get("espeak_speed") or 150),
+                )
+                if ok:
+                    ok = _wav_to_mp3(tmp_wav, tmp_mp3)
+                voice_used = f"espeak-{settings.get('espeak_voice', 'ru')}" if ok else ""
+            if ok and tmp_mp3.is_file() and tmp_mp3.stat().st_size > 1000:
+                shutil.copyfile(tmp_mp3, mp3_path)
+                shutil.copyfile(tmp_mp3, cache_mp3)
+                cache_key_path.write_text(key, encoding="utf-8")
+                _record_success(config, engine, health_path)
+                engine_used = engine
+                break
+            error = _LAST_ERRORS.get(engine, "no audio")
+            _record_failure(config, engine, error, settings, health_path)
+        finally:
+            for temp in (tmp_mp3, tmp_wav):
+                try:
+                    temp.unlink()
+                except OSError:
+                    pass
 
     if not ok and post is not None:
         # Эшелон 3: офлайн-сонификация (без TTS) → mp3/ogg.
@@ -831,7 +1125,7 @@ def synthesize(
                 pass
 
     if not ok:
-        LOGGER.warning("Озвучка не удалась для %s (движок %s)", post_id, engine)
+        LOGGER.warning("Озвучка не удалась для %s (движки: %s)", post_id, ", ".join(engines))
         return None
 
     # Двухслойное сведение: речь + гармонический пад (при ошибке — чистый mp3).
@@ -855,14 +1149,14 @@ def synthesize(
     _to_voice_ogg(mp3_path, ogg_path)
     if engine_used == "sonification_fallback":
         # Фоллбэк НЕ кэшируем: иначе сонификация остаётся под ключом настоящей
-        # речи и заглушает голос после восстановления TTS (реальный случай:
-        # пропавший edge-tts «залипал» в кэше до ручной чистки).
+        # речи и заглушает голос после восстановления TTS.
         try:
             key_path.unlink()
         except OSError:
             pass
     else:
-        key_path.write_text(key, encoding="utf-8")
+        key_path.write_text(_cache_key(text, settings, engine_used), encoding="utf-8")
+
     duration = _duration_seconds(mp3_path)
     segments = _boundaries_to_segments(boundaries) if boundaries else _approximate_segments(text, duration or 10.0)
     subtitles = write_subtitles(segments, mp3_path)

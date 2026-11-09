@@ -10,23 +10,41 @@
 
 | Движок | Сеть | Что нужно | Особенности |
 |:--|:--|:--|:--|
-| `edge` (по умолчанию) | нужна | `pip install edge-tts` | бесплатно, без ключей, голос `ru-RU-SvetlanaNeural` |
+| `edge` | нужна | `pip install edge-tts` | бесплатно, без ключей, голос `ru-RU-SvetlanaNeural` |
 | `piper` | не нужна | бинарь `piper` + ONNX-модель | офлайн-синтез в духе офлайн-бункера |
-| `google_tts` | нужна | ничего, без ключей | резервный Google Translate TTS, куски ≤180 символов |
+| `google_tts` | нужна | `ffmpeg`, без ключей | резервный Google Translate TTS, куски ≤180 символов |
+| `espeak` | не нужна | `espeak-ng` | rule-based TTS без нейросети, последний голосовой рубеж |
+| `sonification` | не нужна | `ffmpeg` | научный звук формулы без слов |
 
-## Эшелоны: что происходит, если движка нет
+## Адаптивная цепочка и лимиты
 
-1. **`edge`** — основной путь (нужна сеть).
-2. **`piper`** — офлайн-нейросинтез, если установлен бинарь и задана модель.
-3. **`google_tts`** — резервный онлайн-путь без ключей; **по умолчанию
-   выключен** (`voice.google_fallback: false`), чтобы не подменять эталонный
-   голос Светланы. Включается вручную.
-4. **Сонификация (`sound.py`)** — если ни один TTS не сработал: пост превращается
-   в научный звук (гармоники формулы, без слов). Аудио всё равно появляется,
-   и публикация не падает.
+Порядок по умолчанию:
 
-Если недоступен и третий эшелон — озвучка **мягко пропускается**, пост выходит
-с карточкой и текстом.
+```text
+edge → piper → google_tts → espeak → sonification
+```
+
+Для каждого движка хранится состояние в `data/audio/voice_health.json`:
+`failures`, `blocked_until`, `last_error`, `last_kind`, `last_ok`.
+
+- успех — счётчик сбоев сбрасывается;
+- HTTP 429 / лимит — движок уходит в cooldown (60 мин, затем 2 ч, 4 ч, максимум 6 ч);
+- таймаут/сеть — cooldown 10–15 мин;
+- пустой/битый звук — cooldown 10 мин;
+- после cooldown движок снова пробуется автоматически;
+- если облачный движок в лимите, работают остальные;
+- если не осталось ни одного TTS — включается сонификация.
+
+Кэш хранится **по движку** (`<id>.edge.mp3`, `<id>.piper.mp3`, …), поэтому
+возврат качественного движка после лимита автоматически вытесняет fallback.
+Сонификация не кэшируется.
+
+Посмотреть состояние:
+
+```bash
+python -m science_pulse.cli voice --engines
+python -m science_pulse.cli doctor
+```
 
 ⚠️ Сонификация **не кэшируется**: у неё не пишется `<id>.key`. Иначе, когда TTS
 пропадёт из окружения (например, после переустановки Python без `edge-tts`),
@@ -34,14 +52,20 @@
 после восстановления движка. Диагностика и чистка:
 
 ```bash
-python -m science_pulse.cli preflight        # 🟢 voice: edge-tts/piper готов
+python -m science_pulse.cli preflight        # 🟢 voice: TTS-цепочка готова
 python -c "import edge_tts; print('ok')"     # есть ли движок в этом Python
 ffprobe -v error -show_entries format=bit_rate -of csv=p=0 data/audio/<id>.mp3
 #  48 000 / ~32 000 бит/с — речь диктора;  ~96 000 и секунды длительности — сонификация
 rm -f data/audio/<id>.key                    # снять кэш и переозвучить пост
 ```
 
-Установка движка в окружении без `pip` (проверено вживую):
+Офлайн-резерв без нейросети:
+
+```bash
+sudo apt-get install -y espeak-ng
+```
+
+Установка edge-tts в окружении без `pip` (проверено вживую):
 
 ```bash
 uv pip install --python python3 --target "$(python3 -c 'import site; print(site.getusersitepackages())')" 'edge-tts>=7.0'
@@ -93,13 +117,26 @@ uv pip install --python python3 --target "$(python3 -c 'import site; print(site.
 ```yaml
 voice:
   enabled: true
-  engine: "edge"                  # auto | edge | piper
+  engine: "auto"                  # auto | edge | piper | google_tts | espeak
   voice: "ru-RU-SvetlanaNeural"
   rate: "+0%"
   max_chars: 750                  # ≈55 секунд речи
   publish: "voice"                # voice (OGG/OPUS) | audio (MP3-подкаст)
   piper_model: ""                 # путь к ONNX-модели для офлайн-синтеза
-  google_fallback: true           # резервный Google TTS при сбое edge/piper
+  priority: ["edge", "piper", "google_tts", "espeak", "sonification"]
+  edge:
+    failure_threshold: 2
+    cooldown_minutes: 60
+    max_cooldown_minutes: 360
+  google:
+    failure_threshold: 1
+    cooldown_minutes: 120
+    max_cooldown_minutes: 360
+  espeak:
+    enabled: true
+    voice: "ru"
+    speed: 150
+  google_fallback: true           # резервный Google TTS после edge/piper
 ```
 
 ## Короткая озвучка book-фильма
@@ -125,18 +162,20 @@ voice:
 
 ## Кэш и детерминированность
 
-Файлы лежат в `data/audio/<id>.mp3|.ogg` (+ `<id>.vtt`/`.srt` — субтитры),
-рядом `<id>.key` — хэш текста и настроек. Повторный запуск не переозвучивает
-пост, пока текст не изменился (субтитры при этом досоздаются).
+Итоговый файл — `data/audio/<id>.mp3|.ogg` (+ `<id>.vtt`/`.srt` — субтитры).
+Кэш каждого движка лежит отдельно: `<id>.edge.mp3`, `<id>.piper.mp3`,
+`<id>.google_tts.mp3`, `<id>.espeak.mp3` с ключами `<id>.<engine>.key`.
+Повторный запуск не переозвучивает пост, пока текст не изменился.
 
-Ключ пишется **только для настоящего синтеза** (`edge`/`piper`). Фоллбэк-сонификация
-ключ не пишет и снимает старый, поэтому возвращение движка автоматически
-возвращает голос — без ручной чистки кэша.
+Ключ пишется **только для настоящего синтеза**. Фоллбэк-сонификация ключ не
+пишет и снимает `<id>.key`, поэтому возвращение качественного движка
+автоматически возвращает голос — без ручной чистки кэша.
 
 ## Команды
 
 ```bash
 python -m science_pulse.cli voice --post-id <id>       # озвучить пост
+python -m science_pulse.cli voice --engines            # состояние TTS и лимитов
 python -m science_pulse.cli voice --status ready --limit 3
 python -m science_pulse.cli voice --post-id <id> --text-only   # только текст
 python -m science_pulse.cli doctor                     # светофор: строка «Озвучка постов»
