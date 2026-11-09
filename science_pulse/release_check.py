@@ -33,7 +33,9 @@ def check_cloudflare(config: Any, http_get: Optional[Callable[..., Any]] = None)
             "secret": _present(secret),
             "wrangler": bool(wrangler),
             "worker": worker.is_file(),
-            "steps": [
+            "steps": ([
+                "npm install -g wrangler",
+            ] if not wrangler else []) + [
                 "cd cloudflare",
                 "wrangler d1 create science-pulse",
                 "wrangler d1 execute science-pulse --file=schema.sql",
@@ -129,6 +131,7 @@ def format_release(report: Dict[str, Any]) -> str:
     if cloudflare.get("url"):
         lines.append(f"   URL: <code>{cloudflare['url']}</code>")
     lines.append(f"   INGEST_SECRET: {'задан' if cloudflare.get('secret') else 'не задан'}")
+    lines.append(f"   wrangler: {'есть' if cloudflare.get('wrangler') else 'нет'} · worker.js: {'есть' if cloudflare.get('worker') else 'нет'}")
     steps = list(threads.get("steps") or []) + list(cloudflare.get("steps") or [])
     if steps:
         lines.append("")
