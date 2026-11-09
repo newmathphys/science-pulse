@@ -150,7 +150,7 @@ class TelegramPublisher(Publisher):
             meta={"video": str(path), "card_file_id": card and None},
         )
 
-    def send_video(self, path: str | Path, caption: str = "") -> bool:
+    def send_video(self, path: str | Path, caption: str = "", reply_to: Optional[int] = None) -> bool:
         """Отправляет микро-видео (MP4/GIF) со звуком в канал."""
         if not self.available():
             return False
@@ -163,6 +163,8 @@ class TelegramPublisher(Publisher):
         }
         if self.thread_id:
             data["message_thread_id"] = self.thread_id
+        if reply_to is not None:
+            data["reply_to_message_id"] = str(reply_to)
         try:
             with open(path, "rb") as handle:
                 response = requests.post(
