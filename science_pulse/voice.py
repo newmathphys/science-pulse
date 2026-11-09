@@ -272,7 +272,61 @@ def _speech_clean(value: str) -> str:
     text = re.sub(r"[\U0001F300-\U0001FAFF\u2600-\u27BF\uFE0F]", " ", text)
     text = re.sub(r"[#*_>|]+", " ", text)
     text = re.sub(r"\s+", " ", text)
-    return text.strip()
+    return normalize_russian_for_tts(text.strip())
+
+
+_ORDINALS = {
+    1: ("первый", "первого", "первом"), 2: ("второй", "второго", "втором"),
+    3: ("третий", "третьего", "третьем"), 4: ("четвёртый", "четвёртого", "четвёртом"),
+    5: ("пятый", "пятого", "пятом"), 6: ("шестой", "шестого", "шестом"),
+    7: ("седьмой", "седьмого", "седьмом"), 8: ("восьмой", "восьмого", "восьмом"),
+    9: ("девятый", "девятого", "девятом"), 10: ("десятый", "десятого", "десятом"),
+    11: ("одиннадцатый", "одиннадцатого", "одиннадцатом"),
+    12: ("двенадцатый", "двенадцатого", "двенадцатом"),
+    13: ("тринадцатый", "тринадцатого", "тринадцатом"),
+    14: ("четырнадцатый", "четырнадцатого", "четырнадцатом"),
+    15: ("пятнадцатый", "пятнадцатого", "пятнадцатом"),
+    16: ("шестнадцатый", "шестнадцатого", "шестнадцатом"),
+    17: ("семнадцатый", "семнадцатого", "семнадцатом"),
+    18: ("восемнадцатый", "восемнадцатого", "восемнадцатом"),
+    19: ("девятнадцатый", "девятнадцатого", "девятнадцатом"),
+    20: ("двадцатый", "двадцатого", "двадцатом"),
+    21: ("двадцать первый", "двадцать первого", "двадцать первом"),
+}
+_ROMAN = {"I":1,"II":2,"III":3,"IV":4,"V":5,"VI":6,"VII":7,"VIII":8,"IX":9,"X":10,
+          "XI":11,"XII":12,"XIII":13,"XIV":14,"XV":15,"XVI":16,"XVII":17,"XVIII":18,
+          "XIX":19,"XX":20,"XXI":21}
+
+
+def normalize_russian_for_tts(text: str) -> str:
+    """Разворачивает сокращения, чтобы TTS не читал «даэнэ» и «г.». """
+    value = str(text or "")
+    value = re.sub(r"\bдо\s*н\.\s*э\.", "до нашей эры", value, flags=re.I)
+    value = re.sub(r"\bн\.\s*э\.", "нашей эры", value, flags=re.I)
+    value = re.sub(r"\b(\d{1,4})\s*г\.", r"\1 года", value)
+    value = re.sub(r"\b3D\b", "три-дэ", value)
+    value = re.sub(r"\bL2\b", "эль-два", value)
+    value = re.sub(r"\bGPS\b", "джи-пи-эс", value)
+
+    def century(match: re.Match[str]) -> str:
+        raw, suffix = match.group(1), match.group(2).lower()
+        number = _ROMAN.get(raw.upper())
+        if number is None:
+            try:
+                number = int(raw)
+            except ValueError:
+                return match.group(0)
+        forms = _ORDINALS.get(number)
+        if not forms:
+            return match.group(0)
+        if suffix.startswith("веке"):
+            return f"{forms[2]} веке"
+        if suffix.startswith("века"):
+            return f"{forms[1]} века"
+        return f"{forms[0]} век"
+
+    value = re.sub(r"\b(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX|XXI|\d{1,2})\s*(век[ае]?|в\.)\b", century, value, flags=re.I)
+    return value
 
 
 # Фонетический словарь формул: печатный текст не меняется, меняется только речь.
@@ -616,51 +670,58 @@ def write_subtitles(segments: List[Any], base_path: str | Path) -> Dict[str, str
     return {"vtt": str(vtt_path), "srt": str(srt_path)}
 
 
-def build_film_blocks(post: Post) -> List[str]:
-    """5 смысловых блоков для синхронного книжного видео."""
+def verified_example(post: Post) -> str:
+    """Только проверенный числовой пример; без случайных чисел из текста."""
     meta = getattr(post, "meta", {}) or {}
-    section = str(meta.get("section_num") or "").strip()
-    era = str(meta.get("era") or "").strip()
-    scientist = str(meta.get("scientist") or post.source_name or "учёный").strip()
-    lineage = meta.get("source_lineage") if isinstance(meta.get("source_lineage"), dict) else {}
-    primary = str((lineage or {}).get("primary_work") or "").strip()
-    title = _strip_links_tags(_speech_clean(post.title))
-    block1 = " ".join(part for part in (
-        f"Раздел {section}." if section else "",
-        f"{era}." if era else "",
-        f"{scientist}.",
-        f"{title[:80]}." if title else "",
-    ) if part)
+    canon_id = str(meta.get("canon_id") or meta.get("foundation_id") or "")
+    if canon_id == "pythagoras":
+        return "Если катеты равны трём и четырём, то гипотенуза равна пяти."
+    if canon_id == "euclid_gcd":
+        return "Для чисел 1071 и 462 наибольший общий делитель равен 21."
+    if canon_id == "newton_gravity":
+        return "Если увеличить расстояние в три раза, сила уменьшится в девять раз."
+    try:
+        from .challenge import build_challenge
 
-    hook = _strip_links_tags(_speech_clean(post.hook or ""))
+        data = build_challenge(post) or {}
+        if data.get("verified") and data.get("answer"):
+            return f"{data.get('question', '')} {data['answer']}".strip()
+    except Exception:
+        pass
+    return ""
+
+
+def _body_sentences(post: Post) -> List[str]:
     body = _strip_links_tags(_speech_clean(post.body or ""))
-    first_sentence = re.split(r"(?<=[.!?])\s+", body)[0] if body else ""
-    block2 = f"Вопрос: {hook} Суть: {first_sentence[:110]}.".strip()
+    return [part.strip() for part in re.split(r"(?<=[.!?])\s+", body) if part.strip()]
 
-    formula = post.formula_plain or post.formula_latex or ""
-    spoken_formula = math_to_spoken_russian(formula_to_unicode(formula, 220)) if formula else "формула"
-    variables = str(meta.get("formula_vars") or "").strip()
-    if not variables:
-        used = [str(item) for item in (meta.get("constants_used") or [])]
-        variables = ", ".join(used[:6])
-    block3 = f"Формула: {spoken_formula}."
-    if variables:
-        block3 += f" Где: {variables[:70]}."
 
-    computed = str(meta.get("computed_example") or "").strip()
-    if not computed:
-        numbers = re.findall(r"\d+(?:[.,]\d+)?", f"{post.formula_plain} {post.body}")[:3]
-        computed = ("Подставим эталонные значения " + ", ".join(numbers) + " и проверим результат."
-                    if numbers else "Подставим эталонные значения и проверим результат.")
-    block4 = f"Проверка: {computed[:90]}"
-
+def build_film_blocks(post: Post) -> List[str]:
+    """5 естественных блоков речи без казённых меток и без чтения формул."""
+    meta = getattr(post, "meta", {}) or {}
+    scientist = str(meta.get("scientist") or post.source_name or "учёный").strip()
+    era = _strip_links_tags(_speech_clean(str(meta.get("era") or "")))
+    title = _strip_links_tags(_speech_clean(post.title))
+    hook = _strip_links_tags(_speech_clean(post.hook or ""))
+    sentences = _body_sentences(post)
+    first = sentences[0] if sentences else ""
+    second = sentences[1] if len(sentences) > 1 else ""
+    example = verified_example(post)
     application = _strip_links_tags(_speech_clean(str(meta.get("modern_application") or "")))
-    unlocks = [str(item) for item in (meta.get("unlocks_concepts") or [])][:3]
-    block5 = f"Применение: {application or 'наука и инженерия'}."
-    if unlocks:
-        block5 += f" Дальше: {', '.join(unlocks[:2])}."
-    return [block1, block2, block3, block4, block5]
+    unlocks = [str(item) for item in (meta.get("unlocks_concepts") or [])][:2]
 
+    block1 = " ".join(part for part in (
+        f"{scientist}." if scientist else "",
+        f"{era}." if era else "",
+        f"{title}." if title else "",
+    ) if part)
+    block2 = f"{hook} {first}".strip()
+    block3 = second or "Формула связывает величины, которые разобраны в тексте."
+    block4 = example or (sentences[2] if len(sentences) > 2 else "")
+    block5 = f"Сегодня это применяется: {application}." if application else ""
+    if unlocks:
+        block5 += f" Дальше — {', '.join(unlocks)}."
+    return [block1, block2, block3, block4, block5]
 
 def build_film_script(post: Post) -> str:
     return " ".join(block for block in build_film_blocks(post) if block)

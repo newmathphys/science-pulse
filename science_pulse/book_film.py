@@ -38,7 +38,7 @@ from .cards_academic import (
 )
 from .models import Post
 from .plotting import evaluate_curve
-from .voice import VoiceArtifact, build_film_blocks, build_lecture_script, film_voice_for_post, voice_for_post
+from .voice import VoiceArtifact, build_film_blocks, build_lecture_script, film_voice_for_post, verified_example, voice_for_post
 
 LOGGER = logging.getLogger(__name__)
 
@@ -413,6 +413,11 @@ def _act_times(text: str, words: Sequence[Tuple[float, float, str]], duration: f
     return times[:5]
 
 
+def _sentences(post: Post) -> List[str]:
+    body = str(getattr(post, "body", "") or "")
+    return [part.strip() for part in re.split(r"(?<=[.!?])\s+", body) if part.strip()]
+
+
 def _draw_text_block(draw: ImageDraw.ImageDraw, text: str, x: int, y: int, width: int,
                      size: int, color: Any = INK, bold: bool = False,
                      line_gap: int = 8, max_lines: int = 5) -> int:
@@ -579,7 +584,32 @@ class BookFilmScene:
         elif isinstance(timeline, list):
             _draw_timeline(draw, timeline, box, progress, s)
         else:
-            self._draw_simple_curve(draw, box, s, progress)
+            self._draw_concept_cards(draw, box, s, progress)
+
+    def _draw_concept_cards(self, draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, int],
+                            s: float, progress: float) -> None:
+        left, top, right, bottom = box
+        sentences = _sentences(self.post)
+        cards = [
+            ("I. ПОСТАНОВКА", self.post.hook or self.post.title),
+            ("II. СУТЬ", sentences[0] if sentences else self.post.body[:180]),
+            ("III. ПРИМЕНЕНИЕ", str((self.post.meta or {}).get("modern_application") or "Наука и инженерия")),
+        ]
+        card_h = int((bottom - top - 40 * s) / 3) - int(12 * s)
+        y = top + int(10 * s)
+        for index, (head, body) in enumerate(cards):
+            if progress < index / 3.0:
+                break
+            draw.rounded_rectangle((left + int(12 * s), y, right - int(12 * s), y + card_h),
+                                   radius=int(10 * s), outline=RULE, width=max(1, int(2 * s)))
+            draw.text((left + int(26 * s), y + int(10 * s)), head, fill=ACCENT,
+                      font=_serif_font(max(12, int(20 * s)), bold=True, mono=True))
+            _draw_text_block(draw, str(body), left + int(26 * s), y + int(38 * s),
+                             right - left - int(52 * s), int(22 * s), INK, False, int(5 * s), 3)
+            if index < 2:
+                draw.line((left + int(30 * s), y + card_h, left + int(30 * s), y + card_h + int(12 * s)),
+                          fill=ACCENT, width=max(1, int(2 * s)))
+            y += card_h + int(12 * s)
 
     def _draw_triangle(self, draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, int], s: float) -> None:
         left, top, right, bottom = box
@@ -633,31 +663,27 @@ class BookFilmScene:
     def _draw_formula_scene(self, image: Image.Image, draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, int],
                             s: float, meta: Dict[str, Any]) -> None:
         left, top, right, bottom = box
-        draw.text((left, top + int(18 * s)), "РАЗБОР ФОРМУЛЫ", fill=MUTED,
+        draw.text((left, top + int(18 * s)), "СМЫСЛ ФОРМУЛЫ", fill=MUTED,
                   font=_serif_font(max(12, int(20 * s)), bold=True, mono=True))
-        meanings = {
-            "G": "гравитационная постоянная", "m": "масса тела", "M": "масса центрального тела",
-            "r": "расстояние между центрами", "R": "радиус", "F": "сила", "v": "скорость",
-            "T": "период", "E": "энергия", "p": "импульс", "N": "число элементов",
-            "P": "доля/вероятность", "n": "индекс/число", "c": "скорость света",
-            "h": "постоянная Планка", "k": "коэффициент", "t": "время",
+        canon_id = str(meta.get("canon_id") or meta.get("foundation_id") or "")
+        known = {
+            "pythagoras": "a, b — катеты прямоугольного треугольника; c — гипотенуза; xᵢ — координаты вектора.",
+            "euclid_gcd": "a, b — целые числа; gcd — наибольший общий делитель; O(log n) — число шагов.",
+            "newton_gravity": "F — сила; G — гравитационная постоянная; m₁, m₂ — массы; r — расстояние; v₁ — первая космическая скорость.",
         }
-        variables = str(meta.get("formula_vars") or "").strip()
+        variables = str(meta.get("formula_vars") or "").strip() or known.get(canon_id, "")
         if not variables:
-            formula = f"{self.post.formula_plain} {self.post.formula_latex}"
-            symbols = []
-            for symbol in re.findall(r"\b[A-Za-z]\b", formula):
-                if symbol not in symbols:
-                    symbols.append(symbol)
-            variables = ", ".join(symbols[:6])
-        lines = [part.strip() for part in re.split(r"[,;]", variables) if part.strip()][:5]
-        y = top + int(70 * s)
-        for line in lines:
-            key = line[:1]
-            meaning = meanings.get(key, "величина в формуле")
-            draw.text((left + int(20 * s), y), f"▸ {line} — {meaning}", fill=INK,
-                      font=_serif_font(max(12, int(24 * s))))
-            y += int(40 * s)
+            _draw_text_block(draw, "Подробный смысл величин — в тексте под видео.",
+                             left + int(20 * s), top + int(70 * s), right - left - int(40 * s),
+                             int(24 * s), MUTED, False, int(6 * s), 3)
+            return
+        _draw_text_block(draw, variables, left + int(20 * s), top + int(70 * s),
+                         right - left - int(40 * s), int(26 * s), INK, False, int(8 * s), 3)
+        lower = (left + int(20 * s), top + int(210 * s), right - int(20 * s), bottom - int(10 * s))
+        if canon_id == "pythagoras" or "a² + b² = c²" in str(self.post.formula_plain or ""):
+            self._draw_triangle(draw, lower, s * 0.8)
+        else:
+            self._draw_simple_curve(draw, lower, s * 0.8, 1.0)
 
     def _draw_computation(self, draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, int],
                           s: float, progress: float, meta: Dict[str, Any]) -> None:
@@ -665,17 +691,22 @@ class BookFilmScene:
         if self.post.code:
             _draw_code(draw, self.post, box, progress, s)
             return
-        computed = str(meta.get("computed_example") or "").strip()
-        numbers = re.findall(r"\d+(?:[.,]\d+)?", f"{self.post.formula_plain} {self.post.body}")[:4]
-        draw.text((left, top + int(18 * s)), "ВЫЧИСЛИТЕЛЬНАЯ ПРОВЕРКА", fill=MUTED,
+        example = verified_example(self.post)
+        draw.text((left, top + int(18 * s)), "ЧИСЛОВОЙ ПРИМЕР", fill=MUTED,
                   font=_serif_font(max(12, int(20 * s)), bold=True, mono=True))
-        draw.text((left, top + int(58 * s)), "Подстановка эталонных значений", fill=INK,
-                  font=_serif_font(max(16, int(30 * s)), bold=True))
-        for index, number in enumerate(numbers):
-            draw.text((left + int(24 * s), top + int(110 * s) + index * int(40 * s)), f"{index + 1}. {number}",
-                      fill=ACCENT, font=_serif_font(max(14, int(26 * s)), mono=True))
-        if computed:
-            draw.text((left, top + int(280 * s)), computed[:100], fill=INK, font=_serif_font(max(12, int(22 * s))))
+        if example:
+            _draw_text_block(draw, example, left + int(10 * s), top + int(65 * s),
+                             right - left - int(20 * s), int(30 * s), INK, True, int(10 * s), 3)
+        else:
+            _draw_text_block(draw, "Точный числовой пример — в тексте под видео.",
+                             left + int(10 * s), top + int(65 * s),
+                             right - left - int(20 * s), int(24 * s), MUTED, False, int(6 * s), 2)
+        lower = (left + int(20 * s), top + int(220 * s), right - int(20 * s), bottom - int(10 * s))
+        canon_id = str(meta.get("canon_id") or meta.get("foundation_id") or "")
+        if canon_id == "pythagoras" or "a² + b² = c²" in str(self.post.formula_plain or ""):
+            self._draw_triangle(draw, lower, s * 0.8)
+        else:
+            self._draw_simple_curve(draw, lower, s * 0.8, 1.0)
 
     def _draw_application(self, draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, int],
                           s: float, meta: Dict[str, Any]) -> None:
@@ -687,10 +718,16 @@ class BookFilmScene:
         _draw_text_block(draw, application, left, top + int(60 * s), right - left,
                          int(32 * s), INK, True, int(8 * s), 4)
         if unlocks:
-            draw.text((left, top + int(230 * s)), "Открывает путь к:", fill=ACCENT,
+            draw.text((left, top + int(190 * s)), "Открывает путь к:", fill=ACCENT,
                       font=_serif_font(max(12, int(22 * s)), bold=True))
-            _draw_text_block(draw, ", ".join(unlocks), left, top + int(265 * s), right - left,
-                             int(24 * s), MUTED, False, int(6 * s), 3)
+            _draw_text_block(draw, ", ".join(unlocks), left, top + int(220 * s), right - left,
+                             int(22 * s), MUTED, False, int(6 * s), 2)
+        lower = (left + int(20 * s), top + int(280 * s), right - int(20 * s), bottom - int(10 * s))
+        canon_id = str(meta.get("canon_id") or meta.get("foundation_id") or "")
+        if canon_id == "pythagoras" or "a² + b² = c²" in str(self.post.formula_plain or ""):
+            self._draw_triangle(draw, lower, s * 0.8)
+        else:
+            self._draw_simple_curve(draw, lower, s * 0.8, 1.0)
 
 def _mux(frames_dir: Path, audio_path: Optional[Path], out_path: Path, fps: float) -> bool:
     if not book_film_available():

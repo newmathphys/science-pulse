@@ -55,8 +55,20 @@
     "aspect": "1:1",
     "path": "data/book_films/b063d20371654588_1x1.mp4",
     "engine": "book",
-    "bytes": 844306,
-    "sha256_16": "0c33a7a349b4e845",
-    "created_at": "2026-11-09T13:11:17+00:00"
+    "bytes": 796666,
+    "sha256_16": "acccc6570741b3f7",
+    "created_at": "2026-11-09T13:40:29+00:00"
+  },
+  "daa96f8f158c6deb:book:1:1": {
+    "key": "daa96f8f158c6deb:book:1:1",
+    "post_id": "daa96f8f158c6deb",
+    "title": "Евклид: алгоритм НОД — древнейший рабочий алгоритм",
+    "style": "book",
+    "aspect": "1:1",
+    "path": "data/book_films/daa96f8f158c6deb_1x1.mp4",
+    "engine": "book",
+    "bytes": 935107,
+    "sha256_16": "0547f4a384c18621",
+    "created_at": "2026-11-09T13:41:27+00:00"
   }
 }
