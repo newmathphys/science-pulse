@@ -823,6 +823,11 @@ def cmd_film(args: argparse.Namespace) -> int:
 
         available, build = book_film_available, book_film_for_post
         label = "book-фильм"
+    elif style == "explainer":
+        from .explainer_film import explainer_film_available, explainer_film_for_post
+
+        available, build = explainer_film_available, explainer_film_for_post
+        label = "Explainer"
     else:
         from .moku_film import film_available, film_for_post
 
@@ -845,16 +850,31 @@ def cmd_film(args: argparse.Namespace) -> int:
         print(f"Не удалось собрать {label}.", file=sys.stderr)
         return 1
     print(f"Фильм: {path} ({path.stat().st_size // 1024} КБ)")
+    from .video_registry import register_video
+
+    register_video(pipeline.config, post, style, str(aspect or "auto"), path, engine=style)
     if getattr(args, "send", False):
         from .admin import TelegramAdmin
 
         admin = TelegramAdmin(pipeline.config, pipeline)
-        if admin.send_video(path, f"Moku3D · {post.title}"):
+        if admin.send_video(path, f"{label} · {post.title}"):
             print("Отправлено в админ-чат.")
         else:
             print("Не удалось отправить в админ-чат.", file=sys.stderr)
             return 1
     _checkpoint(pipeline)
+    return 0
+
+
+def cmd_videos(args: argparse.Namespace) -> int:
+    """Реестр сгенерированных видео."""
+    from .video_registry import format_registry, list_videos
+
+    pipeline = _pipeline(args)
+    if getattr(args, "json", False):
+        print(json.dumps(list_videos(pipeline.config), ensure_ascii=False, indent=2))
+    else:
+        print(format_registry(pipeline.config))
     return 0
 
 
@@ -1619,12 +1639,12 @@ def build_parser() -> argparse.ArgumentParser:
     recard.set_defaults(func=cmd_recard)
 
     theme = subparsers.add_parser("theme", help="дизайн выпуска: A/B-рейтинг или переключение")
-    theme.add_argument("name", nargs="?", help="auto|academic|3b1b|blueprint|moku3d|bookfilm")
+    theme.add_argument("name", nargs="?", help="auto|academic|3b1b|blueprint|moku3d|bookfilm|explainer")
     theme.set_defaults(func=cmd_theme)
 
     film = subparsers.add_parser("film", help="5-актовый фильм Moku3D (moku_film)")
-    film.add_argument("--style", default="moku3d", choices=["moku3d", "book"],
-                      help="видео-движок: moku3d (тёмный 3D) или book (книжная страница)")
+    film.add_argument("--style", default="moku3d", choices=["moku3d", "book", "explainer"],
+                      help="видео-движок: moku3d, book или explainer (инфографика)")
     film.add_argument("--post-id", default=None, help="id поста (по умолчанию — следующий)")
     film.add_argument("--domain", default=None, choices=["math", "physics", "cs"])
     film.add_argument("--aspect", default=None, choices=["1:1", "9:16"],
@@ -1639,6 +1659,10 @@ def build_parser() -> argparse.ArgumentParser:
     next_parser = subparsers.add_parser("next", help="что осталось до релиза: Threads + Cloudflare")
     next_parser.add_argument("--json", action="store_true")
     next_parser.set_defaults(func=cmd_next)
+
+    videos = subparsers.add_parser("videos", help="реестр сгенерированных видео")
+    videos.add_argument("--json", action="store_true")
+    videos.set_defaults(func=cmd_videos)
 
     watch = subparsers.add_parser("watch", help="мониторинг changelog'ов Telegram/Threads/Cloudflare/GitHub")
     watch.add_argument("--json", action="store_true")

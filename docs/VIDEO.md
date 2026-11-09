@@ -108,6 +108,22 @@ python -m unittest tests.test_sound_video -v
 ffprobe -v error -show_entries stream=codec_name -of default=nw=1 data/video/<id>.mp4
 ```
 
+## Explainer-фильм (`explainer_film.py`)
+
+Инфографика в стиле «Закон Амдала»: HUD, 5 сцен, бегущий счётчик формулы,
+waffle-grid 5×8, караоке-субтитры с цветной плашкой. Чистый код.
+Подробно: `docs/EXPLAINER.md`.
+
+```bash
+./sp film --style explainer --post-id <id> --aspect 9:16
+```
+
+Реестр всех собранных видео:
+
+```bash
+./sp videos
+```
+
 ## Book-фильм (`book_film.py`)
 
 Отдельный светлый видео-движок рядом с тёмным `moku_film`:

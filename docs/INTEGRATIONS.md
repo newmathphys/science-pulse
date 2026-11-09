@@ -281,9 +281,10 @@ cooldown — `docs/VOICE.md`.
 
 ## 9. LLM и перевод
 
-- **LLM сейчас не используется.** `./sp check` содержит гейты `no_llm` и
-  `no_ai_translation`.
-- Перевод (`gtx`/MyMemory/deep-translator) выключен: `translate: false`.
+- **LLM сейчас не используется.** `./sp check` содержит гейт `no_llm`.
+- Перевод (`gtx`/MyMemory/deep-translator) включён: `translate: true`,
+  `SP_TRANSLATE=1`. Это бесплатный машинный перевод, не LLM; формулы и код
+  защищены.
 - Будущий LLM — только отдельный плагин, выключенный по умолчанию; ядро
   остаётся без LLM.
 

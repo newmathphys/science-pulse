@@ -514,7 +514,7 @@ def render_card(
             blueprint = None
         if blueprint:
             return blueprint
-    if resolved in ("academic", "moku3d", "bookfilm"):
+    if resolved in ("academic", "moku3d", "bookfilm", "explainer"):
         try:
             from .cards_academic import render_academic_card
 

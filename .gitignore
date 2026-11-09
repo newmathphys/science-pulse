@@ -35,3 +35,8 @@ data/book_films/
 
 # Cloudflare Wrangler cache
 .wrangler/
+
+# Piper ONNX-модели (скачиваются локально)
+data/piper/
+
+data/explainer_films/

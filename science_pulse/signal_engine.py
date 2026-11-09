@@ -165,7 +165,7 @@ class SignalVolumeMatcher:
         if meta.get("lab") or meta.get("simulation"):
             visual_bonus += 0.35
         variant = meta.get("design_variant") if isinstance(meta.get("design_variant"), dict) else {}
-        if variant.get("theme") in ("moku3d", "3b1b", "blueprint"):
+        if variant.get("theme") in ("moku3d", "bookfilm", "explainer", "3b1b", "blueprint"):
             visual_bonus += 0.25
         dynamic_range = min(2.2, 1.0 + visual_bonus)
         volume = (duration / 10.0) * bandwidth * dynamic_range

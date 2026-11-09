@@ -94,6 +94,7 @@ jobs:
           STACKEXCHANGE_API_KEY: ${{ secrets.STACKEXCHANGE_API_KEY }}
           SP_SITE_BASE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
           SP_SITE_TITLE: Science Pulse
+          SP_TRANSLATE: "1"
         run: |
           COMMAND="${{ github.event.inputs.command || 'run' }}"
           python -m science_pulse.cli "$COMMAND"
@@ -117,6 +118,7 @@ jobs:
           TH_USER_ID: ${{ secrets.TH_USER_ID }}
           TH_ACCESS_TOKEN: ${{ secrets.TH_ACCESS_TOKEN }}
           SP_SITE_BASE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
+          SP_TRANSLATE: "1"
         run: python -m science_pulse.cli doctor
 
       - name: Checkpoint WAL

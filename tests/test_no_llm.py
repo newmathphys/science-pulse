@@ -31,11 +31,11 @@ class NoLlmAuditTest(unittest.TestCase):
             self.assertTrue(any("api.openai.com" in item for item in found))
             self.assertTrue(any("chat.completions.create" in item for item in found))
 
-    def test_translation_is_off_by_default(self):
+    def test_translation_is_allowed_but_not_llm(self):
         self.assertFalse(DEFAULT_CONFIG["translate"])
         self.assertFalse(Config(raw={}).translate)
         raw = yaml.safe_load(Path("config.yaml").read_text(encoding="utf-8")) or {}
-        self.assertFalse(raw.get("translate", False))
+        self.assertTrue(raw.get("translate", False), "перевод источников включён")
 
 
 if __name__ == "__main__":

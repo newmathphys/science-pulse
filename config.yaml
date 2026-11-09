@@ -28,7 +28,7 @@ max_queue: 80
 # Если готовых постов меньше этого порога — пайплайн сам дозаказывает harvest.
 low_water: 9
 harvest_per_source: 2
-translate: false
+translate: true
 
 # Светофор автономности (/doctor): ожидаемый темп публикаций.
 doctor:
@@ -96,7 +96,8 @@ voice:
   rate: "+0%"
   max_chars: 750                  # ≈55 секунд речи
   publish: "voice"                # voice (OGG/OPUS) | audio (MP3-подкаст)
-  piper_model: ""                 # ONNX-модель для офлайн-резерва
+  piper_model: "data/piper/ru_RU-dmitri-medium.onnx"  # офлайн-резерв
+  piper_voice: "dmitri"           # dmitri | irina
   # Автоцепочка: edge → piper → google_tts → espeak → sonification.
   # Если облачный движок упёрся в лимит, он уходит в cooldown и возвращается
   # автоматически после паузы; остальные движки продолжают работу.

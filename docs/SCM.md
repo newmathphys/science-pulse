@@ -59,8 +59,9 @@ SCM = Источники
   `langchain`, `litellm` и подобных;
 - запрещены адреса `api.openai.com`, `api.anthropic.com`,
   `generativelanguage.googleapis.com` и вызовы `chat.completions.create`;
-- `translate` по умолчанию `false`, а `cli verify` падает при
-  `SP_TRANSLATE=1` (гейт `no_ai_translation`).
+- `translate` включён (`true`) для англоязычных источников; это бесплатный
+  машинный перевод, не LLM. Гейт `no_llm` проверяет отсутствие LLM-импортов
+  и генеративных API.
 
 Поэтому `./sp check` каждый раз доказывает: в контентном контуре LLM нет.
 

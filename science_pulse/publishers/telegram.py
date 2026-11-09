@@ -111,6 +111,21 @@ class TelegramPublisher(Publisher):
                         )
             except Exception as exc:  # pragma: no cover
                 LOGGER.warning("Book film: %s", exc)
+        if isinstance(design, dict) and design.get("theme") == "explainer":
+            try:
+                from ..explainer_film import explainer_film_available, explainer_film_for_post
+
+                if explainer_film_available():
+                    path = explainer_film_for_post(post, self.config)
+                    if path and self.send_video(path, caption):
+                        return PublishResult(
+                            platform=self.name,
+                            ok=True,
+                            external_id=None,
+                            meta={"video": str(path), "explainer_film": True},
+                        )
+            except Exception as exc:  # pragma: no cover
+                LOGGER.warning("Explainer film: %s", exc)
         if isinstance(design, dict) and design.get("theme") == "moku3d":
             try:
                 from ..moku_film import film_for_post

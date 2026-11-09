@@ -22,6 +22,7 @@ import logging
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 
@@ -52,7 +53,15 @@ _LAST_ERRORS: Dict[str, str] = {}
 
 
 def _which(binary: str) -> Optional[str]:
-    return shutil.which(binary)
+    found = shutil.which(binary)
+    if found:
+        return found
+    for base in (Path(sys.executable).parent, Path.cwd() / ".venv" / "bin",
+                 Path(__file__).resolve().parent.parent / ".venv" / "bin"):
+        local = base / binary
+        if local.is_file():
+            return str(local)
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -235,6 +244,7 @@ def voice_settings(config: Config) -> Dict[str, Any]:
         "max_chars": int(raw.get("max_chars", 900)),
         "publish": str(raw.get("publish", "voice")),
         "piper_model": str(raw.get("piper_model", "")),
+        "piper_voice": str(raw.get("piper_voice", "dmitri")),
         "google_fallback": bool(raw.get("google_fallback", False)),
         "priority": list(raw.get("priority") or ENGINE_PRIORITY),
         "edge_failure_threshold": int((raw.get("edge") or {}).get("failure_threshold", 2)),
@@ -1047,7 +1057,7 @@ def synthesize(
                     engine_used = engine
                     voice_used = (
                         str(settings.get("voice") or DEFAULT_VOICE) if engine == "edge"
-                        else "piper" if engine == "piper"
+                        else f"piper-{settings.get('piper_voice', 'dmitri')}" if engine == "piper"
                         else "google-ru" if engine == "google_tts"
                         else f"espeak-{settings.get('espeak_voice', 'ru')}"
                     )
@@ -1073,7 +1083,7 @@ def synthesize(
                 ok = _synthesize_piper(text, tmp_wav, str(settings.get("piper_model") or ""))
                 if ok:
                     ok = _wav_to_mp3(tmp_wav, tmp_mp3)
-                voice_used = "piper" if ok else ""
+                voice_used = f"piper-{settings.get('piper_voice', 'dmitri')}" if ok else ""
             elif engine == "google_tts":
                 ok = _synthesize_google(text, tmp_mp3)
                 voice_used = "google-ru" if ok else ""

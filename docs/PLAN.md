@@ -410,7 +410,7 @@ python -m unittest discover -v
 
 ```text
 $ python -m unittest discover -v
-Ran 633 tests
+Ran 638 tests
 OK
 ```
 
@@ -564,7 +564,7 @@ Discord, Mastodon и VK **не проверялись**: в среде нет и
 | Проверка | Результат |
 |:--|:--|
 | `unittest discover` | **566 тестов OK** (skipped=2: нет `typst`) |
-| `cli verify` | 🟢 no_llm · no_ai_translation · инварианты (7) · Lean · фуззинг · медиа |
+| `cli verify` | 🟢 no_llm · инварианты (7) · Lean · фуззинг · медиа |
 | `cli invariants` | OK, 7 проверок, 0 нарушений |
 | `cli formal` | Lean 4.34 установлен, `formal/Invariants.lean` компилируется без `sorry` |
 | GitHub Actions (API) | **67+ запусков**, последние — `completed success`; workflow `Science Pulse` — 28 запусков, шаги `Unit tests`, `Build site`, `Check invariants`, `Publish site to gh-pages` — все `success` (run 41882205251) |

@@ -72,7 +72,7 @@ python -m science_pulse.cli site
 | `SP_SITE_BASE_URL` | базовый адрес сайта в ссылках и QR | определяется из `git remote` |
 | `SP_SITE_TITLE` | заголовок сайта | `Science Pulse` |
 | `SP_SCHEDULE` | список слотов расписания через запятую | из `config.yaml` |
-| `SP_TRANSLATE` | `1` — включить перевод постов | выключен |
+| `SP_TRANSLATE` | `1` — перевод англоязычных источников | включён |
 
 Threads принимает картинку только по публичному URL. Если `CF_WORKER_URL`
 задан, используется безопасный прокси Telegram CDN по `file_id` (токен бота
@@ -267,16 +267,18 @@ python -m unittest discover -v
 - Онлайн-источники требуют сети; без неё остаётся офлайн-бункер.
 - `numbersapi.com` в 2026 отдаёт 404/401, поэтому источник отключён в `config.yaml`.
 - `github_raw` по умолчанию отключён: README-списки дают мусорные посты; включайте проверенные raw-URL.
-- Перевод включается `SP_TRANSLATE=1` и требует `deep-translator`
-  (при отсутствии пакета/сети посты выходят в оригинале) — см. `docs/TRANSLATION.md`.
+- Перевод включён (`SP_TRANSLATE=1`) для англоязычных источников; это
+  бесплатный машинный перевод, не LLM. При отсутствии сети/пакета посты
+  выходят в оригинале — см. `docs/TRANSLATION.md`.
 - Threads-картинка требует `CF_WORKER_URL`; иначе текст.
 - Метрики площадок: сборщик `metrics --collect` читает статистику Mastodon,
   Bluesky, VK и Threads (Telegram Bot API и Discord webhook просмотры/реакции
   не отдают — они помечаются `skipped`).
 - Озвучка (`voice.enabled: true`) использует адаптивную цепочку
   edge → piper → google_tts → espeak → сонификация. Облачные движки при
-  лимите уходят в cooldown; офлайн-резерв — piper + ONNX-модель или
-  `espeak-ng` (`docs/VOICE.md`).
+  лимите уходят в cooldown; офлайн-резерв — piper + ONNX-модель
+  (`data/piper/`, `bash scripts/install_piper_models.sh`) или `espeak-ng`
+  (`docs/VOICE.md`).
 - GitHub Actions коммитит SQLite; для нескольких параллельных писателей
   нужен внешний стейт (D1/Turso).
 
@@ -536,6 +538,8 @@ PDF-книгу. Удобно, чтобы показать проект цели�
 |:--|:--|
 | `docs/PLAN.md` | план развития и фактический статус |
 | `docs/PLATFORMS.md` | все площадки: возможности, лимиты, нюансы, метрики |
+| `docs/ARCHITECTURE.md` | полная архитектура проекта: слои, модули, потоки |
+| `docs/EXPLAINER.md` | инфографический explainer-фильм |
 | `docs/CARDS.md` | карточки: студийный движок 3Blue1Brown + Typst |
 | `docs/PULT.md` | пульт: команды, Mini App, где что хранится, язык RU/EN |
 | `docs/TRENDING.md` | радар мировых новостей: источники, индекс горячести, `/pick` |

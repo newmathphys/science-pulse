@@ -43,7 +43,7 @@ HELP = """🎛 <b>Science Pulse — пульт</b>
 /menu — добавить кнопку «Пульт» в меню чата (нужен HTTPS-адрес сайта)
 /theme [auto|academic|3b1b|blueprint|moku3d|bookfilm] — дизайн выпуска; без аргумента — рейтинг
 /ab — таблица эффективности дизайнов (A/B по живой аудитории)
-/film [book|3d] [ID] [1:1|9:16] — видео в этот чат (book — книжная страница)
+/film [book|3d|explainer] [ID] [1:1|9:16] — видео в этот чат
 /audio — озвучить следующий пост и прислать аудио
 /radio — собрать радио-эфир и показать статус
 /kernel — паспорт ядра системы (фазы, часы эпохи)
@@ -663,7 +663,7 @@ class TelegramAdmin:
         return format_design_table(self.storage, self.config)
 
     def _film_text(self, args: List[str]) -> str:
-        """`/film [book] [ID] [1:1|9:16]`: видео в админ-чат (без публикации)."""
+        """`/film [book|3d|explainer] [ID] [1:1|9:16]`: видео в админ-чат."""
         style = "moku3d"
         aspect = None
         identifier = None
@@ -673,6 +673,8 @@ class TelegramAdmin:
                 style = "book"
             elif token in ("moku3d", "3d"):
                 style = "moku3d"
+            elif token in ("explainer", "инфографика", "infographic"):
+                style = "explainer"
             elif token in ("9:16", "916", "vertical", "portrait"):
                 aspect = "9:16"
             elif token in ("1:1", "11", "square"):
@@ -687,6 +689,13 @@ class TelegramAdmin:
                 return "Book-фильм недоступен: не найден ffmpeg."
             build = book_film_for_post
             label = "Book Film"
+        elif style == "explainer":
+            from .explainer_film import explainer_film_available, explainer_film_for_post
+
+            if not explainer_film_available():
+                return "Explainer недоступен: не найден ffmpeg."
+            build = explainer_film_for_post
+            label = "Explainer"
         else:
             from .moku_film import film_available, film_for_post
 

@@ -1,0 +1,38 @@
+{
+  "0212a505f66fee75:explainer:9:16": {
+    "key": "0212a505f66fee75:explainer:9:16",
+    "post_id": "0212a505f66fee75",
+    "title": "Ньютон: закон всемирного тяготения",
+    "style": "explainer",
+    "aspect": "9:16",
+    "path": "data/explainer_films/0212a505f66fee75_9x16.mp4",
+    "engine": "explainer",
+    "bytes": 1550479,
+    "sha256_16": "d11029e7b95921f4",
+    "created_at": "2026-11-09T11:39:52+00:00"
+  },
+  "0212a505f66fee75:book:9:16": {
+    "key": "0212a505f66fee75:book:9:16",
+    "post_id": "0212a505f66fee75",
+    "title": "Ньютон: закон всемирного тяготения",
+    "style": "book",
+    "aspect": "9:16",
+    "path": "data/book_films/0212a505f66fee75_9x16.mp4",
+    "engine": "book",
+    "bytes": 624485,
+    "sha256_16": "578b955fac4614d4",
+    "created_at": "2026-11-09T11:28:29+00:00"
+  },
+  "0212a505f66fee75:explainer:1:1": {
+    "key": "0212a505f66fee75:explainer:1:1",
+    "post_id": "0212a505f66fee75",
+    "title": "Ньютон: закон всемирного тяготения",
+    "style": "explainer",
+    "aspect": "1:1",
+    "path": "data/explainer_films/0212a505f66fee75_1x1.mp4",
+    "engine": "explainer",
+    "bytes": 1403177,
+    "sha256_16": "deb4bce5cb7d8526",
+    "created_at": "2026-11-09T11:41:20+00:00"
+  }
+}

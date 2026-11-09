@@ -331,7 +331,7 @@ class Pipeline:
         design = {
             "theme": theme,
             "archetype": archetype,
-            "format": "film" if theme == "moku3d" else "card",
+            "format": "film" if theme in ("moku3d", "explainer") else "card",
         }
         post.meta["design_variant"] = design
         # Режим подачи (психология ленты): задача выходит дозированно.

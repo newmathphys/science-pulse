@@ -91,7 +91,7 @@ def mode_for_post(storage: Any, config: Any, post: Any, theme: str = "") -> str:
         storage.kv_set(KV_COUNTER, str(counter))
     if counter % conf["challenge_every_nth"] == 0:
         return "interactive_challenge"
-    if str(theme or "").strip().lower() == "moku3d":
+    if str(theme or "").strip().lower() in ("moku3d", "explainer"):
         return "moku3d_film"
     if meta.get("simulation") or str(meta.get("visual_type") or "") == "diptych_insar":
         return "satellite_lab"

@@ -65,6 +65,14 @@ rm -f data/audio/<id>.key                    # снять кэш и переоз
 sudo apt-get install -y espeak-ng
 ```
 
+Piper-модели (бесплатные, ONNX):
+
+```bash
+bash scripts/install_piper_models.sh
+# voice.piper_model = data/piper/ru_RU-dmitri-medium.onnx
+# альтернатива: data/piper/ru_RU-irina-medium.onnx
+```
+
 Установка edge-tts в окружении без `pip` (проверено вживую):
 
 ```bash
@@ -122,7 +130,8 @@ voice:
   rate: "+0%"
   max_chars: 750                  # ≈55 секунд речи
   publish: "voice"                # voice (OGG/OPUS) | audio (MP3-подкаст)
-  piper_model: ""                 # путь к ONNX-модели для офлайн-синтеза
+  piper_model: "data/piper/ru_RU-dmitri-medium.onnx"
+  piper_voice: "dmitri"           # dmitri | irina
   priority: ["edge", "piper", "google_tts", "espeak", "sonification"]
   edge:
     failure_threshold: 2
