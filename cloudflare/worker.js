@@ -199,9 +199,10 @@ async function telegramCdn(request, env, ctx, url) {
   const imageResponse = await fetch(
     `https://api.telegram.org/file/bot${env.TG_BOT_TOKEN}/${meta.result.file_path}`
   );
+  const contentType = imageResponse.headers.get("content-type") || "image/jpeg";
   const response = new Response(imageResponse.body, {
     headers: {
-      "Content-Type": "image/png",
+      "Content-Type": contentType,
       "Cache-Control": "public, max-age=31536000, immutable",
       ...CORS,
     },

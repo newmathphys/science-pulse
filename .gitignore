@@ -32,3 +32,6 @@ data/book_films/
 
 # SQLite-состояние маленькое и нужно для GitHub Actions
 !data/science.db
+
+# Cloudflare Wrangler cache
+.wrangler/

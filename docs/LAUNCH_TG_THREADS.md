@@ -73,6 +73,9 @@ wrangler deploy
 `./sp next` показывает, задан ли `CF_WORKER_URL`, есть ли `INGEST_SECRET`,
 отвечает ли Worker и какой режим картинки выбран.
 
+R2 (`science-pulse-cards`) нужен только для edge-синхронизации карточек/D1.
+Для `/tg-cdn/{file_id}.png` и картинок Threads R2 **не требуется**.
+
 `./sp launch` печатает режим:
 
 ```text

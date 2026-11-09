@@ -1,0 +1,20 @@
+name = "science-pulse-edge"
+main = "worker.js"
+compatibility_date = "2026-01-01"
+workers_dev = true
+preview_urls = false
+account_id = "751fbbfdf900851a741010feaecb24f4"
+
+[vars]
+SITE_ORIGIN = "https://newmathphys.github.io/science-pulse"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "science-pulse"
+database_id = "92cf213b-c866-484b-ac24-a6560d9830de"
+
+# R2 включается отдельно в Cloudflare Dashboard (R2 → Enable).
+# Пока R2 не включён, /cards и /api/ingest недоступны, но /tg-cdn работает.
+# [[r2_buckets]]
+# binding = "R2_BUCKET"
+# bucket_name = "science-pulse-cards"

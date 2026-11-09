@@ -82,6 +82,9 @@ wrangler deploy
 Затем `CF_WORKER_URL=https://science-pulse-edge.<account>.workers.dev`
 и `INGEST_SECRET` (тот же, что в Worker).
 
+R2 включается отдельно в Dashboard и нужен только для `/cards` и
+`/api/ingest`; для `/tg-cdn/{file_id}.png` (картинки Threads) он не нужен.
+
 Проверка без публикации:
 
 ```bash
