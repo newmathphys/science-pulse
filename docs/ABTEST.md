@@ -116,3 +116,8 @@ A/B стилей карточки:
 ```bash
 python -m unittest tests.test_abtest -v
 ```
+
+
+## Воскресный отчёт `weekly_ab`
+
+Каждое воскресенье ритуал `weekly_ab` выбирает победителя по `themes.win_rates`, отправляет отчёт в админ-чат и даёт победителю дополнительный вес. См. `docs/SITE_BRANCHES.md`.

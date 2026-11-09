@@ -32,6 +32,7 @@ KV_FRIDAY = "last_friday_quiz"
 KV_SATURDAY = "last_saturday_cheatsheet"
 KV_SUNDAY = "last_sunday_book"
 KV_MONTHLY = "last_monthly_maint"
+KV_WEEKLY_AB = "last_weekly_ab"
 
 MEDIA_DIRS = ("cards", "audio", "audiogram", "video", "films", "canon")
 
@@ -77,6 +78,8 @@ def due_rituals(storage: Any, config: Any, now: datetime) -> List[str]:
         due.append("saturday_cheatsheet")
     if weekday == 6 and storage.kv_get(KV_SUNDAY, "") != week_key(now):
         due.append("sunday_book")
+    if weekday == 6 and storage.kv_get(KV_WEEKLY_AB, "") != week_key(now):
+        due.append("weekly_ab")
     if now.day == 1 and storage.kv_get(KV_MONTHLY, "") != month_key(now):
         due.append("monthly_maintenance")
     return due
@@ -279,11 +282,41 @@ def monthly_maintenance(pipeline: Any, dry_run: bool = False) -> Dict[str, Any]:
     return {"ok": True, "token": token, "removed_media": removed, "passport": passport}
 
 
+def weekly_ab_report(pipeline: Any, dry_run: bool = False) -> Dict[str, Any]:
+    """Воскресный отчёт: какой видео-дизайн побеждает по бандиту."""
+    from .themes import THEMES, effective_theme, record_reward, win_rates
+
+    rates = win_rates(pipeline.storage)
+    winner = max(THEMES, key=lambda name: rates.get(name, 0.0)) if THEMES else "academic"
+    current = effective_theme(pipeline.storage, pipeline.config)
+    if not dry_run:
+        record_reward(pipeline.storage, winner, success=True)
+    lines = [
+        "🎛 Еженедельный отчёт /ab",
+        f"Победитель недели: {winner} ({rates.get(winner, 0):.1f}%)",
+        f"Текущий режим: {current}",
+        "Рейтинг:",
+    ]
+    for name in THEMES:
+        lines.append(f"  {name}: {rates.get(name, 0):.1f}%")
+    lines.append("Следующая неделя: победитель получает дополнительный вес.")
+    if not dry_run:
+        try:
+            from .admin import TelegramAdmin
+
+            admin = TelegramAdmin(pipeline.config, pipeline)
+            admin.api_call("sendMessage", {"chat_id": admin.chat_id, "text": "\n".join(lines)[:3900]})
+        except Exception as exc:
+            LOGGER.warning("weekly /ab не отправлен: %s", exc)
+    return {"ok": True, "winner": winner, "rates": rates, "current": current}
+
+
 TASKS: Dict[str, Callable[..., Dict[str, Any]]] = {
     "friday_quiz": friday_quiz,
     "saturday_cheatsheet": saturday_cheatsheet,
     "sunday_book": sunday_book,
     "monthly_maintenance": monthly_maintenance,
+    "weekly_ab": weekly_ab_report,
 }
 
 KV_MARKS = {
@@ -291,6 +324,7 @@ KV_MARKS = {
     "saturday_cheatsheet": KV_SATURDAY,
     "sunday_book": KV_SUNDAY,
     "monthly_maintenance": KV_MONTHLY,
+    "weekly_ab": KV_WEEKLY_AB,
 }
 
 

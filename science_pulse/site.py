@@ -131,6 +131,24 @@ footer { border-top: 1px solid var(--rule); color: var(--ink-2); padding: 22px 0
 .panel-box { background: var(--paper-3); border: 1px solid var(--rule); border-radius: 4px; padding: 16px 18px; margin: 14px 0; }
 """
 
+CSS += """
+.branch-panel { background: var(--paper-3); border: 1px solid var(--rule); border-radius: 6px; padding: 16px 20px; margin: 22px 0; }
+.branch-panel h2 { margin: 0 0 10px; font-size: 18px; }
+.branch-row { display: grid; grid-template-columns: 12ch 1fr 8ch; gap: 12px; align-items: center; font-family: var(--mono); font-size: 12px; margin: 8px 0; }
+.branch-bar { height: 8px; background: var(--paper-2); border: 1px solid var(--rule); border-radius: 999px; overflow: hidden; }
+.branch-bar span { display: block; height: 100%; background: var(--math); }
+.branch-bar.cs span { background: var(--cs); }
+.branch-bar.physics span { background: var(--physics); }
+.branch-next { margin-top: 12px; font-size: 14px; }
+.branch-next a { margin-right: 14px; }
+.mastered { background: var(--cs); color: #fff; border-color: var(--cs); }
+.badges { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0; }
+.badges details { background: var(--paper-2); border: 1px solid var(--rule); border-radius: 4px; padding: 6px 10px; }
+.badges summary { cursor: pointer; font-family: var(--mono); font-size: 12px; letter-spacing: .06em; }
+.badges pre { max-height: 260px; overflow: auto; font-size: 13px; }
+.fork-copy { background: var(--paper-3); }
+"""
+
 INDEX_JS = """
 const cards = Array.from(document.querySelectorAll('.card, .node'));
 const search = document.getElementById('search');
@@ -218,6 +236,58 @@ DEPTH_JS = """
 })();
 """
 
+
+BRANCH_JS = """
+(function () {
+  const dataEl = document.getElementById('branch-data');
+  const panel = document.getElementById('branch-panel');
+  if (!dataEl || !panel) return;
+  const data = JSON.parse(dataEl.textContent || '{}');
+  const posts = data.posts || [];
+  const current = data.current || '';
+  const key = 'scm_branch_v1';
+  function load() { try { return JSON.parse(localStorage.getItem(key) || '{}') || {}; } catch (e) { return {}; } }
+  function save(v) { try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) {} }
+  function render() {
+    const done = load();
+    const domains = {math: 'Математика', cs: 'Информатика', physics: 'Физика'};
+    const labels = {math: '📐', cs: '💻', physics: '⚛️'};
+    let html = '<h2>🌿 Моя ветка освоения науки</h2>';
+    Object.keys(domains).forEach(function (domain) {
+      const all = posts.filter(function (p) { return p.domain === domain; });
+      const got = all.filter(function (p) { return done[p.id]; }).length;
+      const pct = all.length ? Math.round(100 * got / Math.max(1, all.length)) : 0;
+      html += '<div class="branch-row"><span>' + labels[domain] + ' ' + domains[domain] + '</span>' +
+        '<div class="branch-bar ' + domain + '"><span style="width:' + pct + '%"></span></div>' +
+        '<span>' + got + ' / ' + all.length + '</span></div>';
+    });
+    const next = posts.filter(function (p) { return !done[p.id]; }).slice(0, 3);
+    if (next.length) {
+      html += '<div class="branch-next"><b>Следующие шаги:</b> ' + next.map(function (p) {
+        return '<a href="' + (data.prefix || '') + 'post/' + p.id + '.html">§ ' + (p.section || '—') + ' · ' + p.title + '</a>';
+      }).join('') + '</div>';
+    } else {
+      html += '<div class="branch-next">Все доступные параграфы отмечены. Открывайте новые ветки в канале.</div>';
+    }
+    panel.innerHTML = html;
+    const btn = document.getElementById('master-btn');
+    if (btn && current) {
+      const on = !!done[current];
+      btn.classList.toggle('mastered', on);
+      btn.textContent = on ? '✓ Параграф освоен' : '✓ Отметить параграф освоенным';
+    }
+  }
+  const btn = document.getElementById('master-btn');
+  if (btn && current) {
+    btn.addEventListener('click', function () {
+      const done = load();
+      if (done[current]) delete done[current]; else done[current] = true;
+      save(done); render();
+    });
+  }
+  render();
+})();
+"""
 
 POINCARE_JS = """
 (function () {
@@ -517,6 +587,31 @@ SANDBOX_JS = """
     setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
   }
   if (svgBtn) svgBtn.addEventListener('click', downloadSvg);
+
+  // Пользовательский форк эксперимента: #fork=a_b_x
+  function applyFork() {
+    const match = (location.hash || '').match(/^#fork=([0-9.]+)_([0-9.]+)_([0-9.]+)/);
+    if (!match) return;
+    if (aEl) aEl.value = match[1];
+    if (bEl) bEl.value = match[2];
+    if (xEl) xEl.value = match[3];
+    draw();
+  }
+  const forkBtn = document.getElementById('sandbox-fork');
+  if (forkBtn) forkBtn.addEventListener('click', function () {
+    const A = parseFloat(aEl.value) || 1;
+    const k = parseFloat(bEl.value) || 1;
+    const x = parseFloat(xEl.value) || 0;
+    const hash = '#fork=' + A.toFixed(1) + '_' + k.toFixed(1) + '_' + x.toFixed(1);
+    history.replaceState(null, '', hash);
+    const link = location.href;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(link);
+    }
+    forkBtn.textContent = '🌿 Ссылка скопирована';
+    setTimeout(function () { forkBtn.textContent = '🌿 Скопировать ссылку на мою ветку'; }, 1800);
+  });
+  applyFork();
 })();
 """
 
@@ -790,6 +885,7 @@ class SiteBuilder:
 <footer>Science Pulse · источники: Stack Exchange, OEIS, Wikipedia, arXiv, Rosetta Code, GitHub raw, Numbers API, SymPy/CODATA. Без LLM в контенте.</footer>
 </div>
 <script>if ('serviceWorker' in navigator) {{ window.addEventListener('load', () => navigator.serviceWorker.register('{prefix}sw.js').catch(() => {{}})); }}</script>
+<script>{BRANCH_JS}</script>
 </body>
 </html>"""
 
@@ -841,6 +937,58 @@ class SiteBuilder:
             "</div>"
             f"</{tag}>"
         )
+
+    def _branch_html(self, posts: List[Post], current: str = "", prefix: str = "") -> str:
+        payload = {
+            "current": current,
+            "prefix": prefix,
+            "posts": [
+                {
+                    "id": post.id,
+                    "domain": post.domain,
+                    "section": str((post.meta or {}).get("section_num") or ""),
+                    "title": post.title,
+                }
+                for post in posts
+            ],
+        }
+        return (
+            '<div id="branch-panel" class="branch-panel"></div>'
+            '<script id="branch-data" type="application/json">'
+            + _json_for_script(payload)
+            + "</script>"
+        )
+
+    def _bibtex_entry(self, post: Post) -> str:
+        fields = [
+            f"  title = {{{self._bib_escape(post.title)}}}",
+            f"  author = {{{self._bib_escape(post.source_name or self.config.site_title)}}}",
+        ]
+        if post.formula_latex or post.formula_plain:
+            fields.append(f"  note = {{{self._bib_escape(post.formula_plain or post.formula_latex)}}}")
+        if post.source_url:
+            fields.append(f"  howpublished = {{\\url{{{post.source_url}}}}}")
+        if post.published_at[:4].isdigit():
+            fields.append(f"  year = {{{post.published_at[:4]}}}")
+        link = f"{self.config.site_base_url}/post/{post.id}.html" if self.config.site_base_url else f"post/{post.id}.html"
+        fields.append(f"  url = {{{link}}}")
+        return "@misc{sciencepulse_%s,\n%s\n}" % (post.id, ",\n".join(fields))
+
+    def _badges_html(self, post: Post) -> str:
+        formula = (post.formula_latex or post.formula_plain or "").strip()
+        code = (post.code or "").strip() or "Код для этого параграфа не задан."
+        annotation = (post.hook or post.body or "")[:600]
+        task = self._challenge_html(post)
+        blocks = [
+            ("АННОТАЦИЯ", f"<p>{_e(annotation)}</p>"),
+            ("LATEX", f"<pre><code>{_e(formula or 'Формула не задана.')}</code></pre>"),
+            ("PYTHON", f"<pre><code>{_e(code)}</code></pre>"),
+            ("BIBTEX", f"<pre><code>{_e(self._bibtex_entry(post))}</code></pre>"),
+            ("ЗАДАЧА", task or "<p>Задача для этого параграфа не задана.</p>"),
+        ]
+        return '<div class="badges">' + "".join(
+            f'<details><summary>[{label}]</summary>{body}</details>' for label, body in blocks
+        ) + "</div>"
 
     def _write_index(self, posts: List[Post], dist: Path) -> None:
         from .sources.foundation import STEP_TITLES, section_of, step_of
@@ -898,6 +1046,7 @@ class SiteBuilder:
         )
         content = f"""
 {passport}
+{self._branch_html(all_posts)}
 <nav class="tabs">
   <a class="active" href="index.html">I. Дерево Фундамента</a>
   <a href="scientists.html">II. Учёные и эпохи</a>
@@ -1101,6 +1250,7 @@ class SiteBuilder:
             '<span>y(x) = <output id="sandbox-y">—</output></span>'
             '<button id="sandbox-audio" class="mini-action" type="button">Услышать частоту формулы</button>'
             '<button id="sandbox-svg" class="mini-action" type="button">Экспорт графика в SVG</button>'
+            '<button id="sandbox-fork" class="mini-action fork-copy" type="button">🌿 Скопировать ссылку на мою ветку</button>'
             "</div>"
             f"<script>{script}</script>"
             "</section>"
@@ -1284,12 +1434,15 @@ class SiteBuilder:
       <div class="badge {_e(post.domain)}">{_e(DOMAIN_LABELS.get(post.domain, post.domain))}</div>
       <h1>{_e(post.title)}</h1>
       <p class="lead">{_e(post.hook)}</p>
+      <button id="master-btn" class="mini-action" data-post-id="{_e(post.id)}" type="button">✓ Отметить параграф освоенным</button>
+      {self._badges_html(post)}
       {status_html}
       {depth_nav}
       {film_html}
       {depth_html}
     </div>
     <aside class="side">
+      {self._branch_html(self.storage.list_posts(limit=1000), current=post.id, prefix="../")}
       {proof_html}
       {lineage_html}
       <div class="tags">{tags}</div>

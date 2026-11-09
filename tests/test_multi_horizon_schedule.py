@@ -60,7 +60,7 @@ class WeeklyRitualTests(unittest.TestCase):
     def test_friday_saturday_sunday(self):
         self.assertEqual(rituals.due_rituals(self.storage, self.config, moment(2026, 11, 6)), ["friday_quiz"])
         self.assertEqual(rituals.due_rituals(self.storage, self.config, moment(2026, 11, 7)), ["saturday_cheatsheet"])
-        self.assertEqual(rituals.due_rituals(self.storage, self.config, moment(2026, 11, 8)), ["sunday_book"])
+        self.assertEqual(rituals.due_rituals(self.storage, self.config, moment(2026, 11, 8)), ["sunday_book", "weekly_ab"])
 
     def test_weekdays_have_no_rituals(self):
         for day in (2, 3, 4, 5):   # понедельник–четверг
