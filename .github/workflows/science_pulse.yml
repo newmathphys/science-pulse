@@ -74,6 +74,18 @@ jobs:
           TG_ADMIN_CHAT_ID: ${{ secrets.TG_ADMIN_CHAT_ID }}
         run: python -m science_pulse.cli admin --once
 
+      - name: Auth check (read-only)
+        if: github.event_name != 'push'
+        continue-on-error: true
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHANNEL_ID: ${{ secrets.TG_CHANNEL_ID }}
+          TH_USER_ID: ${{ secrets.TH_USER_ID }}
+          TH_ACCESS_TOKEN: ${{ secrets.TH_ACCESS_TOKEN }}
+          CF_WORKER_URL: ${{ secrets.CF_WORKER_URL }}
+          INGEST_SECRET: ${{ secrets.INGEST_SECRET }}
+        run: python -m science_pulse.cli auth-check
+
       - name: Run pipeline
         if: github.event_name != 'push'
         env:
