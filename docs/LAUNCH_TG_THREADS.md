@@ -1,7 +1,9 @@
 # Запуск продукта: Telegram + Threads
 
 Цель этого релиза: SCM работает как продукт в Telegram и Threads. Всё
-остальное (Cloudflare, Bluesky, VK, коммерческая ветка, Mini App) — после.
+остальное (Bluesky, VK, коммерческая ветка, Mini App) — после.
+
+Полная карта API, ключей и лимитов — `docs/INTEGRATIONS.md`.
 
 ## 1. Что нужно вставить
 

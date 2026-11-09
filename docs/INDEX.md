@@ -17,6 +17,7 @@
 | `GROWTH.md` | рост аудитории: Threads-форматы, UTM, реестр каналов |
 | `KERNEL.md` | 6-фазное ядро |
 | `QUALITY.md` | 7 рубежей и verify |
+| `INTEGRATIONS.md` | карта всех API: ключи, лимиты, куда добавлять |
 | `PLATFORMS.md` | площадки и лимиты |
 | `TOKENS.md` | где взять токены |
 | `VIDEO.md` | микро-видео и book-фильм |
