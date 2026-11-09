@@ -199,7 +199,8 @@ async function telegramCdn(request, env, ctx, url) {
   const imageResponse = await fetch(
     `https://api.telegram.org/file/bot${env.TG_BOT_TOKEN}/${meta.result.file_path}`
   );
-  const contentType = imageResponse.headers.get("content-type") || "image/jpeg";
+  const upstreamType = imageResponse.headers.get("content-type") || "";
+  const contentType = upstreamType.startsWith("image/") ? upstreamType : "image/jpeg";
   const response = new Response(imageResponse.body, {
     headers: {
       "Content-Type": contentType,
