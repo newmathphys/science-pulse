@@ -72,6 +72,19 @@ https://developers.facebook.com/tools/explorer/1437293284596085/
 
 `TH_USER_ID` — из ответа `GET /me` или из отладки токена.
 
+Токен из Graph Explorer часто **short-lived** (~1 час). Для автопилота нужен
+long-lived (~60 дней). Проверить срок:
+
+```bash
+./sp threads-token --status
+```
+
+Обменять short-lived на long-lived (нужен `THREADS_APP_SECRET` в `.env`):
+
+```bash
+./sp threads-token --exchange
+```
+
 ## 5. Положить в `.env`
 
 ```env

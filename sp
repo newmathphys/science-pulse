@@ -42,6 +42,9 @@ case "$cmd" in
   watch)
     "$PY" -m science_pulse.cli watch "$@"
     ;;
+  threads-token)
+    "$PY" -m science_pulse.cli threads-token "$@"
+    ;;
   videos)
     "$PY" -m science_pulse.cli videos "$@"
     ;;
@@ -87,6 +90,7 @@ SCM operator entry
   ./sp knowledge ...    index|search|stats|claim|note|integrity|export
   ./sp next             что осталось до релиза: Threads + Cloudflare
   ./sp watch            что изменилось в API площадок
+  ./sp threads-token    проверить/обменять Threads-токен
   ./sp videos           реестр сгенерированных видео
   ./sp launch           проверить ключи Telegram/Threads и готовность
   ./sp publish [args]   опубликовать следующий пост

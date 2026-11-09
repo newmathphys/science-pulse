@@ -878,6 +878,47 @@ def cmd_videos(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_threads_token(args: argparse.Namespace) -> int:
+    """Проверить срок Threads-токена или обменять short-lived на long-lived."""
+    import os
+    import requests
+    from .config import load_config
+    from pathlib import Path as _Path
+
+    config = load_config(args.config, root=args.root)
+    token = config.threads_token
+    if not token:
+        print("TH_ACCESS_TOKEN не задан", file=sys.stderr)
+        return 1
+    if args.status:
+        r = requests.get("https://graph.threads.com/v1.0/debug_token",
+                         params={"input_token": token, "access_token": token}, timeout=30)
+        data = (r.json() or {}).get("data") or {}
+        print("valid:", data.get("is_valid"), "expires_at:", data.get("expires_at"),
+              "scopes:", ", ".join(data.get("scopes") or []))
+        return 0
+    secret = os.getenv("THREADS_APP_SECRET", "")
+    if not secret:
+        print("Нужен THREADS_APP_SECRET в .env (Threads App Secret)", file=sys.stderr)
+        return 1
+    r = requests.get("https://graph.threads.com/access_token",
+                     params={"grant_type": "th_exchange_token", "client_secret": secret,
+                             "access_token": token}, timeout=30)
+    data = r.json() or {}
+    new_token = str(data.get("access_token") or "")
+    if not new_token:
+        print("Не удалось обменять токен:", str(data)[:200], file=sys.stderr)
+        return 1
+    p = _Path(".env")
+    lines = [line for line in p.read_text().splitlines()
+             if not line.startswith("TH_ACCESS_TOKEN=")]
+    lines.append("TH_ACCESS_TOKEN=" + new_token)
+    p.write_text("\n".join(lines) + "\n")
+    print("Long-lived токен записан в .env; expires_in дней:",
+          round(float(data.get("expires_in") or 0) / 86400, 1))
+    return 0
+
+
 def cmd_watch(args: argparse.Namespace) -> int:
     """Мониторинг changelog'ов площадок: что изменилось и что обновить."""
     from .platform_watch import format_watch_report, watch_platforms
@@ -1663,6 +1704,11 @@ def build_parser() -> argparse.ArgumentParser:
     videos = subparsers.add_parser("videos", help="реестр сгенерированных видео")
     videos.add_argument("--json", action="store_true")
     videos.set_defaults(func=cmd_videos)
+
+    threads_token = subparsers.add_parser("threads-token", help="проверить/обменять Threads-токен")
+    threads_token.add_argument("--status", action="store_true")
+    threads_token.add_argument("--exchange", action="store_true")
+    threads_token.set_defaults(func=cmd_threads_token)
 
     watch = subparsers.add_parser("watch", help="мониторинг changelog'ов Telegram/Threads/Cloudflare/GitHub")
     watch.add_argument("--json", action="store_true")
