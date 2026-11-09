@@ -23,7 +23,8 @@ TH_ACCESS_TOKEN=...
 ## 2. Проверка
 
 ```bash
-./sp launch
+./sp next      # что осталось: Threads + Cloudflare + режим картинки
+./sp launch    # живой read-only пинг Telegram/Threads
 ```
 
 Проверяет:
@@ -53,6 +54,24 @@ Threads принимает картинку **только по публично
 - задайте `CF_WORKER_URL` (Cloudflare Worker из `cloudflare/`) — рекомендуемый путь;
 - либо задайте `SP_SITE_BASE_URL` и убедитесь, что карточка уже лежит на сайте
   (`/cards/<id>.png`).
+
+Развернуть Worker:
+
+```bash
+cd cloudflare
+wrangler d1 create science-pulse
+wrangler d1 execute science-pulse --file=schema.sql
+wrangler r2 bucket create science-pulse-cards
+wrangler secret put TG_BOT_TOKEN
+wrangler secret put INGEST_SECRET
+wrangler deploy
+# затем в .env:
+# CF_WORKER_URL=https://science-pulse-edge.<account>.workers.dev
+# INGEST_SECRET=<тот же секрет>
+```
+
+`./sp next` показывает, задан ли `CF_WORKER_URL`, есть ли `INGEST_SECRET`,
+отвечает ли Worker и какой режим картинки выбран.
 
 `./sp launch` печатает режим:
 

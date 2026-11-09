@@ -36,6 +36,9 @@ case "$cmd" in
   growth)
     "$PY" -m science_pulse.cli growth "$@"
     ;;
+  next)
+    "$PY" -m science_pulse.cli next "$@"
+    ;;
   launch)
     echo "=== SCM launch: Telegram + Threads ==="
     "$PY" -m science_pulse.cli auth-check
@@ -76,6 +79,7 @@ SCM operator entry
   ./sp enter            статус, doctor, preflight, knowledge
   ./sp check            тесты + verify + preflight + knowledge integrity
   ./sp knowledge ...    index|search|stats|claim|note|integrity|export
+  ./sp next             что осталось до релиза: Threads + Cloudflare
   ./sp launch           проверить ключи Telegram/Threads и готовность
   ./sp publish [args]   опубликовать следующий пост
   ./sp site             пересобрать сайт

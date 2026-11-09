@@ -79,7 +79,14 @@ wrangler secret put INGEST_SECRET
 wrangler deploy
 ```
 
-Затем `CF_WORKER_URL=https://science-pulse-edge.<account>.workers.dev`.
+Затем `CF_WORKER_URL=https://science-pulse-edge.<account>.workers.dev`
+и `INGEST_SECRET` (тот же, что в Worker).
+
+Проверка без публикации:
+
+```bash
+./sp next
+```
 
 ## 8. GitHub Actions
 

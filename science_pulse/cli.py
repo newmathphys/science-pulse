@@ -858,6 +858,24 @@ def cmd_film(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_next(args: argparse.Namespace) -> int:
+    """Что осталось до релиза: Threads, Cloudflare, режим картинки."""
+    from .release_check import format_release, release_status
+
+    pipeline = _pipeline(args)
+    report = release_status(pipeline.config)
+    if getattr(args, "json", False):
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+    else:
+        print(format_release(report))
+    _checkpoint(pipeline)
+    ready = (
+        (report.get("threads") or {}).get("state") == "ready"
+        and (report.get("cloudflare") or {}).get("state") == "ready"
+    )
+    return 0 if ready else 1
+
+
 def cmd_auth_check(args: argparse.Namespace) -> int:
     """Живой тестер ключей: безопасный read-only пинг всех площадок."""
     from .authcheck import check_all, format_auth_table
@@ -1594,6 +1612,10 @@ def build_parser() -> argparse.ArgumentParser:
     auth_check = subparsers.add_parser("auth-check", help="живой тестер ключей площадок (read-only)")
     auth_check.add_argument("--json", action="store_true")
     auth_check.set_defaults(func=cmd_auth_check)
+
+    next_parser = subparsers.add_parser("next", help="что осталось до релиза: Threads + Cloudflare")
+    next_parser.add_argument("--json", action="store_true")
+    next_parser.set_defaults(func=cmd_next)
 
     sync_platform_parser = subparsers.add_parser(
         "sync-platform", help="довыгрузить пропущенную летопись на новую площадку"
