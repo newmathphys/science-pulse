@@ -45,6 +45,10 @@ class BranchSiteTests(unittest.TestCase):
             self.assertIn('[BIBTEX]', page)
             self.assertIn('id="sandbox-fork"', page)
             self.assertIn('#fork=', page)
+            self.assertIn('syllabus.html', index)
+            syllabus = (config.dist_dir / "syllabus.html").read_text(encoding="utf-8")
+            self.assertIn("Бесконечный поток науки", syllabus)
+            self.assertIn("135", syllabus)
 
     def test_weekly_ab_report_dry_run(self):
         with tempfile.TemporaryDirectory() as tmp:

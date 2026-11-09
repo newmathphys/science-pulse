@@ -664,6 +664,7 @@ class SiteBuilder:
         self._write_scientists(posts, dist)
         self._write_constants(posts, dist)
         self._write_topics(posts, dist)
+        self._write_syllabus(posts + programme, dist)
         self._write_flashcards(posts, dist)
         if self.config.miniapp_public:
             self._write_miniapp(dist)
@@ -1102,7 +1103,8 @@ class SiteBuilder:
   <a class="active" href="index.html">I. Дерево Фундамента</a>
   <a href="scientists.html">II. Учёные и эпохи</a>
   <a href="constants.html">III. Эталоны СИ (CODATA)</a>
-  <a href="flashcards.html">IV. Тренажёр памяти</a>
+  <a href="syllabus.html">IV. Программа курса</a>
+  <a href="flashcards.html">V. Тренажёр памяти</a>
   <a href="radio.html">Радио 24/7</a>
   <a href="llms.txt">V. Машиночитаемый слой</a>
 </nav>
@@ -1829,6 +1831,52 @@ renderPlatforms();
         )
         (dist / "topics.html").write_text(self._page("Темы и маршруты", content), encoding="utf-8")
 
+    def _write_syllabus(self, posts: List[Post], dist: Path) -> None:
+        """Бесконечная программа: 45 ветвей и 135 тем университетского курса."""
+        from .syllabus_tree import BRANCHES, syllabus_summary, syllabus_topics
+
+        summary = syllabus_summary()
+        topics = syllabus_topics()
+        by_section = {str((p.meta or {}).get("section_num") or ""): p for p in posts}
+        domains = {"math": "📐 Математика", "physics": "⚛️ Физика", "cs": "💻 Информатика"}
+        blocks: List[str] = []
+        for domain, label in domains.items():
+            branches = [b for b in BRANCHES if b["domain"] == domain]
+            rows: List[str] = []
+            for branch in branches:
+                items = [t for t in topics if t["branch_id"] == branch["id"]]
+                done = sum(1 for t in items if by_section.get(t["section_num"]))
+                links = "".join(
+                    f'<li>§ {_e(t["section_num"])} · {_e(t["title"])}'
+                    + (f' · <a href="post/{by_section[t["section_num"]].id}.html">открыть</a>' if by_section.get(t["section_num"]) else ' · <span class="meta">в программе</span>')
+                    + "</li>"
+                    for t in items
+                )
+                rows.append(
+                    f'<details class="flash"><summary>{_e(branch["title"])} · {done}/{len(items)}</summary><ul>{links}</ul></details>'
+                )
+            blocks.append(
+                f'<section class="step"><div class="step-head"><span class="roman">{label}</span>'
+                f'<h2>{len(branches)} ветвей · {sum(len(b["topics"]) for b in branches)} тем</h2></div>'
+                + "".join(rows) + "</section>"
+            )
+        content = f"""
+<article>
+  <div class="badge">ПРОГРАММА КУРСА</div>
+  <h1>Бесконечный поток науки</h1>
+  <p class="lead">30 узлов канона — семя. Дальше — {summary['branches']} ветвей и {summary['topics']} тем:
+  § {summary['first_section']} … § {summary['last_section']}. Очередь пополняется автоматически.</p>
+  <div class="passport">
+    <span>Ветвей: <b>{summary['branches']}</b></span>
+    <span>Тем: <b>{summary['topics']}</b></span>
+    <span>В очереди: <b>{self.storage.count('ready')}</b></span>
+    <span>Опубликовано: <b>{self.storage.count('published')}</b></span>
+  </div>
+  {''.join(blocks)}
+</article>
+"""
+        (dist / "syllabus.html").write_text(self._page("Программа курса", content), encoding="utf-8")
+
     def _write_flashcards(self, posts: List[Post], dist: Path) -> None:
         """Страница карточек-повторений (flashcards): вопрос → ответ."""
         cards: List[str] = []
@@ -1858,7 +1906,7 @@ renderPlatforms();
     def _write_sitemap(self, posts: List[Post], dist: Path) -> None:
         base = self.config.site_base_url or "https://science-pulse.local"
         urls = [f"{base}/", f"{base}/index.html", f"{base}/scientists.html",
-                f"{base}/constants.html", f"{base}/topics.html",
+                f"{base}/constants.html", f"{base}/topics.html", f"{base}/syllabus.html",
                 f"{base}/radio.html", f"{base}/podcast.xml"]
         for post in posts:
             urls.append(f"{base}/post/{post.id}.html")
