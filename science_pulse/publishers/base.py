@@ -175,14 +175,20 @@ def build_rich_telegram_caption(post: Post, limit: int = 1024, site_url: str = "
         f'{escape_html(site_url)}/post/{escape_html(post.id)}.html' if site_url else ""
     )
     if chain and trainer_href:
-        chain.append(f'<a href="{trainer_href}">Тренажёр</a>')
+        link_label = "Тренажёр" if shows_challenge(mode) else "Полный разбор"
+        chain.append(f'<a href="{trainer_href}">{link_label}</a>')
         footer_parts.append("← " + " · ".join(chain))
     elif chain:
         footer_parts.append("← " + " · ".join(chain))
     elif trainer_href:
-        footer_parts.append(
-            f'Тренажёр: <a href="{trainer_href}">покрутить формулу и проверить себя</a>'
-        )
+        if shows_challenge(mode):
+            footer_parts.append(
+                f'Тренажёр: <a href="{trainer_href}">покрутить формулу и проверить себя</a>'
+            )
+        else:
+            footer_parts.append(
+                f'Полный разбор: <a href="{trainer_href}">страница параграфа</a>'
+            )
     footer_parts.append(post.hashtags or tags)
 
     header = "\n\n".join(header_parts)

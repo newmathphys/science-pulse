@@ -115,10 +115,16 @@ class ThreadsPublisher(Publisher):
                     payload.pop("image_url", None)
                     creation = self._create_container(payload)
                 if not creation.get("id"):
+                    error = str(creation.get("error") or creation)
+                    if "expired" in error.lower() or "session has expired" in error.lower():
+                        return PublishResult(
+                            platform=self.name, ok=False, skipped=True,
+                            error="Threads token expired",
+                        )
                     return PublishResult(
                         platform=self.name,
                         ok=False,
-                        error=str(creation.get("error") or creation)[:200],
+                        error=error[:200],
                     )
 
             ready, wait_error = self._wait_container(creation["id"])

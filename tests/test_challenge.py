@@ -222,6 +222,13 @@ class PresentationTests(unittest.TestCase):
         self.assertNotIn("Задача.", caption)
         self.assertNotIn("<tg-spoiler>", caption)
 
+    def test_pure_knowledge_has_no_trainer_link(self):
+        post = make_post()
+        post.meta["post_mode"] = "pure_knowledge"
+        caption = build_rich_telegram_caption(post, limit=1024, site_url="https://example.org")
+        self.assertNotIn("Тренажёр", caption)
+        self.assertIn("Полный разбор", caption)
+
     def test_lecture_script_has_task_and_bridge(self):
         post = make_post()
         post.meta["post_mode"] = "interactive_challenge"
