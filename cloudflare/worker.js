@@ -37,6 +37,51 @@ export default {
       return new Response(null, { headers: CORS });
     }
 
+    if (url.pathname === "/threads-callback" && request.method === "GET") {
+      const code = url.searchParams.get("code");
+      if (!code) return new Response("Threads OAuth: no code", { status: 400 });
+      const appId = env.THREADS_APP_ID || "";
+      const appSecret = env.THREADS_APP_SECRET || "";
+      const redirectUri = env.THREADS_REDIRECT_URI || url.origin + "/threads-callback";
+      if (!appId || !appSecret) return new Response("Threads OAuth: app id/secret missing", { status: 500 });
+      try {
+        const tokenResponse = await fetch("https://graph.threads.com/oauth/access_token", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            client_id: appId,
+            client_secret: appSecret,
+            grant_type: "authorization_code",
+            redirect_uri: redirectUri,
+            code,
+          }).toString(),
+        });
+        const short = await tokenResponse.json();
+        if (!short.access_token) return new Response("Threads OAuth: " + JSON.stringify(short), { status: 400 });
+        const longResponse = await fetch(
+          "https://graph.threads.com/access_token?grant_type=th_exchange_token&client_secret=" +
+          encodeURIComponent(appSecret) + "&access_token=" + encodeURIComponent(short.access_token)
+        );
+        const long = await longResponse.json();
+        const token = long.access_token || short.access_token;
+        const meResponse = await fetch(
+          "https://graph.threads.com/v1.0/me?fields=id,username&access_token=" + encodeURIComponent(token)
+        );
+        const me = await meResponse.json();
+        return new Response(JSON.stringify({
+          ok: true,
+          user_id: me.id || "",
+          username: me.username || "",
+          access_token: token,
+          expires_in: long.expires_in || short.expires_in || 0,
+        }), {
+          headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", ...CORS },
+        });
+      } catch (error) {
+        return new Response("Threads OAuth error: " + String(error), { status: 500 });
+      }
+    }
+
     if (url.pathname.startsWith("/tg-cdn/") && request.method === "GET") {
       return telegramCdn(request, env, ctx, url);
     }

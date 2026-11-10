@@ -7,6 +7,7 @@ account_id = "751fbbfdf900851a741010feaecb24f4"
 
 [vars]
 SITE_ORIGIN = "https://newmathphys.github.io/science-pulse"
+THREADS_REDIRECT_URI = "https://science-pulse-edge.newmathphys.workers.dev/threads-callback"
 
 [[d1_databases]]
 binding = "DB"
