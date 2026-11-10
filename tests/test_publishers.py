@@ -161,14 +161,14 @@ class CaptionStyleTests(unittest.TestCase):
         self.assertIn("§ 1.1 · МАТЕМАТИКА", caption)
         self.assertIn("Инвариант:", caption)
         self.assertIn("Первоисточник:", caption)
-        self.assertIn("Тренажёр:", caption)
+        self.assertIn("Полный разбор:", caption)
 
     def test_caption_chain_links_when_parent_published(self):
         self.post.meta["prereq_links"] = [("§ 1.0 Пифагор", "https://t.me/newmathphys/29")]
         caption = build_rich_telegram_caption(self.post, 1024, "https://example.org")
         self.assertIn("← ", caption)
         self.assertIn("§ 1.0 Пифагор", caption)
-        self.assertIn("Тренажёр", caption)
+        self.assertIn("Полный разбор", caption)
 
     def test_short_text_and_frame_have_no_emojis(self):
         from science_pulse.publishers.base import build_short_text, formula_frame

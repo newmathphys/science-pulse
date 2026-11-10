@@ -123,10 +123,12 @@ def run_verify(pipeline: Any, include_media: bool = True, include_lean: bool = T
         from .formal import check_lean
 
         result = check_lean()
+        available = bool(getattr(result, "available", True))
         checks.append({
             "name": "lean",
-            "ok": bool(result.ok) if hasattr(result, "ok") else True,
-            "detail": str(getattr(result, "detail", "доказательства проверены"))[:120],
+            "ok": bool(result.ok) if available else True,
+            "detail": ("Lean не установлен, проверка пропущена" if not available
+                       else str(getattr(result, "detail", "доказательства проверены"))[:120]),
         })
 
     fuzz = fuzz_captions()
