@@ -325,7 +325,14 @@ class SciencePulseKernel:
             except Exception as exc:  # pragma: no cover - внешний TTS
                 LOGGER.info("Озвучка фазы 3 не удалась: %s", exc)
         blocks = sum(
-            1 for marker in ("Раздел", "Фундаментальный вопрос", "Применение сегодня", "Разбор завершён", "Эфир продолжается")
+            1 for marker in (
+                "На числах это даёт",
+                "Сегодня это работает",
+                "Это опирается",
+                "Попробуйте сами",
+                "Разбор завершён",
+                "Эфир продолжается",
+            )
             if marker in script
         )
         entropy = {}

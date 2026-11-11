@@ -156,6 +156,62 @@ class ThreadsPublisher(Publisher):
             meta={"published_ids": published, "chunks": len(published)},
         )
 
+    def publish_video_reply(
+        self,
+        parent_id: str,
+        video_url: str,
+        text: str = "",
+        wait_attempts: int = 60,
+    ) -> PublishResult:
+        """Публикует VIDEO-ответ в тред: карточка + голос + звуковая волна.
+
+        Threads не принимает «голый» MP3/OGG, поэтому звук доставляется
+        видео-аудиограммой. Контейнер видео обрабатывается дольше картинки —
+        ждём до ~3 минут, затем публикуем.
+        """
+        if not self.available():
+            return result_skipped(self.name, "TH_USER_ID/TH_ACCESS_TOKEN не заданы")
+        if not parent_id:
+            return PublishResult(platform=self.name, ok=False, error="нет parent_id для видео-ответа")
+        if not video_url:
+            return PublishResult(platform=self.name, ok=False, error="нет публичного URL аудиограммы")
+
+        payload: Dict[str, Any] = {
+            "media_type": "VIDEO",
+            "video_url": video_url,
+            "text": truncate(text or "", 500),
+            "reply_to_id": str(parent_id),
+            "access_token": self.token,
+        }
+        creation = self._create_container(payload)
+        if not creation.get("id"):
+            error = str(creation.get("error") or creation)
+            if "expired" in error.lower() or "session has expired" in error.lower():
+                return PublishResult(
+                    platform=self.name, ok=False, skipped=True,
+                    error="Threads token expired",
+                )
+            return PublishResult(platform=self.name, ok=False, error=error[:200])
+
+        ready, wait_error = self._wait_container(
+            creation["id"], attempts=max(15, int(wait_attempts)), pause=3.0
+        )
+        if not ready:
+            return PublishResult(
+                platform=self.name, ok=False,
+                error=f"видео-контейнер не готов: {wait_error}"[:200],
+            )
+        published_id = self._publish_container(creation["id"])
+        if not published_id:
+            return PublishResult(platform=self.name, ok=False, error="threads_publish не вернул id видео")
+        return PublishResult(
+            platform=self.name,
+            ok=True,
+            external_id=published_id,
+            url=f"https://www.threads.net/t/{published_id}",
+            meta={"reply_to_id": str(parent_id), "video_url": video_url},
+        )
+
     def _wait_container(self, creation_id: str, attempts: int = 15, pause: float = 2.0) -> tuple[bool, str]:
         """Ждёт обработки контейнера: FINISHED/PUBLISHED, ERROR/EXPIRED.
 

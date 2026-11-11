@@ -233,15 +233,15 @@ class PresentationTests(unittest.TestCase):
         post = make_post()
         post.meta["post_mode"] = "interactive_challenge"
         script = build_lecture_script(post, max_chars=3000)
-        self.assertIn("Задача слушателю", script)
-        self.assertIn("Фундаментальный вопрос", script)
-        self.assertIn("Применение сегодня", script)
+        self.assertIn("Попробуйте сами", script)
+        self.assertIn("Как одна формула", script)
+        self.assertIn("Сегодня это работает:", script)
 
     def test_lecture_script_pure_knowledge_has_no_task(self):
         post = make_post()
         post.meta["post_mode"] = "pure_knowledge"
         script = build_lecture_script(post, max_chars=3000)
-        self.assertNotIn("Задача слушателю", script)
+        self.assertNotIn("Попробуйте сами", script)
 
     def test_site_block_reveals_answer(self):
         from science_pulse.site import SiteBuilder

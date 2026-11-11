@@ -128,12 +128,37 @@ CF_WORKER_URL
 INGEST_SECRET
 ```
 
-## 8. Если токен не работает
+## 8. Видео со звуком в треде
+
+Threads не принимает «голый» MP3/OGG. SCM публикует карточку, затем отдельным
+ответом — **VIDEO-аудиограмму** (карточка + голос + осциллограмма):
+
+```bash
+# 1) собрать MP4 до сборки сайта (чтобы он попал в gh-pages)
+./sp attach-media --platform threads --prepare --latest 1
+
+# 2) после деплоя сайта прикрепить видео-ответ к последнему посту
+./sp attach-media --platform threads --latest 1
+```
+
+В GitHub Actions это делают шаги `Prepare audiogram` и `Attach Threads video`
+после `Publish site to gh-pages`. Повторный запуск не дублирует ответ:
+id хранится в `post.meta["threads_video_reply_id"]`.
+
+Проверить, что в MP4 есть звук:
+
+```bash
+ffprobe -v error -show_entries stream=codec_type,codec_name -of csv=p=0 data/audiogram/<id>.mp4
+# video,h264
+# audio,aac
+```
+
+## 9. Если токен не работает
 
 | Ошибка | Причина | Что делать |
 |:--|:--|:--|
 | `401` | токен истёк/не тот | новый `TH_ACCESS_TOKEN` |
 | `403` | аккаунт не Threads Tester | добавить тестера и принять приглашение |
 | `image_url` rejected | URL не публичный/404 | проверить `CF_WORKER_URL/tg-cdn/<file_id>.png` |
-| `container not ready` | не дождались обработки | SCM ждёт до 30 с; повторить |
+| `container not ready` | не дождались обработки | SCM ждёт до 30 с (видео — до 3 мин); повторить |
 | `TH_USER_ID` пуст | не взяли id | `GET /me` или debug token |

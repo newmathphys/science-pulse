@@ -455,96 +455,69 @@ def _canon_titles(ids: List[str]) -> List[str]:
 
 
 def build_lecture_script(post: Post, max_chars: int = 900, closing: str = "post") -> str:
-    """Пятиблочный лекционный сценарий для диктора (без URL, тегов и эмодзи).
+    """Естественный рассказ для диктора: без меток, без чтения формулы.
 
-    Блоки:
-    1) **дисциплина, эпоха и первоисточник**: «Раздел Физика. Параграф 5.1.
-       1926, Цюрих. Эрвин Шрёдингер. Первоисточник: …»;
-    2) **проблема-крючок**: «Фундаментальный вопрос: …»;
-    3) **математическое решение словами**: суть + фонетика формулы + «где: …»;
-    4) **связь времён**: «Применение сегодня: …»;
-    5) **мост к следующему уровню**: «опирается на … и открывает дорогу к …».
+    Диктор говорит только связным текстом: учёный/эпоха/заголовок, вопрос,
+    суть, проверенный числовой пример, применение и мост к следующей теме.
+    Формула остаётся на экране/в карточке, но голосом не читается.
     """
     meta = getattr(post, "meta", {}) or {}
-    parts: List[str] = []
-
-    domain_label = {"math": "Математика", "physics": "Физика", "cs": "Информатика"}.get(
-        getattr(post, "domain", "math"), "Наука")
-
-    # --- Блок 1: дисциплина, эпоха, первоисточник --------------------------
-    block_one = [f"Раздел {domain_label}."]
-    section = _strip_links_tags(str(meta.get("section_num") or ""))
-    if section:
-        block_one.append(f"Параграф {section}.")
-    era = _strip_links_tags(str(meta.get("era") or ""))
-    scientist = _strip_links_tags(str(meta.get("scientist") or ""))
-    context = ". ".join(part for part in (era, scientist) if part)
-    if context:
-        block_one.append(f"{context}.")
-    lineage = meta.get("source_lineage") if isinstance(meta.get("source_lineage"), dict) else {}
-    primary = _strip_links_tags(str((lineage or {}).get("primary_work") or ""))
-    if primary:
-        block_one.append(f"Первоисточник: {primary}.")
+    scientist = _strip_links_tags(_speech_clean(str(meta.get("scientist") or post.source_name or "учёный")))
+    era = _strip_links_tags(_speech_clean(str(meta.get("era") or "")))
     title = _strip_links_tags(_speech_clean(post.title))
-    if title:
-        block_one.append(f"{title}.")
-    parts.append(" ".join(block_one))
-
-    # --- Блок 2: проблема-крючок -------------------------------------------
     hook = _strip_links_tags(_speech_clean(post.hook or ""))
-    if hook:
-        parts.append(f"Фундаментальный вопрос: {hook}")
-
-    # --- Блок 3: математическое решение словами ---------------------------
-    block_three: List[str] = []
     body = _strip_links_tags(_speech_clean(post.body or ""))
-    if body:
-        block_three.append(body)
-    variables = _strip_links_tags(_speech_clean(str(meta.get("formula_vars") or "")))
-    if variables:
-        block_three.append(f"где: {variables}.")
-    if block_three:
-        parts.append(" ".join(block_three))
+    sentences = [part.strip() for part in re.split(r"(?<=[.!?])\s+", body) if part.strip()]
+    first = sentences[0] if sentences else ""
+    rest = " ".join(sentences[1:]) if len(sentences) > 1 else ""
 
-    # --- Блок 4: связь времён ----------------------------------------------
+    parts: List[str] = []
+    intro = " ".join(part for part in (
+        f"{scientist}." if scientist else "",
+        f"{era}." if era else "",
+        f"{title}." if title else "",
+    ) if part)
+    if intro:
+        parts.append(intro)
+    if hook or first:
+        parts.append(" ".join(part for part in (hook, first) if part))
+    if rest:
+        parts.append(rest)
+
+    example = verified_example(post)
+    if example:
+        parts.append(f"На числах это даёт: {example}")
+
     application = _strip_links_tags(_speech_clean(str(meta.get("modern_application") or "")))
     if application:
-        parts.append(f"Применение сегодня: {application}.")
-
-    # --- Блок 5: задача слушателю и мост к следующему уровню ----------------
-    challenge_question = ""
-    try:
-        from .challenge import build_challenge
-
-        challenge_question = _strip_links_tags(
-            _speech_clean(str(build_challenge(post).get("question") or ""))
-        )
-    except Exception:  # pragma: no cover - защитный контур
-        challenge_question = ""
-    from .post_modes import shows_challenge
-
-    if challenge_question and shows_challenge(str(meta.get("post_mode") or "")):
-        parts.append(f"Задача слушателю: {challenge_question} Ответ проверите на тренажёре сайта.")
+        parts.append(f"Сегодня это работает: {application}.")
 
     prereqs = _canon_titles([str(item) for item in (meta.get("prereq_ids") or [])])
     unlocks = [str(item) for item in (meta.get("unlocks_concepts") or [])][:3]
     bridge: List[str] = []
     if prereqs:
-        bridge.append(f"Это знание опирается на {', '.join(prereqs)}")
+        bridge.append(f"Это опирается на труды: {', '.join(prereqs)}")
     if unlocks:
-        bridge.append(f"и открывает дорогу к теме: {', '.join(unlocks)}")
+        bridge.append(f"и открывает путь к теме: {', '.join(unlocks)}")
     if bridge:
-        ending = "Эфир продолжается." if str(closing) == "radio" else "Разбор завершён."
-        parts.append(" ".join(bridge) + f". {ending}")
+        parts.append(" ".join(bridge) + ".")
 
-    formula = _strip_links_tags(_speech_clean(post.formula_plain or ""))
-    formula_spoken = math_to_spoken_russian(formula) if formula else ""
-    formula_part = f" Формула: {formula_spoken}." if formula_spoken else ""
-    budget = max(80, max_chars - len(formula_part))
+    try:
+        from .challenge import build_challenge
+        from .post_modes import shows_challenge
 
-    # Нормализуем формулы в слова ДО расчёта лимита, иначе длина «поедет».
+        if shows_challenge(str(meta.get("post_mode") or "")):
+            question = _strip_links_tags(_speech_clean(str(build_challenge(post).get("question") or "")))
+            if question:
+                parts.append(f"Попробуйте сами: {question}")
+    except Exception:
+        pass
+
+    ending = "Эфир продолжается." if str(closing) == "radio" else "Разбор завершён."
+    parts.append(ending)
     parts = [math_to_spoken_russian(part) for part in parts if part]
     text = " ".join(parts)
+    budget = max(80, int(max_chars))
     if len(text) > budget:
         try:
             from .signal_engine import ShannonTextCompressor
@@ -565,8 +538,7 @@ def build_lecture_script(post: Post, max_chars: int = 900, closing: str = "post"
             space = cut.rfind(" ")
             cut = (cut[:space] if space > 0 else cut).rstrip(" ,;:—") + "."
         text = cut.rstrip()
-    return f"{text}{formula_part}".strip()
-
+    return text
 
 
 def _boundaries_to_segments(boundaries: List[Any], max_words: int = 12) -> List[Any]:
@@ -680,6 +652,11 @@ def verified_example(post: Post) -> str:
         return "Для чисел 1071 и 462 наибольший общий делитель равен 21."
     if canon_id == "newton_gravity":
         return "Если увеличить расстояние в три раза, сила уменьшится в девять раз."
+    if canon_id == "bernoulli_flow":
+        return ("При скорости воды два метра в секунду и высоте пять метров "
+                "полное давление равно примерно ста пятидесяти двум тысячам паскалей.")
+    if canon_id == "lovelace":
+        return "Четвёртое число Бернулли равно минус одной тридцатой."
     try:
         from .challenge import build_challenge
 
@@ -1392,7 +1369,12 @@ def audiogram_for_post(post: Post, config: Config, card_path: str | Path | None 
     directory = Path(out_dir) if out_dir else config.data_dir / "audiogram"
     target = directory / f"{post.id}.mp4"
     key_path = directory / f"{post.id}.key"
-    card = Path(card_path) if card_path else (Path(post.card_path) if post.card_path else config.cards_dir / f"{post.id}.png")
+    if card_path:
+        card = Path(card_path)
+    elif post.card_path and Path(post.card_path).is_file():
+        card = Path(post.card_path)
+    else:
+        card = config.cards_dir / f"{post.id}.png"
     if not card.is_file():
         return None
     artifact = voice_for_post(post, config)

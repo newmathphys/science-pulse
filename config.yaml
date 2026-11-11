@@ -130,6 +130,10 @@ video:
 # Приоритет: kv (команда /limits set) → этот блок → значения по умолчанию.
 # audio_mode: auto | voice | audio | mp4 | file | link | off
 platform_rules:
+  threads:
+    # Звук в Threads доставляется VIDEO-аудиограммой отдельным ответом
+    # (attach-media); в тексте остаётся ссылка на видеоразбор.
+    audio_mode: mp4
   # threads:
   #   max_caption_chars: 600
   # telegram:

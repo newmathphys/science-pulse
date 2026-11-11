@@ -45,6 +45,9 @@ case "$cmd" in
   threads-token)
     "$PY" -m science_pulse.cli threads-token "$@"
     ;;
+  attach-media)
+    "$PY" -m science_pulse.cli attach-media "$@"
+    ;;
   videos)
     "$PY" -m science_pulse.cli videos "$@"
     ;;

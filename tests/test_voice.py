@@ -46,7 +46,7 @@ class SpeechTextTests(unittest.TestCase):
     def test_includes_modern_application(self):
         post = make_post(modern_application="Sentinel-1: мониторинг вулканов")
         text = speech_text(post)
-        self.assertIn("Применение сегодня", text)
+        self.assertIn("Сегодня это работает:", text)
         self.assertIn("Sentinel-1", text)
 
     def test_truncation_keeps_words(self):

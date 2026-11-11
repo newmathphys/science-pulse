@@ -105,6 +105,28 @@ class ThreadsLaunchTests(unittest.TestCase):
         self.assertNotIn("https://", texts[0])
         self.assertIn("example.org", texts[1])
 
+    def test_video_reply_uses_video_container(self):
+        calls = []
+
+        def fake_post(url, data=None, timeout=None):
+            calls.append(dict(data or {}))
+            if url.endswith("/threads"):
+                return FakeResponse({"id": "video-container"})
+            return FakeResponse({"id": "video-post"})
+
+        with patch("science_pulse.publishers.threads.requests.post", side_effect=fake_post), \
+                patch.object(ThreadsPublisher, "_wait_container", return_value=(True, "")), \
+                patch("science_pulse.publishers.threads.time.sleep", return_value=None):
+            result = self.publisher.publish_video_reply(
+                "parent-1", "https://example.org/audiogram/th1.mp4", "Видеоразбор"
+            )
+
+        self.assertTrue(result.ok)
+        self.assertEqual(result.external_id, "video-post")
+        self.assertEqual(calls[0]["media_type"], "VIDEO")
+        self.assertEqual(calls[0]["video_url"], "https://example.org/audiogram/th1.mp4")
+        self.assertEqual(calls[0]["reply_to_id"], "parent-1")
+
     def test_wait_container_finished(self):
         with patch("science_pulse.publishers.threads.requests.get",
                    return_value=FakeResponse({"status": "FINISHED"})):
@@ -120,7 +142,8 @@ class ThreadsLaunchTests(unittest.TestCase):
         self.assertIn("bad image", error)
 
     def test_image_mode(self):
-        self.assertIn(self.publisher.image_mode(), {"text", "site"})
+        with patch.dict(os.environ, {"CF_WORKER_URL": ""}, clear=False):
+            self.assertIn(ThreadsPublisher(self.config).image_mode(), {"text", "site"})
         with patch.dict(os.environ, {"CF_WORKER_URL": "https://worker.example"}, clear=False):
             self.assertEqual(ThreadsPublisher(self.config).image_mode(), "cloudflare")
 

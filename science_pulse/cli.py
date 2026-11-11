@@ -878,6 +878,54 @@ def cmd_videos(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_attach_media(args: argparse.Namespace) -> int:
+    """Готовит аудиограмму и/или прикрепляет видео-ответ в Threads."""
+    from .media_attach import attach_threads_video, latest_published, prepare_audiogram
+
+    pipeline = _pipeline(args)
+    storage, config = pipeline.storage, pipeline.config
+    if args.post_id:
+        post = storage.get_post(args.post_id)
+        posts = [post] if post else []
+    else:
+        posts = latest_published(storage, limit=args.latest)
+    if not posts:
+        print("Опубликованных постов нет", file=sys.stderr)
+        return 1
+
+    if args.prepare:
+        ok = 0
+        for post in posts:
+            path = prepare_audiogram(post, config)
+            if path:
+                print(f"Аудиограмма: {path}")
+                ok += 1
+            else:
+                print(f"Не удалось собрать аудиограмму: {post.id}", file=sys.stderr)
+        return 0 if ok else 1
+
+    if args.platform != "threads":
+        print(f"Площадка пока не поддерживается: {args.platform}", file=sys.stderr)
+        return 1
+
+    failed = 0
+    for post in posts:
+        result = attach_threads_video(post, config, storage, force=args.force)
+        if result.ok:
+            if result.meta.get("skipped"):
+                print(f"Уже прикреплено: {post.title} → {result.url}")
+            else:
+                print(f"Видео-ответ: {post.title} → {result.url}")
+        else:
+            failed += 1
+            print(f"Ошибка видео-ответа: {post.title}: {result.error}", file=sys.stderr)
+    try:
+        storage.checkpoint()
+    except Exception:
+        pass
+    return 0 if failed == 0 else 1
+
+
 def cmd_threads_token(args: argparse.Namespace) -> int:
     """Проверить срок Threads-токена или обменять short-lived на long-lived."""
     import os
@@ -1704,6 +1752,17 @@ def build_parser() -> argparse.ArgumentParser:
     videos = subparsers.add_parser("videos", help="реестр сгенерированных видео")
     videos.add_argument("--json", action="store_true")
     videos.set_defaults(func=cmd_videos)
+
+    attach_media = subparsers.add_parser(
+        "attach-media",
+        help="аудиограмма и видео-ответ в Threads (после публикации сайта)",
+    )
+    attach_media.add_argument("--platform", default="threads", choices=["threads"])
+    attach_media.add_argument("--post-id")
+    attach_media.add_argument("--latest", type=int, default=1)
+    attach_media.add_argument("--prepare", action="store_true", help="только собрать MP4 до сборки сайта")
+    attach_media.add_argument("--force", action="store_true", help="прикрепить повторно")
+    attach_media.set_defaults(func=cmd_attach_media)
 
     threads_token = subparsers.add_parser("threads-token", help="проверить/обменять Threads-токен")
     threads_token.add_argument("--status", action="store_true")

@@ -410,7 +410,7 @@ python -m unittest discover -v
 
 ```text
 $ python -m unittest discover -v
-Ran 645 tests
+Ran 649 tests
 OK
 ```
 
@@ -845,6 +845,8 @@ Discord, Mastodon и VK **не проверялись**: в среде нет и
 7. Коммерческая ветка и внешние оракулы.
 
 - [x] Threads: ключи получены, long-lived токен до 2027-01-09, первый пост и автоматическая публикация проверены.
+- [x] Голос: убраны казённые метки, отдельная формула не читается; проверенный пример произносится словами.
+- [x] Threads: VIDEO-аудиограмма отдельным ответом, `attach-media` + шаги workflow `Prepare audiogram` / `Attach Threads video`.
 - [ ] «Радио моей ветки» в `radio.html`.
 - [ ] Команда боту `?start=branch_<id>`.
 - [ ] Полная разбивка трекера `90Days` по неделям/ступеням.
