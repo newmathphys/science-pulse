@@ -332,6 +332,8 @@ def normalize_russian_for_tts(text: str) -> str:
 # Фонетический словарь формул: печатный текст не меняется, меняется только речь.
 # Порядок важен: длинные конструкции заменяются раньше коротких.
 _SPOKEN_RULES: tuple = (
+    # разделители в метаданных («1738 года • Базель») — не читаем как символ
+    (r"•", ","),
     # сложность алгоритмов
     (r"O\s*\(\s*[Nn]\s*[·*]?\s*log\s*[Nn]\s*\)", "о большое от эн логарифм эн"),
     (r"O\s*\(\s*[Nn]\s*\^\s*2\s*\)", "о большое от эн квадрат"),
@@ -404,6 +406,7 @@ def math_to_spoken_russian(text: str) -> str:
     for pattern, spoken in _SPOKEN_RULES:
         result = re.sub(pattern, f" {spoken} ", result)
     result = re.sub(r"\s{2,}", " ", result)
+    result = re.sub(r"\s+([,.;:!?])", r"\1", result)
     return result.strip()
 
 
@@ -1381,7 +1384,8 @@ def audiogram_for_post(post: Post, config: Config, card_path: str | Path | None 
     if artifact is None:
         return None
     wave_color = WAVE_COLORS.get(getattr(post, "domain", "math"), WAVE_COLORS["math"])
-    key = f"{card}:{artifact.mp3_path}:{artifact.engine}:{artifact.voice}:{wave_color}:{animate}"
+    text_hash = hashlib.sha1((artifact.text or "").encode("utf-8")).hexdigest()[:12]
+    key = f"{card}:{artifact.mp3_path}:{text_hash}:{artifact.engine}:{artifact.voice}:{wave_color}:{animate}"
     if target.is_file() and key_path.is_file() and key_path.read_text(encoding="utf-8") == key:
         return target
     if not build_audiogram_mp4(
