@@ -1,9 +1,16 @@
 {
   "edge": {
+    "failures": 1,
+    "blocked_until": 0.0,
+    "last_error": "NoAudioReceived: No audio was received. Please verify that your parameters are correct.",
+    "last_ok": 1794350689.6706243,
+    "last_kind": "empty"
+  },
+  "google_tts": {
     "failures": 0,
     "blocked_until": 0.0,
     "last_error": "",
-    "last_ok": 1794350689.6706243,
+    "last_ok": 1794403391.9250467,
     "last_kind": "ok"
   }
 }
