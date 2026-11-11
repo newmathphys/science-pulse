@@ -126,6 +126,15 @@ class StateTests(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertIn("degraded", result)
 
+    def test_lock_legacy_text_response_degrades(self):
+        def post(url, **kwargs):
+            return FakeResponse(200)
+
+        with patch.dict("os.environ", ENV, clear=False):
+            result = StateSync(self.config, self.storage, http_post=post).acquire_lock("me")
+        self.assertTrue(result["ok"])
+        self.assertIn("degraded", result)
+
     def test_lock_404_required_fails(self):
         self.config.raw["edge"] = {"lock_required": True}
 

@@ -83,11 +83,15 @@ class StateSync:
                 json={"owner": str(owner)[:200], "ttl_s": max(30, int(ttl_s))},
                 timeout=30,
             )
-            payload = response.json() if hasattr(response, "json") else {}
-            if not isinstance(payload, dict):
-                payload = {}
         except Exception as exc:
             return {"ok": False, "error": f"lock: {str(exc)[:200]}"}
+        payload: Dict[str, Any] = {}
+        try:
+            raw = response.json() if hasattr(response, "json") else {}
+            if isinstance(raw, dict):
+                payload = raw
+        except Exception:
+            payload = {}
         status = getattr(response, "status_code", 0)
         required = bool((self.config.raw.get("edge") or {}).get("lock_required", False))
         if status in (404, 405) or (
