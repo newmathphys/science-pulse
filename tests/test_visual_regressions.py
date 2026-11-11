@@ -5,13 +5,22 @@ import unittest
 from pathlib import Path
 
 from science_pulse.book_film import BookFilmScene
-from science_pulse.config import load_config
+from science_pulse.config import Config, load_config
+from science_pulse.sources.history_canon import HistoryCanonSource
 from science_pulse.storage import Storage
 from science_pulse.voice import build_film_script, verified_example
 
 
 def post(pid: str):
-    return Storage(load_config().db_path).get_post(pid)
+    stored = Storage(load_config().db_path).get_post(pid)
+    if stored is not None:
+        return stored
+    source = HistoryCanonSource(Config(raw={}))
+    for cycle in range(40):
+        candidate = source.fetch(limit=1, cycle=cycle)[0]
+        if candidate.id == pid:
+            return candidate
+    raise AssertionError(f"нет фикстуры {pid}")
 
 
 class VisualRegressionTests(unittest.TestCase):

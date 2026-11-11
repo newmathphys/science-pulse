@@ -82,6 +82,12 @@ CREATE TABLE IF NOT EXISTS sources (
     open_until REAL DEFAULT 0
 );
 
+CREATE TABLE IF NOT EXISTS state_lock (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    owner TEXT NOT NULL,
+    expires_at REAL NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS kv (
     key TEXT PRIMARY KEY,
     value TEXT

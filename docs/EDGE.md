@@ -40,6 +40,38 @@ Worker (`cloudflare/worker.js`) кладёт `png` в R2 по ключу `cards/
 а `meta` — в D1 (`INSERT OR REPLACE INTO knowledge_nodes …`). Ответ `200/201/204`
 считается успехом.
 
+## D1-Primary и lease-lock
+
+С версии 2026-11-11 CI работает в режиме **D1-Primary**:
+
+- D1 — источник истины для записи;
+- локальный `data/science.db` — рабочая копия/кэш, в Git не коммитится;
+- каждая мутирующая операция (`harvest`, `publish_next`, `run`, `attach-media`)
+  захватывает lease-lock `POST /api/state/lock`;
+- второй раннер получает `409` и уходит в `deferred`, не публикуя;
+- lock освобождается в `finally` через `POST /api/state/unlock`;
+- TTL по умолчанию 900 секунд (`edge.lock_ttl_seconds`);
+- до деплоя Worker с `/api/state/lock` включён `edge.lock_required: false`:
+  lock работает в режиме `degraded` и не блокирует конвейер. После деплоя
+  поставьте `lock_required: true`, чтобы второй раннер уходил в `deferred`.
+
+Перед сменой режима примените схему:
+
+```bash
+cd cloudflare
+wrangler d1 execute science-pulse --file=schema.sql
+```
+
+Проверка:
+
+```bash
+python -m science_pulse.cli state --pull
+python -m science_pulse.cli state --push
+```
+
+`data/science.db` удалён из индекса Git; снимок состояния хранится в
+GitHub Release `state-backup` как `state_backup.sqlite.gz`.
+
 ## Включение
 
 1. Разверните Worker и хранилища (см. `docs/TOKENS.md`):

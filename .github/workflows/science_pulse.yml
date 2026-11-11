@@ -103,6 +103,7 @@ jobs:
           VK_GROUP_ID: ${{ secrets.VK_GROUP_ID }}
           VK_ACCESS_TOKEN: ${{ secrets.VK_ACCESS_TOKEN }}
           CF_WORKER_URL: ${{ secrets.CF_WORKER_URL }}
+          INGEST_SECRET: ${{ secrets.INGEST_SECRET }}
           STACKEXCHANGE_API_KEY: ${{ secrets.STACKEXCHANGE_API_KEY }}
           SP_SITE_BASE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
           SP_SITE_TITLE: Science Pulse
@@ -144,20 +145,6 @@ jobs:
         if: always()
         run: python -m science_pulse.cli checkpoint
 
-      - name: Save state
-        if: always()
-        run: |
-          git config user.name "science-pulse-bot"
-          git config user.email "science-pulse-bot@users.noreply.github.com"
-          git add data/science.db
-          git add -f data/audio/voice_health.json 2>/dev/null || true
-          if ! git diff --cached --quiet; then
-            git commit -m "chore: science pulse state $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            git push
-          else
-            echo "Состояние не изменилось"
-          fi
-
       # Публикация статического сайта в ветку gh-pages
       # (GitHub Pages → Source: Deploy from a branch → gh-pages).
       - name: Publish site to gh-pages
@@ -178,20 +165,24 @@ jobs:
         env:
           TH_USER_ID: ${{ secrets.TH_USER_ID }}
           TH_ACCESS_TOKEN: ${{ secrets.TH_ACCESS_TOKEN }}
+          CF_WORKER_URL: ${{ secrets.CF_WORKER_URL }}
+          INGEST_SECRET: ${{ secrets.INGEST_SECRET }}
           SP_SITE_BASE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
         run: python -m science_pulse.cli attach-media --platform threads --latest 1
 
-      - name: Save state after media
+      - name: Backup state snapshot
         if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git config user.name "science-pulse-bot"
-          git config user.email "science-pulse-bot@users.noreply.github.com"
-          git add data/science.db
-          if ! git diff --cached --quiet; then
-            git commit -m "chore: science pulse media state $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            git push
+          if [ -f data/science.db ]; then
+            gzip -c data/science.db > data/state_backup.sqlite.gz
+            gh release view state-backup >/dev/null 2>&1 || \
+              gh release create state-backup --title "State backup" --notes "SQLite snapshot before D1-primary cutover" >/dev/null
+            gh release upload state-backup data/state_backup.sqlite.gz --clobber
           else
-            echo "Состояние медиа не изменилось"
+            echo "Нет data/science.db для бэкапа"
           fi
 
       - name: Alert operator on failure

@@ -909,20 +909,28 @@ def cmd_attach_media(args: argparse.Namespace) -> int:
         return 1
 
     failed = 0
-    for post in posts:
-        result = attach_threads_video(post, config, storage, force=args.force)
-        if result.ok:
-            if result.meta.get("skipped"):
-                print(f"Уже прикреплено: {post.title} → {result.url}")
+    with pipeline.state_guard() as lock:
+        if not lock.get("ok"):
+            print(f"Состояние занято: {lock.get('error') or 'D1 lock'}", file=sys.stderr)
+            return 1
+        for post in posts:
+            result = attach_threads_video(post, config, storage, force=args.force)
+            if result.ok:
+                if result.meta.get("skipped"):
+                    print(f"Уже прикреплено: {post.title} → {result.url}")
+                else:
+                    print(f"Видео-ответ: {post.title} → {result.url}")
             else:
-                print(f"Видео-ответ: {post.title} → {result.url}")
-        else:
-            failed += 1
-            print(f"Ошибка видео-ответа: {post.title}: {result.error}", file=sys.stderr)
-    try:
-        storage.checkpoint()
-    except Exception:
-        pass
+                failed += 1
+                print(f"Ошибка видео-ответа: {post.title}: {result.error}", file=sys.stderr)
+        try:
+            storage.checkpoint()
+        except Exception:
+            pass
+        if pipeline.d1_primary_enabled():
+            pushed = pipeline.push_state()
+            if not pushed.get("ok"):
+                print(f"D1 push после медиа: {pushed.get('error') or pushed.get('failed')}", file=sys.stderr)
     return 0 if failed == 0 else 1
 
 

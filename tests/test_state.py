@@ -89,6 +89,53 @@ class StateTests(unittest.TestCase):
         self.assertIn("tables", kwargs["json"])
         self.assertIn("posts", kwargs["json"]["tables"])
 
+    def test_acquire_and_release_lock(self):
+        calls = []
+
+        def post(url, **kwargs):
+            calls.append((url, kwargs))
+            if url.endswith("/lock"):
+                return FakeJsonResponse({"ok": True, "owner": "worker-1", "expires_at": 123})
+            return FakeJsonResponse({"ok": True, "released": True})
+
+        with patch.dict("os.environ", ENV, clear=False):
+            sync = StateSync(self.config, self.storage, http_post=post)
+            acquired = sync.acquire_lock("worker-1", ttl_s=60)
+            released = sync.release_lock("worker-1")
+        self.assertTrue(acquired["ok"])
+        self.assertTrue(released["ok"])
+        self.assertTrue(calls[0][0].endswith("/api/state/lock"))
+        self.assertTrue(calls[1][0].endswith("/api/state/unlock"))
+        self.assertEqual(calls[0][1]["json"]["owner"], "worker-1")
+
+    def test_lock_404_degrades_until_worker_deploy(self):
+        def post(url, **kwargs):
+            return FakeResponse(404)
+
+        with patch.dict("os.environ", ENV, clear=False):
+            result = StateSync(self.config, self.storage, http_post=post).acquire_lock("me")
+        self.assertTrue(result["ok"])
+        self.assertIn("lock endpoint", result["degraded"])
+
+    def test_lock_404_required_fails(self):
+        self.config.raw["edge"] = {"lock_required": True}
+
+        def post(url, **kwargs):
+            return FakeResponse(404)
+
+        with patch.dict("os.environ", ENV, clear=False):
+            result = StateSync(self.config, self.storage, http_post=post).acquire_lock("me")
+        self.assertFalse(result["ok"])
+
+    def test_lock_busy_is_not_ok(self):
+        def post(url, **kwargs):
+            return FakeJsonResponse({"ok": False, "locked": True, "owner": "other"})
+
+        with patch.dict("os.environ", ENV, clear=False):
+            result = StateSync(self.config, self.storage, http_post=post).acquire_lock("me")
+        self.assertFalse(result["ok"])
+        self.assertTrue(result["locked"])
+
     def test_push_unavailable(self):
         with patch.dict("os.environ", {}, clear=True):
             result = StateSync(self.config, self.storage).push()

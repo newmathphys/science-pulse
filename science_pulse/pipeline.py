@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+import functools
 import logging
+import os
+import socket
+import uuid
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
@@ -17,6 +22,25 @@ from .text import smart_sentence_truncate
 LOGGER = logging.getLogger(__name__)
 
 
+def _state_locked(method):
+    """Единый writer-lock D1 для всех мутирующих операций пайплайна."""
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        if method.__name__ in ("run", "publish_next") and (
+            kwargs.get("dry_run") or (args and args[0] is True)
+        ):
+            return method(self, *args, **kwargs)
+        with self.state_guard() as lock:
+            if not lock.get("ok"):
+                return self._deferred(
+                    "state_lock",
+                    lock.get("error") or "D1 state lock занят",
+                    lock=lock,
+                )
+            return method(self, *args, **kwargs)
+    return wrapper
+
+
 class Pipeline:
     def __init__(
         self,
@@ -30,10 +54,43 @@ class Pipeline:
         self.sources = source_manager or SourceManager(self.config, self.storage)
         self.publishers = publisher_manager or PublisherManager(self.config, self.storage)
         self.sota = SOTAKVExtensions(self.storage)
+        self._state_lock_owner = ""
 
     # ------------------------------------------------------------------
-    # D1 как основной источник (Hybrid D1-Primary)
+    # D1 как основной источник (D1-Primary + lease lock)
     # ------------------------------------------------------------------
+    @contextmanager
+    def state_guard(self, ttl_s: int = 900):
+        """Lease-lock на запись. Вложенные вызовы используют один owner."""
+        if not self.d1_primary_enabled():
+            yield {"ok": True, "skipped": "D1 primary disabled"}
+            return
+        if self._state_lock_owner:
+            yield {"ok": True, "shared": True, "owner": self._state_lock_owner}
+            return
+
+        from .state_export import StateSync
+
+        sync = StateSync(self.config, self.storage)
+        edge = dict(self.config.raw.get("edge") or {})
+        ttl = int(edge.get("lock_ttl_seconds", ttl_s) or ttl_s)
+        owner = f"{socket.gethostname()}:{os.getpid()}:{uuid.uuid4().hex[:8]}"
+        acquired = sync.acquire_lock(owner, ttl_s=ttl)
+        if not acquired.get("ok"):
+            yield acquired
+            return
+        if acquired.get("degraded"):
+            LOGGER.warning("D1 lease-lock: %s", acquired["degraded"])
+        self._state_lock_owner = owner
+        try:
+            yield acquired
+        finally:
+            try:
+                sync.release_lock(owner)
+            except Exception as exc:  # pragma: no cover - защита finally
+                LOGGER.warning("D1 unlock: %s", exc)
+            self._state_lock_owner = ""
+
     def d1_primary_enabled(self) -> bool:
         edge = dict(self.config.raw.get("edge") or {})
         if not edge.get("d1_primary", False):
@@ -71,6 +128,7 @@ class Pipeline:
     # ------------------------------------------------------------------
     # Добыча
     # ------------------------------------------------------------------
+    @_state_locked
     def harvest(
         self,
         limit_per_source: int | None = None,
@@ -240,6 +298,7 @@ class Pipeline:
         payload.update(extra)
         return payload
 
+    @_state_locked
     def publish_next(
         self,
         dry_run: bool = False,
@@ -523,6 +582,7 @@ class Pipeline:
                     break
         return publisher.send_poll(post, reply_to=reply_to)
 
+    @_state_locked
     def run(
         self,
         dry_run: bool = False,

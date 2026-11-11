@@ -6,6 +6,9 @@
  *   GET  /cards/*              — карточки из R2
  *   GET  /api/graph            — граф знаний из D1
  *   POST /api/ingest           — загрузка карточки + узла (Bearer INGEST_SECRET)
+ *   POST /api/state            — реплика состояния (Bearer INGEST_SECRET)
+ *   POST /api/state/lock       — lease-lock writer (Bearer INGEST_SECRET)
+ *   POST /api/state/unlock     — освобождение lock (Bearer INGEST_SECRET)
  *   POST /telegram-webhook     — пульт: answerCallbackQuery + запуск GitHub Actions
  *   GET  /node/:id             — тот же index.html с og:image для соцсетей
  *
@@ -151,6 +154,63 @@ export default {
         .run();
 
       return Response.json({ ok: true, card_url: cardUrl }, { headers: CORS });
+    }
+
+    if (url.pathname === "/api/state/lock" && request.method === "POST") {
+      const auth = request.headers.get("Authorization");
+      if (auth !== `Bearer ${env.INGEST_SECRET}`) {
+        return new Response("Unauthorized", { status: 401, headers: CORS });
+      }
+      let body = {};
+      try { body = await request.json(); } catch (_) { body = {}; }
+      const owner = String(body.owner || "").trim().slice(0, 200);
+      if (!owner) return Response.json({ ok: false, error: "owner required" }, { status: 400, headers: CORS });
+      const ttl = Math.max(30, Math.min(3600, Number(body.ttl_s) || 900));
+      const now = Math.floor(Date.now() / 1000);
+      const expires = now + ttl;
+      await env.DB.prepare(
+        `CREATE TABLE IF NOT EXISTS state_lock (
+           id INTEGER PRIMARY KEY CHECK (id = 1),
+           owner TEXT NOT NULL,
+           expires_at REAL NOT NULL
+         )`
+      ).run();
+      const result = await env.DB.prepare(
+        `INSERT INTO state_lock (id, owner, expires_at) VALUES (1, ?1, ?2)
+         ON CONFLICT(id) DO UPDATE SET owner = excluded.owner, expires_at = excluded.expires_at
+         WHERE state_lock.expires_at <= ?3`
+      ).bind(owner, expires, now).run();
+      const changes = Number((result.meta && result.meta.changes) || 0);
+      if (changes > 0) {
+        return Response.json({ ok: true, owner, expires_at: expires }, { headers: CORS });
+      }
+      const current = await env.DB.prepare(
+        `SELECT owner, expires_at FROM state_lock WHERE id = 1`
+      ).first();
+      return Response.json({
+        ok: false,
+        locked: true,
+        owner: current ? current.owner : "",
+        expires_at: current ? current.expires_at : 0,
+      }, { status: 409, headers: CORS });
+    }
+
+    if (url.pathname === "/api/state/unlock" && request.method === "POST") {
+      const auth = request.headers.get("Authorization");
+      if (auth !== `Bearer ${env.INGEST_SECRET}`) {
+        return new Response("Unauthorized", { status: 401, headers: CORS });
+      }
+      let body = {};
+      try { body = await request.json(); } catch (_) { body = {}; }
+      const owner = String(body.owner || "").trim().slice(0, 200);
+      if (!owner) return Response.json({ ok: false, error: "owner required" }, { status: 400, headers: CORS });
+      const result = await env.DB.prepare(
+        `DELETE FROM state_lock WHERE id = 1 AND owner = ?1`
+      ).bind(owner).run();
+      return Response.json({
+        ok: true,
+        released: Number((result.meta && result.meta.changes) || 0) > 0,
+      }, { headers: CORS });
     }
 
     if (url.pathname === "/api/state" && request.method === "POST") {

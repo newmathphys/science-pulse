@@ -30,8 +30,11 @@ data/book_films/
 # Случайные карточки в корне (артефакты ручных прогонов)
 /card_*.png
 
-# SQLite-состояние маленькое и нужно для GitHub Actions
-!data/science.db
+# D1-Primary: SQLite — локальный кэш, в Git не коммитим
+data/science.db
+data/science.db-*
+data/state_backup*
+data/*.sqlite.gz
 
 # Cloudflare Wrangler cache
 .wrangler/

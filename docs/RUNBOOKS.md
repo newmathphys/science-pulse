@@ -51,11 +51,25 @@ SELECT platform, status, external_id, url FROM publications ORDER BY id DESC LIM
 
 ## 5. Backup
 
+D1-Primary: состояние живёт в Cloudflare D1, локальный SQLite — кэш.
+
 ```bash
 python -m science_pulse.cli checkpoint
-cp data/science.db "backups/science-$(date -u +%Y%m%dT%H%M%SZ).db"
+python -m science_pulse.cli state --push
 python -m science_pulse.cli knowledge export
 ```
+
+CI дополнительно кладёт `state_backup.sqlite.gz` в GitHub Release
+`state-backup`. R2-бэкап — опционально, если включён на аккаунте.
+
+Восстановление кэша из D1:
+
+```bash
+python -m science_pulse.cli state --pull
+```
+
+Если D1 недоступен, используйте последний `state_backup.sqlite.gz` из
+Releases и `python -m science_pulse.cli state --export`.
 
 ## 6. Восстановление
 

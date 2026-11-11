@@ -40,11 +40,11 @@ def to_sql(snapshot: Dict[str, List[Dict[str, Any]]]) -> str:
 
 
 class StateSync:
-    """Репликация состояния в D1 через Cloudflare Worker (`/api/state`).
+    """D1-Primary состояние через Cloudflare Worker (`/api/state`).
 
-    Локальный SQLite остаётся источником; D1 получает полную копию состояния
-    (posts/publications/metrics/sources/kv/seen). HTTP инъектируется — тесты
-    идут без сети.
+    D1 — источник истины для CI; локальный SQLite — рабочая копия/кэш.
+    Запись защищена lease-lock, чтобы два раннера не публиковали одновременно.
+    HTTP инъектируется — тесты идут без сети.
     """
 
     def __init__(
@@ -64,6 +64,77 @@ class StateSync:
 
     def endpoint(self) -> str:
         return f"{self.config.cf_worker_url}/api/state"
+
+    def acquire_lock(self, owner: str, ttl_s: int = 900) -> Dict[str, Any]:
+        """Захватывает lease-lock D1. Возвращает ok=False, если lock занят.
+
+        На время rollout старый Worker может ещё не знать `/lock`: 404/405
+        считаются «degraded» и не блокируют конвейер, если lock_required=false.
+        """
+        if not self.available():
+            return {"ok": False, "error": "CF_WORKER_URL/INGEST_SECRET не заданы"}
+        if not str(owner or "").strip():
+            return {"ok": False, "error": "пустой owner lock"}
+        headers = {"Authorization": f"Bearer {self.config.ingest_secret}"}
+        try:
+            response = self._post(
+                f"{self.endpoint()}/lock",
+                headers=headers,
+                json={"owner": str(owner)[:200], "ttl_s": max(30, int(ttl_s))},
+                timeout=30,
+            )
+            payload = response.json() if hasattr(response, "json") else {}
+            if not isinstance(payload, dict):
+                payload = {}
+        except Exception as exc:
+            return {"ok": False, "error": f"lock: {str(exc)[:200]}"}
+        status = getattr(response, "status_code", 0)
+        if status in (404, 405):
+            required = bool((self.config.raw.get("edge") or {}).get("lock_required", False))
+            if not required:
+                return {
+                    "ok": True,
+                    "degraded": "lock endpoint not deployed; single-writer disabled",
+                    "error": "",
+                }
+        if status not in (200, 201, 204):
+            return {
+                "ok": False,
+                "locked": bool(payload.get("locked")),
+                "owner": str(payload.get("owner") or ""),
+                "expires_at": payload.get("expires_at"),
+                "error": str(payload.get("error") or f"lock HTTP {status}"),
+            }
+        return {
+            "ok": bool(payload.get("ok")),
+            "locked": bool(payload.get("locked")),
+            "owner": str(payload.get("owner") or ""),
+            "expires_at": payload.get("expires_at"),
+            "error": str(payload.get("error") or ""),
+        }
+
+    def release_lock(self, owner: str) -> Dict[str, Any]:
+        """Освобождает lease-lock, только если owner совпадает."""
+        if not self.available():
+            return {"ok": False, "error": "CF_WORKER_URL/INGEST_SECRET не заданы"}
+        headers = {"Authorization": f"Bearer {self.config.ingest_secret}"}
+        try:
+            response = self._post(
+                f"{self.endpoint()}/unlock",
+                headers=headers,
+                json={"owner": str(owner)[:200]},
+                timeout=30,
+            )
+            payload = response.json() if hasattr(response, "json") else {}
+            if not isinstance(payload, dict):
+                payload = {}
+        except Exception as exc:
+            return {"ok": False, "error": f"unlock: {str(exc)[:200]}"}
+        return {
+            "ok": bool(payload.get("ok")) and getattr(response, "status_code", 0) in (200, 201, 204),
+            "released": bool(payload.get("released")),
+            "error": str(payload.get("error") or ""),
+        }
 
     def counts(self) -> Dict[str, int]:
         return {table: len(rows) for table, rows in self.storage.snapshot().items()}

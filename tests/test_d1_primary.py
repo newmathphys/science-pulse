@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 from science_pulse.config import Config
 from science_pulse.pipeline import Pipeline
+from science_pulse.state_export import StateSync
 from science_pulse.storage import Storage
 
 ENV = {"CF_WORKER_URL": "https://worker.example", "INGEST_SECRET": "secret"}
@@ -75,10 +76,35 @@ class D1PrimaryTests(unittest.TestCase):
 
         with patch.dict("os.environ", ENV, clear=False), patch(
             "science_pulse.state_export.StateSync.pull", fake_pull
-        ), patch("science_pulse.state_export.StateSync.push", fake_push):
+        ), patch("science_pulse.state_export.StateSync.push", fake_push), patch.object(
+            StateSync, "acquire_lock", return_value={"ok": True, "owner": "test"}
+        ), patch.object(StateSync, "release_lock", return_value={"ok": True}):
             self.pipeline.harvest()
         self.assertEqual(calls["pull"], 1)
         self.assertEqual(calls["push"], 1)
+
+    def test_publish_defers_when_lock_busy(self):
+        with patch.dict("os.environ", ENV, clear=False), patch.object(
+            StateSync, "acquire_lock", return_value={"ok": False, "locked": True, "error": "busy"}
+        ):
+            result = self.pipeline.publish_next()
+        self.assertTrue(result.get("deferred"))
+        self.assertEqual(result.get("reason"), "state_lock")
+
+    def test_publish_releases_lock_on_failure(self):
+        released = {"value": False}
+
+        def fake_release(self, owner):
+            released["value"] = True
+            return {"ok": True}
+
+        with patch.dict("os.environ", ENV, clear=False), patch.object(
+            StateSync, "acquire_lock", return_value={"ok": True, "owner": "test"}
+        ), patch.object(StateSync, "release_lock", fake_release), patch.object(
+            StateSync, "pull", return_value={"ok": True, "merged": {}}
+        ), patch.object(StateSync, "push", return_value={"ok": True, "rows": 0}):
+            self.pipeline.publish_next()
+        self.assertTrue(released["value"])
 
     def test_pull_state_soft_fallback(self):
         def boom(self):

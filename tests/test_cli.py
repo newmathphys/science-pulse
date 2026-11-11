@@ -45,8 +45,10 @@ class RecardDryRunTests(unittest.TestCase):
 
     def test_recard_dry_run_without_tokens(self):
         import argparse
+        import os
         import tempfile
         from pathlib import Path
+        from unittest.mock import patch
 
         from science_pulse.cli import cmd_recard
         from science_pulse.config import Config
@@ -54,7 +56,9 @@ class RecardDryRunTests(unittest.TestCase):
         from science_pulse.sources.offline import OfflineBunkerSource
         from science_pulse.storage import Storage
 
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(
+            os.environ, {"TG_BOT_TOKEN": "", "TELEGRAM_BOT_TOKEN": ""}, clear=False
+        ):
             root = Path(tmp)
             config = Config(raw={}, root=root)
             config.ensure_dirs()
