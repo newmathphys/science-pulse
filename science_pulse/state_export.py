@@ -89,8 +89,10 @@ class StateSync:
         except Exception as exc:
             return {"ok": False, "error": f"lock: {str(exc)[:200]}"}
         status = getattr(response, "status_code", 0)
-        if status in (404, 405):
-            required = bool((self.config.raw.get("edge") or {}).get("lock_required", False))
+        required = bool((self.config.raw.get("edge") or {}).get("lock_required", False))
+        if status in (404, 405) or (
+            status in (200, 201, 204) and not payload.get("ok") and not payload.get("locked")
+        ):
             if not required:
                 return {
                     "ok": True,
