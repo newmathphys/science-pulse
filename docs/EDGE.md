@@ -72,6 +72,22 @@ python -m science_pulse.cli state --push
 `data/science.db` удалён из индекса Git; снимок состояния хранится в
 GitHub Release `state-backup` как `state_backup.sqlite.gz`.
 
+## Cron и watchdog
+
+`wrangler.toml` содержит `[triggers] crons = ["0 * * * *"]`. Worker:
+
+- в UTC-часы `06/10/14/18` вызывает GitHub `workflow_dispatch` с `command=run`;
+- каждый час проверяет тишину: >8 ч без публикации — алерт в
+  `TG_ADMIN_CHAT_ID`, >36 ч — алерт и повторный dispatch;
+- не алертит при `kv.paused=1`; повторный алерт — не чаще раза в 6 часов;
+- принимает Telegram-команды `/run`, `/status`, `/pause`, `/resume`
+  (при заданном `TG_WEBHOOK_SECRET` проверяет
+  `X-Telegram-Bot-Api-Secret-Token`).
+
+GitHub `schedule` остаётся fallback. Двойную публикацию отсекает
+`publish_min_interval_hours` (по умолчанию 3 часа): второй запуск получает
+`deferred(slot)`.
+
 ## Включение
 
 1. Разверните Worker и хранилища (см. `docs/TOKENS.md`):

@@ -31,7 +31,7 @@ const PUBLICATION_RANK = { error: 1, skipped: 1, failed: 2, ok: 3 };
 
 export default {
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(triggerGitHubRenderer(env, "auto"));
+    ctx.waitUntil(handleScheduled(env, event));
   },
 
   async fetch(request, env, ctx) {
@@ -262,7 +262,27 @@ export default {
     }
 
     if (url.pathname === "/telegram-webhook" && request.method === "POST") {
+      const webhookSecret = env.TG_WEBHOOK_SECRET || "";
+      if (webhookSecret && request.headers.get("X-Telegram-Bot-Api-Secret-Token") !== webhookSecret) {
+        return new Response("Unauthorized", { status: 401, headers: CORS });
+      }
       const update = await request.json();
+      if (update.message && update.message.text) {
+        const text = String(update.message.text || "").trim();
+        const chatId = update.message.chat && update.message.chat.id;
+        if (text.startsWith("/run")) {
+          await triggerGitHubRenderer(env, "run");
+          await sendTelegram(env, chatId, "Принято: бужу фабрику (run).");
+        } else if (text.startsWith("/status")) {
+          await sendStatus(env, chatId);
+        } else if (text.startsWith("/pause")) {
+          await kvSet(env, "paused", "1");
+          await sendTelegram(env, chatId, "Пауза включена: публикации остановлены.");
+        } else if (text.startsWith("/resume")) {
+          await kvSet(env, "paused", "0");
+          await sendTelegram(env, chatId, "Пауза снята: публикации разрешены.");
+        }
+      }
       if (update.callback_query) {
         const callback = update.callback_query;
         await fetch(
@@ -288,6 +308,90 @@ export default {
     return new Response("Science Pulse Edge Active", { status: 200, headers: CORS });
   },
 };
+
+async function handleScheduled(env, event) {
+  const now = new Date();
+  const hour = now.getUTCHours();
+  const slotHours = [6, 10, 14, 18];
+  if (slotHours.includes(hour)) {
+    try {
+      await triggerGitHubRenderer(env, "run");
+    } catch (error) {
+      console.error("scheduled dispatch:", String(error));
+    }
+  }
+  try {
+    await checkSilence(env);
+  } catch (error) {
+    console.error("watchdog:", String(error));
+  }
+}
+
+async function kvGet(env, key) {
+  const row = await env.DB.prepare("SELECT value FROM kv WHERE key = ?1").bind(key).first();
+  return row ? String(row.value || "") : "";
+}
+
+async function kvSet(env, key, value) {
+  await env.DB.prepare("INSERT OR REPLACE INTO kv (key, value) VALUES (?1, ?2)")
+    .bind(key, String(value))
+    .run();
+}
+
+async function sendTelegram(env, chatId, text) {
+  if (!env.TG_BOT_TOKEN || !chatId) return;
+  await fetch(`https://api.telegram.org/bot${env.TG_BOT_TOKEN}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true }),
+  });
+}
+
+async function sendStatus(env, chatId) {
+  if (!chatId) return;
+  const last = await env.DB.prepare(
+    "SELECT MAX(created_at) AS last FROM publications WHERE status = 'ok'"
+  ).first();
+  const ready = await env.DB.prepare("SELECT COUNT(*) AS c FROM posts WHERE status = 'ready'").first();
+  const paused = await kvGet(env, "paused");
+  const lastAt = last && last.last ? String(last.last) : "нет";
+  await sendTelegram(
+    env,
+    chatId,
+    `Science Pulse\nПоследняя публикация: ${lastAt}\nОчередь ready: ${ready ? ready.c : 0}\nПауза: ${paused === "1" ? "да" : "нет"}`
+  );
+}
+
+async function checkSilence(env) {
+  if (!env.TG_BOT_TOKEN || !env.TG_ADMIN_CHAT_ID) return;
+  if ((await kvGet(env, "paused")) === "1") return;
+  const row = await env.DB.prepare(
+    "SELECT MAX(created_at) AS last FROM publications WHERE status = 'ok'"
+  ).first();
+  const lastAt = row && row.last ? String(row.last) : "";
+  const lastMs = lastAt ? Date.parse(lastAt) : 0;
+  const hours = lastMs ? (Date.now() - lastMs) / 3600000 : Infinity;
+  if (hours < 8) return;
+  const alertKey = "last_alert_at";
+  const previous = Number(await kvGet(env, alertKey) || 0);
+  if (previous && Date.now() - previous < 6 * 3600000) return;
+  const critical = hours >= 36;
+  if (critical) {
+    try {
+      await triggerGitHubRenderer(env, "run");
+    } catch (error) {
+      console.error("watchdog dispatch:", String(error));
+    }
+  }
+  await sendTelegram(
+    env,
+    env.TG_ADMIN_CHAT_ID,
+    critical
+      ? `КРИТИЧНО: нет публикаций ${Math.round(hours)} ч. Пробую разбудить фабрику.`
+      : `Тишина ${Math.round(hours)} ч: публикаций нет. Проверьте /status.`
+  );
+  await kvSet(env, alertKey, String(Date.now()));
+}
 
 async function telegramCdn(request, env, ctx, url) {
   const cache = caches.default;

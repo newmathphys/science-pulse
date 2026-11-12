@@ -19,3 +19,7 @@ database_id = "92cf213b-c866-484b-ac24-a6560d9830de"
 # [[r2_buckets]]
 # binding = "R2_BUCKET"
 # bucket_name = "science-pulse-cards"
+
+[triggers]
+# Каждый час: слоты 06/10/14/18 UTC + watchdog тишины
+crons = ["0 * * * *"]

@@ -10,6 +10,9 @@ project:
 # Секреты сюда не пишем: они берутся из .env или GitHub Secrets.
 
 schedule: ["09:00", "13:00", "17:00", "21:00"]
+# Защита от двойного запуска (Worker Cron + GitHub schedule): не публиковать
+# два поста чаще, чем раз в N часов. Ручной `publish --force` обходит.
+publish_min_interval_hours: 3
 timezone: "Europe/Moscow"
 
 # 4-уровневый календарь (см. docs/SCHEDULE.md): слот суток → дисциплина.

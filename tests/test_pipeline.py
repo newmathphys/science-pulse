@@ -62,7 +62,10 @@ class PipelineTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
-        self.config = Config(raw={"data_dir": "data", "dist_dir": "dist"}, root=self.root)
+        self.config = Config(
+            raw={"data_dir": "data", "dist_dir": "dist", "publish_min_interval_hours": 0},
+            root=self.root,
+        )
         self.config.ensure_dirs()
         self.storage = Storage(self.config.db_path)
         self.sources = FakeSources([post("m1", "math"), post("p1", "physics"), post("c1", "cs")])
@@ -91,9 +94,20 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(third["post"].domain, "cs")
         self.assertEqual(self.storage.count("published"), 3)
 
+    def test_slot_guard_blocks_second_publish_within_interval(self):
+        self.config.raw["publish_min_interval_hours"] = 3
+        first = self.pipeline.publish_next()
+        self.assertTrue(first["ok"])
+        second = self.pipeline.publish_next()
+        self.assertTrue(second.get("deferred"))
+        self.assertEqual(second.get("reason"), "slot")
+        forced = self.pipeline.publish_next(force=True)
+        self.assertTrue(forced["ok"])
+
     def test_card_size_from_config_is_honored(self):
         """Смена `card.size` не должна отправлять в карантин каждый пост."""
         config = Config(raw={"data_dir": "data", "dist_dir": "dist",
+                             "publish_min_interval_hours": 0,
                              "card": {"size": 240, "ssaa": 1, "engine": "pillow"}},
                         root=self.root)
         config.ensure_dirs()

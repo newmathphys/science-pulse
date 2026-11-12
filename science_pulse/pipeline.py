@@ -6,6 +6,7 @@ import os
 import socket
 import uuid
 from contextlib import contextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
@@ -314,6 +315,24 @@ class Pipeline:
 
         if self.d1_primary_enabled():
             self.pull_state()
+
+        if not force and not dry_run:
+            last = self.storage.last_published()
+            min_value = self.config.raw.get("publish_min_interval_hours", 3)
+            min_hours = 3.0 if min_value is None else float(min_value)
+            if last and last.published_at:
+                try:
+                    last_at = datetime.fromisoformat(str(last.published_at))
+                    if last_at.tzinfo is None:
+                        last_at = last_at.replace(tzinfo=timezone.utc)
+                    age_h = (datetime.now(timezone.utc) - last_at).total_seconds() / 3600
+                    if 0 <= age_h < min_hours:
+                        return self._deferred(
+                            "slot",
+                            f"слот уже закрыт: последняя публикация {age_h:.1f} ч назад",
+                        )
+                except ValueError:
+                    pass
 
         hawkes = self.config.raw.get("hawkes") or {}
         if hawkes.get("enabled") and not force:
