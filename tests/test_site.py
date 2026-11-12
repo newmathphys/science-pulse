@@ -70,6 +70,15 @@ class SiteTests(unittest.TestCase):
         self.assertTrue((config.cards_dir / f"{post.id}.png").is_file())
         self.assertTrue((dist / "cards" / f"{post.id}.png").is_file())
 
+    def test_anatomy_block_has_formula_legend(self):
+        post = self.storage.list_posts(status="published")[0]
+        self.storage.set_post_meta(post.id, "formula_vars", "n — размер входа, T — число операций")
+        dist = self.builder.build()
+        page = (dist / "post" / f"{post.id}.html").read_text(encoding="utf-8")
+        self.assertIn("Как это работает", page)
+        self.assertIn("размер входа", page)
+        self.assertIn("Как читать чертёж", page)
+
     def test_external_media_urls_are_used_and_not_copied(self):
         post = self.storage.list_posts(status="published")[0]
         self.storage.set_post_meta(post.id, "card_url", "https://cdn.example/card.png")

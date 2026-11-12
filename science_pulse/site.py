@@ -110,6 +110,12 @@ pre { background: var(--paper-3); border: 1px solid var(--rule); border-radius: 
 .depth { display: none; }
 .depth.visible { display: block; }
 .depth > h2 { font-size: 16px; font-family: var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); margin: 4px 0 12px; }
+.anatomy { margin: 22px 0; padding: 18px 20px; background: var(--paper-2); border: 1px solid var(--rule); border-left: 4px solid var(--accent); }
+.anatomy h2 { font-family: var(--mono); font-size: 14px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); margin: 0 0 12px; }
+.anatomy ol { margin: 0; padding-left: 22px; }
+.anatomy li { margin: 0 0 10px; color: var(--ink-2); }
+.anatomy li b { color: var(--ink); }
+.anatomy .legend { font-family: var(--mono); font-size: 13px; line-height: 1.55; }
 .journal { display: grid; grid-template-columns: 230px minmax(0, 1fr) 220px; gap: 28px; align-items: start; margin-top: 18px; }
 .journal .side { font-size: 14px; }
 .journal .side h2 { font-size: 13px; margin: 0 0 8px; font-family: var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
@@ -1368,6 +1374,67 @@ class SiteBuilder:
             )
         return "<h2>Родословная первоисточников</h2><ul>" + "".join(rows) + "</ul>"
 
+    @staticmethod
+    def _formula_legend(post: Post) -> str:
+        """Детерминированная расшифровка букв формулы без LLM."""
+        meta = post.meta or {}
+        explicit = str(meta.get("formula_vars") or "").strip()
+        if explicit:
+            return _e(explicit)
+        known = {
+            "n": "размер входа (число элементов)",
+            "N": "размер входа (число элементов)",
+            "T": "время / число операций",
+            "O": "асимптотическая оценка роста",
+            "G": "гравитационная постоянная",
+            "m": "масса тела",
+            "r": "расстояние между центрами",
+            "F": "сила",
+            "E": "энергия",
+            "p": "давление",
+            "ρ": "плотность",
+            "c": "скорость света",
+            "h": "постоянная Планка",
+            "ℏ": "постоянная Дирака",
+            "S": "энтропия / действие",
+            "k": "коэффициент / волновое число",
+            "x": "координата / переменная",
+            "t": "время",
+        }
+        formula = str(post.formula_plain or post.formula_latex or "")
+        seen: List[str] = []
+        for token in re.findall(r"[A-Za-zА-Яа-яЁёℏρ]", formula):
+            if token in known and token not in seen:
+                seen.append(token)
+        if not seen:
+            return "Формула разобрана в тексте параграфа."
+        return "; ".join(f"<b>{_e(token)}</b> — {_e(known[token])}" for token in seen[:8])
+
+    def _anatomy_html(self, post: Post) -> str:
+        """«Как читать закон»: суть, буквы, практика, чертёж."""
+        meta = post.meta or {}
+        formula = str(post.formula_plain or post.formula_latex or "").strip()
+        if not formula and not meta.get("formula_vars"):
+            return ""
+        body = re.sub(r"\s+", " ", str(post.body or "")).strip()
+        first = body.split(". ")[0][:220] + ("." if body else "")
+        application = str(meta.get("modern_application") or "").strip()
+        visual = {
+            "standard_plot": "плавная кривая и точка на ней",
+            "code_booktabs": "листинг алгоритма и шаги исполнения",
+            "diptych_insar": "2D-поле слева и 1D-разрез справа",
+            "cheatsheet_table": "таблица инвариантов и формул",
+            "timeline_evolution": "шкала времени и вехи идеи",
+        }.get(str(meta.get("visual_type") or ""), "книжный чертёж с подписями")
+        rows = [
+            ("Суть в одном предложении", _e(first) if first else "Смотрите формулу и численный пример ниже."),
+            ("Что означает каждая буква", f'<span class="legend">{self._formula_legend(post)}</span>'),
+            ("Зачем это нужно", _e(application) if application else "Применение разобрано в тексте и паспорте."),
+            ("Как читать чертёж", _e(visual)),
+        ]
+        items = "".join(f"<li><b>{label}.</b> {value}</li>" for label, value in rows)
+        return f'<section class="anatomy"><h2>Как это работает · путеводитель по главе</h2><ol>{items}</ol></section>'
+
     def _write_post(self, post: Post, all_posts: List[Post], posts_dir: Path) -> None:
         related = self._related(post, all_posts)
         related_html = "".join(
@@ -1504,6 +1571,7 @@ class SiteBuilder:
       {self._badges_html(post)}
       {status_html}
       {depth_nav}
+      {self._anatomy_html(post)}
       {film_html}
       {depth_html}
     </div>
