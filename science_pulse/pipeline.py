@@ -299,6 +299,17 @@ class Pipeline:
         payload.update(extra)
         return payload
 
+    def _prereq_ready(self, post: Post) -> bool:
+        """Все prereq_ids уже опубликованы (для корней — True)."""
+        ids = [str(item) for item in ((post.meta or {}).get("prereq_ids") or []) if str(item).strip()]
+        if not ids:
+            return True
+        for post_id in ids:
+            parent = self.storage.get_post(post_id)
+            if parent is None or parent.status != "published":
+                return False
+        return True
+
     @_state_locked
     def publish_next(
         self,
@@ -515,6 +526,43 @@ class Pipeline:
         if not public_card_url and self.config.site_base_url:
             public_card_url = f"{self.config.site_base_url}/cards/{post.id}.png"
         video_url = media_urls.get("audiogram_url", "")
+
+        from .maturity import maturity_score
+
+        challenge = {}
+        try:
+            from .challenge import build_challenge
+
+            challenge = build_challenge(post)
+        except Exception as exc:
+            LOGGER.warning("maturity challenge: %s", exc)
+        audiogram_url = str(media_urls.get("audiogram_url") or "")
+        if "/video-" in audiogram_url:
+            video_engine = "book_film"
+        elif audiogram_url:
+            video_engine = "audiogram"
+        else:
+            video_engine = "none"
+        maturity_cfg = dict(self.config.raw.get("maturity") or {})
+        maturity = maturity_score(
+            standards_ok=report.ok,
+            card_ok=bool(card and getattr(card, "path", "")),
+            video_engine=video_engine,
+            challenge_verified=bool(challenge.get("verified")),
+            prereq_ok=self._prereq_ready(post),
+            threshold=int(maturity_cfg.get("threshold", 100)),
+        )
+        post.meta["maturity"] = maturity
+        try:
+            self.storage.set_post_meta(post.id, "maturity", maturity)
+        except Exception as exc:
+            LOGGER.warning("maturity meta: %s", exc)
+        if maturity_cfg.get("enabled", False) and not maturity["ok"]:
+            return self._deferred(
+                "maturity",
+                f"Maturity {maturity['score']}/{maturity['threshold']} · video={video_engine}",
+                maturity=maturity,
+            )
 
         results = self.publishers.publish(
             post,

@@ -339,3 +339,9 @@ source_circuit:
 # Локально без GITHUB_TOKEN автоматически выключен.
 media_vault:
   enabled: true
+
+# Порог зрелости выпуска: 100 = book_film + standards + card + verified challenge + prereq.
+# 85 = fallback audiogram. Включать после стабилизации staged-буфера.
+maturity:
+  enabled: false
+  threshold: 100
