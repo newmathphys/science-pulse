@@ -1,4 +1,4 @@
-"""Контур качества: 7-рубежный `StandardsChecker` с авто-лечением и карантином.
+"""Контур качества: 8-рубежный `StandardsChecker` с авто-лечением и карантином.
 
 Рубежи (гейты) проверки подписи и карточки перед публикацией:
 
@@ -8,7 +8,8 @@
 4. `brackets`   — сбалансированы скобки и математические доллары;
 5. `code_ast`   — код поста разбирается `ast.parse`;
 6. `card`       — карточка ровно 1080×1080 и тяжелее `min_card_bytes`;
-7. `html`       — сбалансированы HTML-теги Telegram (`b`, `i`, `a`, `code`, `pre`, `u`, `s`).
+7. `html`       — сбалансированы HTML-теги Telegram (`b`, `i`, `a`, `code`, `pre`, `u`, `s`);
+8. `translation_seam` — нет технических следов машинного перевода (маски, пробелы перед знаками, пустые скобки).
 
 При нарушении: `heal()` пытается починить (Unicode-формулы, обрезка по
 предложению, перевод), иначе пост уходит в карантин (`status='rejected'`).
@@ -41,6 +42,7 @@ class Standards:
     min_card_bytes: int = 15_000
     card_size: int = 1080
     check_code_ast: bool = True
+    max_translation_seams: int = 3
 
     DEFAULTS = {
         "min_cyrillic_ratio": 0.42,
@@ -49,6 +51,7 @@ class Standards:
         "min_card_bytes": 15_000,
         "card_size": 1080,
         "check_code_ast": True,
+        "max_translation_seams": 3,
     }
 
     @classmethod
@@ -75,6 +78,7 @@ class Standards:
             "min_card_bytes": self.min_card_bytes,
             "card_size": self.card_size,
             "check_code_ast": self.check_code_ast,
+            "max_translation_seams": self.max_translation_seams,
         }
 
     @classmethod
@@ -153,7 +157,7 @@ def html_balanced(text: str) -> Tuple[bool, str]:
 
 
 class StandardsChecker:
-    """Проверяет и лечит посты перед публикацией (7 рубежей)."""
+    """Проверяет и лечит посты перед публикацией (8 рубежей)."""
 
     def __init__(self, standards: Optional[Standards] = None):
         self.standards = standards or Standards()
@@ -237,6 +241,17 @@ class StandardsChecker:
         balanced, detail = html_balanced(caption)
         if not balanced:
             violations.append(Violation("html", detail))
+
+        checked += 1
+        from .text import translation_seam_score
+
+        seam_score, seam_details = translation_seam_score(plain)
+        if seam_score > self.standards.max_translation_seams:
+            violations.append(Violation(
+                "translation_seam",
+                f"шов перевода {seam_score} > {self.standards.max_translation_seams}: "
+                + ", ".join(seam_details),
+            ))
 
         return Report(ok=not violations, violations=violations, checked=checked)
 

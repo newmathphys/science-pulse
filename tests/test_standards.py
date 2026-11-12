@@ -12,6 +12,7 @@ from science_pulse.standards import (
     html_balanced,
 )
 from science_pulse.storage import Storage
+from science_pulse.text import translation_seam_score
 from science_pulse.verify import fuzz_captions
 
 
@@ -68,6 +69,16 @@ class CheckerTests(unittest.TestCase):
         caption = "Текст описания поста для проверки AST. " * 10
         report = StandardsChecker().check(post, caption)
         self.assertIn("code_ast", [v.code for v in report.violations])
+
+    def test_translation_seam_violation(self):
+        caption = "Текст описания поста с незакрытой маской __FORMULA_1__ и пробелом , перед знаком. " * 4
+        report = StandardsChecker().check(make_post(), caption)
+        self.assertIn("translation_seam", [v.code for v in report.violations])
+
+    def test_translation_seam_score_clean_text(self):
+        score, details = translation_seam_score("Теорема Пифагора связывает катеты и гипотенузу.")
+        self.assertEqual(score, 0)
+        self.assertEqual(details, [])
 
     def test_card_violation(self):
         card = CardArtifact(path="x.png", data=b"0" * 100, width=100, height=100)

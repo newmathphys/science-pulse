@@ -18,7 +18,7 @@
 | `THREADS_CHECKLIST.md` | пошагово: Meta app → Threads Tester → токен |
 | `GROWTH.md` | рост аудитории: Threads-форматы, UTM, реестр каналов |
 | `KERNEL.md` | 6-фазное ядро |
-| `QUALITY.md` | 7 рубежей и verify |
+| `QUALITY.md` | 8 рубежей и verify |
 | `INTEGRATIONS.md` | карта всех API: ключи, лимиты, куда добавлять |
 | `PLATFORM_WATCH.md` | еженедельный мониторинг changelog'ов API |
 | `SITE_BRANCHES.md` | личные ветки, форки `#fork=`, плашки `[LATEX]` |

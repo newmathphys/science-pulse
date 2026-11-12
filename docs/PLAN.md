@@ -294,7 +294,7 @@ seen(hash PK, post_id, created_at)
       шаги сортировки) + `video.py` (30 кадров книжной страницы + ffmpeg →
       MP4 H.264+AAC, fallback GIF), режим `video.every_nth_post`, `sendVideo`,
       `--video` / `/force video` / `/preview video` — см. `docs/VIDEO.md`.
-- [x] Контур качества: `standards.py` (7 рубежей, авто-лечение, карантин
+- [x] Контур качества: `standards.py` (8 рубежей, авто-лечение, карантин
       `rejected`) + `preflight.py` (предполётная проверка), команды
       `standards`/`quarantine`/`reject`/`preflight` — см. `docs/QUALITY.md`.
 - [x] Старт от фундамента: `sources/foundation.py` (ступени 1–6) + `evolve.py`
@@ -410,7 +410,7 @@ python -m unittest discover -v
 
 ```text
 $ python -m unittest discover -v
-Ran 661 tests
+Ran 663 tests
 OK
 ```
 
@@ -850,6 +850,7 @@ Discord, Mastodon и VK **не проверялись**: в среде нет и
 - [x] INFRA-01: D1-Primary + lease-lock, `data/science.db` убран из Git, снимок — в Release `state-backup`.
 - [x] Threads: видео-аудиограмма — первый пост в треде, карточка — ответом; media vault в GitHub Releases.
 - [x] P0.2 media vault: карточка/аудио/аудиограмма в Releases; site и podcast используют внешние URL.
+- [x] P1.3: 8-й рубеж `translation_seam` — эвристика машинного шва вокруг формул.
 - [ ] «Радио моей ветки» в `radio.html`.
 - [ ] Команда боту `?start=branch_<id>`.
 - [ ] Полная разбивка трекера `90Days` по неделям/ступеням.

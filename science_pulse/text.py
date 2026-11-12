@@ -370,6 +370,31 @@ def translate_text(text: str, target: str = "ru", source: str = "en") -> str:
     return text
 
 
+def translation_seam_score(text: str) -> tuple[int, list[str]]:
+    """Эвристика «машинного шва» вокруг формул после перевода.
+
+    Не пытается понять смысл: ищет только технические следы перевода —
+    незакрытые маски, пробелы перед знаками, пустые скобки и английские
+    служебные слова в русском тексте.
+    """
+    value = str(text or "")
+    checks = (
+        (r"__FORMULA", 4, "незакрытая маска формулы"),
+        (r"\s+[,.;:!?]", 1, "пробел перед знаком"),
+        (r"\(\s*\)|\[\s*\]", 1, "пустые скобки"),
+        (r"[А-Яа-я]\s+[A-Za-z]{2,}", 1, "смешанный алфавит"),
+        (r"\b(?:the|and|of|with|from|this|that)\b", 2, "английское служебное слово"),
+    )
+    score = 0
+    details: list[str] = []
+    for pattern, weight, label in checks:
+        count = len(re.findall(pattern, value, flags=re.IGNORECASE))
+        if count:
+            score += count * weight
+            details.append(f"{label} ×{count}")
+    return score, details
+
+
 def translate_preserving_latex(text: str, target: str = "ru") -> str:
     masked, saved = mask_protected(text)
     translated = translate_text(masked, target=target)

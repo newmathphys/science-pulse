@@ -448,7 +448,7 @@ class Pipeline:
 
         EvolutionEngine(self).prepare(post)
 
-        # Контур качества: 7-рубежный StandardsChecker перед публикацией.
+        # Контур качества: 8-рубежный StandardsChecker перед публикацией.
         from .publishers.base import build_caption
         from .standards import StandardsChecker
 
