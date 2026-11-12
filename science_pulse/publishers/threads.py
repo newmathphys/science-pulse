@@ -147,10 +147,12 @@ class ThreadsPublisher(Publisher):
                     error=error[:200],
                 )
 
+            is_video = payload.get("media_type") == "VIDEO"
             ready, wait_error = self._wait_container(
                 creation["id"],
-                attempts=60 if payload.get("media_type") == "VIDEO" else 15,
-                pause=3.0 if payload.get("media_type") == "VIDEO" else 2.0,
+                attempts=60 if is_video else 15,
+                pause=3.0 if is_video else 2.0,
+                strict=is_video,
             )
             if not ready and video_first and index == 0:
                 video_first = False
@@ -235,7 +237,7 @@ class ThreadsPublisher(Publisher):
             return PublishResult(platform=self.name, ok=False, error=error[:200])
 
         ready, wait_error = self._wait_container(
-            creation["id"], attempts=max(15, int(wait_attempts)), pause=3.0
+            creation["id"], attempts=max(15, int(wait_attempts)), pause=3.0, strict=True
         )
         if not ready:
             return PublishResult(
@@ -253,11 +255,17 @@ class ThreadsPublisher(Publisher):
             meta={"reply_to_id": str(parent_id), "video_url": video_url},
         )
 
-    def _wait_container(self, creation_id: str, attempts: int = 15, pause: float = 2.0) -> tuple[bool, str]:
+    def _wait_container(
+        self,
+        creation_id: str,
+        attempts: int = 15,
+        pause: float = 2.0,
+        strict: bool = False,
+    ) -> tuple[bool, str]:
         """Ждёт обработки контейнера: FINISHED/PUBLISHED, ERROR/EXPIRED.
 
-        Документация Threads рекомендует подождать ~30 секунд перед
-        threads_publish. Если статус не удаётся получить, пробуем публиковать.
+        Для VIDEO Meta может транскодировать 25–55 секунд, поэтому strict=True
+        не публикует контейнер по таймауту, а честно возвращает ошибку.
         """
         last = ""
         for attempt in range(max(1, attempts)):
@@ -281,7 +289,7 @@ class ThreadsPublisher(Publisher):
                 last = str(exc)[:120]
             if attempt < attempts - 1:
                 time.sleep(pause)
-        return True, last
+        return (False, last) if strict else (True, last)
 
     def _create_container(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         try:

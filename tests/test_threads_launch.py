@@ -164,6 +164,21 @@ class ThreadsLaunchTests(unittest.TestCase):
         self.assertTrue(ok)
         self.assertEqual(error, "")
 
+    def test_wait_container_timeout_is_strict_for_video(self):
+        with patch("science_pulse.publishers.threads.requests.get",
+                   return_value=FakeResponse({"status": "IN_PROGRESS"})), \
+                patch("science_pulse.publishers.threads.time.sleep", return_value=None):
+            ok, error = self.publisher._wait_container("c1", attempts=2, pause=0, strict=True)
+        self.assertFalse(ok)
+        self.assertEqual(error, "IN_PROGRESS")
+
+    def test_wait_container_timeout_soft_for_image(self):
+        with patch("science_pulse.publishers.threads.requests.get",
+                   return_value=FakeResponse({"status": "IN_PROGRESS"})), \
+                patch("science_pulse.publishers.threads.time.sleep", return_value=None):
+            ok, _error = self.publisher._wait_container("c1", attempts=2, pause=0)
+        self.assertTrue(ok)
+
     def test_wait_container_error(self):
         with patch("science_pulse.publishers.threads.requests.get",
                    return_value=FakeResponse({"status": "ERROR", "error_message": "bad image"})):

@@ -159,7 +159,13 @@ ffprobe -v error -show_entries stream=codec_type,codec_name -of csv=p=0 data/aud
 # audio,aac
 ```
 
-## 9. Если токен не работает
+## 9. Таймаут видео и параметры MP4
+
+Для VIDEO-контейнера Threads ждём до 180 секунд (`60 × 3 с`) и **не публикуем**
+по таймауту: `strict=True`. Для IMAGE/TEXT поведение мягкое, как раньше.
+book_film/audiogram отдают `yuv420p`, `+faststart`, AAC 48 кГц, 2 канала.
+
+## 10. Если токен не работает
 
 | Ошибка | Причина | Что делать |
 |:--|:--|:--|

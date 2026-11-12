@@ -735,7 +735,10 @@ def _mux(frames_dir: Path, audio_path: Optional[Path], out_path: Path, fps: floa
     args = ["ffmpeg", "-y", "-loglevel", "error", "-framerate", f"{fps:.4f}",
             "-i", str(frames_dir / "frame_%05d.png")]
     if audio_path and audio_path.is_file():
-        args += ["-i", str(audio_path), "-c:a", "aac", "-b:a", "128k", "-shortest"]
+        args += [
+            "-i", str(audio_path), "-c:a", "aac", "-b:a", "128k",
+            "-ar", "48000", "-ac", "2", "-shortest",
+        ]
     args += ["-c:v", "libx264", "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(out_path)]
     try:
         result = subprocess.run(args, capture_output=True, text=True, timeout=600, check=False)

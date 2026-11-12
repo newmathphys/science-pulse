@@ -1304,7 +1304,8 @@ def build_audiogram_mp4(
     out_mp4_path.parent.mkdir(parents=True, exist_ok=True)
 
     tail = ["-c:v", "libx264", "-tune", "stillimage", "-pix_fmt", "yuv420p",
-            "-c:a", "aac", "-b:a", "128k", "-shortest", "-movflags", "+faststart", str(out_mp4_path)]
+            "-c:a", "aac", "-b:a", "128k", "-ar", "48000", "-ac", "2",
+            "-shortest", "-movflags", "+faststart", str(out_mp4_path)]
 
     # Живой чертёж: вместо статичной карточки — кадры анимации, растянутые на голос.
     video_input = ["-loop", "1", "-i", str(card_png_path)]
