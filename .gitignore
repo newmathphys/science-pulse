@@ -23,6 +23,7 @@ data/*.db-shm
 # Генерируемые медиа-кэши (озвучка / аудиограммы / видео) — тоже не коммитим
 data/audio/
 data/audiogram/
+data/radio_parts/
 data/video/
 data/films/
 data/book_films/
