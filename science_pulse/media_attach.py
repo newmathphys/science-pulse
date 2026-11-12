@@ -55,7 +55,7 @@ def attach_threads_video(
             platform="threads",
             ok=True,
             external_id=str(post.meta.get("threads_video_reply_id") or post.meta.get("threads_video_id")),
-            url=str(post.meta.get("threads_video_url") or ""),
+            url=str(post.meta.get("threads_video_permalink") or post.meta.get("threads_video_url") or ""),
             meta={"skipped": "уже прикреплено"},
         )
 

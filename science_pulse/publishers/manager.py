@@ -111,10 +111,12 @@ class PublisherManager:
                 meta = result.meta or {}
                 if meta.get("video_id"):
                     post.meta["threads_video_id"] = str(meta["video_id"])
-                    post.meta["threads_video_url"] = str(meta.get("video_url") or "")
+                    post.meta["threads_video_permalink"] = str(result.url or "")
+                    post.meta["threads_video_source"] = str(meta.get("video_url") or "")
                     try:
                         self.storage.set_post_meta(post.id, "threads_video_id", post.meta["threads_video_id"])
-                        self.storage.set_post_meta(post.id, "threads_video_url", post.meta["threads_video_url"])
+                        self.storage.set_post_meta(post.id, "threads_video_permalink", post.meta["threads_video_permalink"])
+                        self.storage.set_post_meta(post.id, "threads_video_source", post.meta["threads_video_source"])
                     except Exception as exc:
                         LOGGER.warning("Threads video meta: %s", exc)
 
