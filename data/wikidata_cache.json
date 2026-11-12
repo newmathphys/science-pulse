@@ -1,0 +1,20 @@
+{
+  "logarithm": {
+    "description": "математическая функция, обратная к показательной",
+    "formula": "\\log(ab)=\\log a+\\log b",
+    "qid": "Q204",
+    "term": "Логарифм"
+  },
+  "pythagorean theorem": {
+    "description": "теорема евклидовой геометрии",
+    "formula": "a^2+b^2=c^2",
+    "qid": "Q11518",
+    "term": "Теорема Пифагора"
+  },
+  "ring": {
+    "description": "алгебраическая структура с двумя операциями",
+    "formula": "(R,+,\\cdot)",
+    "qid": "Q2070",
+    "term": "Кольцо"
+  }
+}
