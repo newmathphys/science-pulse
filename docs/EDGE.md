@@ -100,7 +100,7 @@ schedule; двойную публикацию отсекает `publish_min_inte
   `X-Telegram-Bot-Api-Secret-Token`).
 
 GitHub `schedule` остаётся fallback. Двойную публикацию отсекает
-`publish_min_interval_hours` (по умолчанию 3 часа): второй запуск получает
+`publish_min_interval_hours` (по умолчанию 2 часа): второй запуск получает
 `deferred(slot)`.
 
 ## Включение
