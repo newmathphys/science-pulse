@@ -187,7 +187,8 @@ class FoundationSource(Source):
             post.meta["step"] = step
             post.meta["step_title"] = STEP_TITLES.get(step, "Дополнительно")
             post.meta["section_num"] = section_of(item["id"])
-            post.meta["prereq_ids"] = default_prereqs(item["id"])
+            explicit = [str(value) for value in (item.get("prereq_ids") or []) if str(value).strip()]
+            post.meta["prereq_ids"] = explicit or default_prereqs(item["id"])
             post.meta["foundation_id"] = item["id"]
             posts.append(post)
         return posts
