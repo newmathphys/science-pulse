@@ -72,6 +72,21 @@ python -m science_pulse.cli state --push
 `data/science.db` удалён из индекса Git; снимок состояния хранится в
 GitHub Release `state-backup` как `state_backup.sqlite.gz`.
 
+## Внешний будильник `science-pulse-cron`
+
+Основной Worker живёт в аккаунте `751f...`; отдельный лёгкий Worker-будильник
+развёрнут в аккаунте, доступном Wrangler, и не хранит состояние:
+
+```text
+https://science-pulse-cron.kompyutershik24.workers.dev
+```
+
+Он вызывает GitHub `workflow_dispatch` в `06/10/14/18 UTC` и имеет защищённый
+`POST /run` (Bearer `TRIGGER_SECRET`). Это обходит пропуски GitHub Actions
+schedule; двойную публикацию отсекает `publish_min_interval_hours`.
+
+Код: `cloudflare/cron/cron_worker.js`, конфиг: `cloudflare/cron/wrangler.toml`.
+
 ## Cron и watchdog
 
 `wrangler.toml` содержит `[triggers] crons = ["0 * * * *"]`. Worker:
