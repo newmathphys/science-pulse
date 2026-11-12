@@ -67,6 +67,23 @@ class BookFilmTests(unittest.TestCase):
         finally:
             scene.close()
 
+    def test_boolean_logic_uses_truth_table_not_curve(self):
+        post = Post(
+            id="bool1",
+            domain="cs",
+            title="Булева логика",
+            body="A ∧ (A ∨ B) = A. Таблица истинности проверяет закон поглощения.",
+            formula_latex=r"A\land(A\lor B)=A",
+            formula_plain="A ∧ (A ∨ B) = A",
+            source_name="test",
+        )
+        scene = BookFilmScene(post, 540, 540)
+        try:
+            self.assertTrue(scene.logic)
+            self.assertIsNone(scene.curve)
+        finally:
+            scene.close()
+
     @unittest.skipUnless(book_film_available(), "нужен ffmpeg")
     def test_render_short_film(self):
         artifact = VoiceArtifact(

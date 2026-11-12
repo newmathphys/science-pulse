@@ -460,6 +460,8 @@ class BookFilmScene:
         self.words = list(getattr(artifact, "words", []) or _approx_words(self.text, self.duration))
         self.act_times = _block_times(self.blocks, self.words, self.duration)
         self.sequence = extract_sequence(post)
+        formula_text = f"{post.formula_latex or ''} {post.formula_plain or ''}"
+        self.logic = bool(re.search(r"[∧∨¬→↔]|\\land|\\lor|\\neg", formula_text))
         self.curve = None
         expression = post.meta.get("plot_expr") or post.formula_plain or ""
         if expression and re.search(r"\bx\b", str(expression)):
@@ -573,7 +575,9 @@ class BookFilmScene:
         wave_like = ("Ψ" in formula_text or "psi" in formula_text.lower()
                      or str((self.post.meta or {}).get("canon_id") or "") in ("schrodinger", "tunneling", "heisenberg"))
         canon_id = str((self.post.meta or {}).get("canon_id") or (self.post.meta or {}).get("foundation_id") or "")
-        if canon_id == "pythagoras" or "a² + b² = c²" in str(self.post.formula_plain or ""):
+        if self.logic:
+            self._draw_logic_table(draw, box, s, progress)
+        elif canon_id == "pythagoras" or "a² + b² = c²" in str(self.post.formula_plain or ""):
             self._draw_triangle(draw, box, s)
         elif wave_like:
             _draw_wave_packet(draw, box, progress, s)
@@ -627,6 +631,30 @@ class BookFilmScene:
         draw.text((left + int(20 * s), top + int(18 * s)), "a² + b² = c²", fill=MUTED,
                   font=_serif_font(max(14, int(26 * s)), mono=True))
 
+    def _draw_logic_table(self, draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, int],
+                          s: float, progress: float) -> None:
+        """Таблица истинности вместо ложного графика для булевой логики."""
+        left, top, right, bottom = box
+        rows = (("A", "B", "A∨B", "A∧(A∨B)"), ("0", "0", "0", "0"), ("0", "1", "1", "0"),
+                ("1", "0", "1", "1"), ("1", "1", "1", "1"))
+        font = _serif_font(max(14, int(24 * s)), bold=True, mono=True)
+        small = _serif_font(max(11, int(17 * s)), mono=True)
+        draw.text((left, top), "ТАБЛИЦА ИСТИННОСТИ", fill=MUTED, font=small)
+        table_top = top + int(38 * s)
+        col_w = (right - left) // 4
+        available = max(int(120 * s), bottom - table_top - int(34 * s))
+        row_h = min(int(58 * s), max(int(30 * s), available // 5))
+        visible = min(len(rows), 1 + int(progress * 5))
+        for r_index, row in enumerate(rows[:visible]):
+            y = table_top + r_index * row_h
+            for c_index, value in enumerate(row):
+                x = left + c_index * col_w
+                draw.rectangle((x, y, x + col_w, y + row_h), outline=RULE, width=max(1, int(1 * s)))
+                tw = draw.textlength(value, font=font)
+                draw.text((x + (col_w - tw) / 2, y + int(10 * s)), value, fill=INK, font=font)
+        draw.text((left, bottom - int(24 * s)), "A ∧ (A ∨ B) = A — закон поглощения",
+                  fill=ACCENT, font=small)
+
     def _draw_simple_curve(self, draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, int],
                            s: float, progress: float) -> None:
         """Чистый график по формуле: для r — обратная квадратичная, иначе f(x)."""
@@ -672,6 +700,10 @@ class BookFilmScene:
             "newton_gravity": "F — сила; G — гравитационная постоянная; m₁, m₂ — массы; r — расстояние; v₁ — первая космическая скорость.",
         }
         variables = str(meta.get("formula_vars") or "").strip() or known.get(canon_id, "")
+        if self.logic:
+            self._draw_logic_table(draw, (left + int(20 * s), top + int(70 * s),
+                                          right - int(20 * s), bottom - int(10 * s)), s * 0.8, 1.0)
+            return
         if not variables:
             _draw_text_block(draw, "Подробный смысл величин — в тексте под видео.",
                              left + int(20 * s), top + int(70 * s), right - left - int(40 * s),
@@ -680,7 +712,9 @@ class BookFilmScene:
         _draw_text_block(draw, variables, left + int(20 * s), top + int(70 * s),
                          right - left - int(40 * s), int(26 * s), INK, False, int(8 * s), 3)
         lower = (left + int(20 * s), top + int(210 * s), right - int(20 * s), bottom - int(10 * s))
-        if canon_id == "pythagoras" or "a² + b² = c²" in str(self.post.formula_plain or ""):
+        if self.logic:
+            self._draw_logic_table(draw, lower, s * 0.8, 1.0)
+        elif canon_id == "pythagoras" or "a² + b² = c²" in str(self.post.formula_plain or ""):
             self._draw_triangle(draw, lower, s * 0.8)
         else:
             self._draw_simple_curve(draw, lower, s * 0.8, 1.0)
@@ -703,7 +737,9 @@ class BookFilmScene:
                              right - left - int(20 * s), int(24 * s), MUTED, False, int(6 * s), 2)
         lower = (left + int(20 * s), top + int(220 * s), right - int(20 * s), bottom - int(10 * s))
         canon_id = str(meta.get("canon_id") or meta.get("foundation_id") or "")
-        if canon_id == "pythagoras" or "a² + b² = c²" in str(self.post.formula_plain or ""):
+        if self.logic:
+            self._draw_logic_table(draw, lower, s * 0.8, 1.0)
+        elif canon_id == "pythagoras" or "a² + b² = c²" in str(self.post.formula_plain or ""):
             self._draw_triangle(draw, lower, s * 0.8)
         else:
             self._draw_simple_curve(draw, lower, s * 0.8, 1.0)
@@ -724,7 +760,9 @@ class BookFilmScene:
                              int(22 * s), MUTED, False, int(6 * s), 2)
         lower = (left + int(20 * s), top + int(280 * s), right - int(20 * s), bottom - int(10 * s))
         canon_id = str(meta.get("canon_id") or meta.get("foundation_id") or "")
-        if canon_id == "pythagoras" or "a² + b² = c²" in str(self.post.formula_plain or ""):
+        if self.logic:
+            self._draw_logic_table(draw, lower, s * 0.8, 1.0)
+        elif canon_id == "pythagoras" or "a² + b² = c²" in str(self.post.formula_plain or ""):
             self._draw_triangle(draw, lower, s * 0.8)
         else:
             self._draw_simple_curve(draw, lower, s * 0.8, 1.0)
@@ -799,7 +837,7 @@ def book_film_for_post(post: Post, config: Any, aspect: Optional[str] = None,
     directory = Path(out_dir) if out_dir else config.data_dir / "book_films"
     target = directory / f"{post.id}_{settings['aspect'].replace(':', 'x')}.mp4"
     key_path = directory / f"{post.id}_{settings['aspect'].replace(':', 'x')}.key"
-    key = f"{post.id}|{post.title}|{post.formula_plain}|{settings['aspect']}|{settings['fps']}"
+    key = f"v3|{post.id}|{post.title}|{post.formula_plain}|{settings['aspect']}|{settings['fps']}"
     if target.is_file() and key_path.is_file() and key_path.read_text(encoding="utf-8") == key:
         return target
     produced = render_book_film(post, target, config, aspect=aspect)
