@@ -81,9 +81,10 @@ GitHub Release `state-backup` как `state_backup.sqlite.gz`.
 https://science-pulse-cron.kompyutershik24.workers.dev
 ```
 
-Он вызывает GitHub `workflow_dispatch` в `06/10/14/18 UTC` и имеет защищённый
-`POST /run` (Bearer `TRIGGER_SECRET`). Это обходит пропуски GitHub Actions
-schedule; двойную публикацию отсекает `publish_min_interval_hours`.
+Он вызывает GitHub `workflow_dispatch` в `06/10/14/18 UTC`, проверяет
+тишину >8 ч по D1 и имеет защищённый `POST /run` (Bearer `TRIGGER_SECRET`).
+Это обходит пропуски GitHub Actions schedule; двойную публикацию отсекает
+`publish_min_interval_hours`.
 
 Код: `cloudflare/cron/cron_worker.js`, конфиг: `cloudflare/cron/wrangler.toml`.
 
