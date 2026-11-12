@@ -332,3 +332,8 @@ admin:
 source_circuit:
   failures: 3
   open_minutes: 45
+
+# Публичный медиа-архив: карточки/аудио/видео в GitHub Releases.
+# Локально без GITHUB_TOKEN автоматически выключен.
+media_vault:
+  enabled: true

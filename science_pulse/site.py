@@ -705,6 +705,8 @@ class SiteBuilder:
             LOGGER.warning("Карточка %s не дорисована: %s", post.id, exc)
 
     def _copy_card(self, post: Post, cards_dir: Path) -> None:
+        if (post.meta or {}).get("card_url"):
+            return
         raw = post.card_path or post.meta.get("card_path") or ""
         source = Path(raw) if raw else self.config.cards_dir / f"{post.id}.png"
         if not source.exists() and raw:
@@ -741,7 +743,10 @@ class SiteBuilder:
 
     def _copy_audio(self, post: Post, audio_dir: Path) -> None:
         """Копирует озвучку поста (mp3 + субтитры vtt/srt) в dist/audio/."""
+        external = bool((post.meta or {}).get("audio_url"))
         for suffix in (".mp3", ".vtt", ".srt"):
+            if external and suffix == ".mp3":
+                continue
             source = self.config.data_dir / "audio" / f"{post.id}{suffix}"
             if source.is_file():
                 destination = audio_dir / f"{post.id}{suffix}"
@@ -750,6 +755,8 @@ class SiteBuilder:
 
     def _copy_audiogram(self, post: Post, audiogram_dir: Path) -> None:
         """Копирует видео-аудиограмму (data/audiogram/<id>.mp4) в dist/audiogram/."""
+        if (post.meta or {}).get("audiogram_url"):
+            return
         source = self.config.data_dir / "audiogram" / f"{post.id}.mp4"
         if source.is_file():
             destination = audiogram_dir / f"{post.id}.mp4"
@@ -915,9 +922,9 @@ class SiteBuilder:
             state, stamp = "locked", '<span class="stamp lock">В программе курса</span>'
         image = ""
         if post is not None:
-            rel = f"cards/{post.id}.png"
-            if (dist / rel).exists():
-                image = f'<img src="{rel}" alt="{_e(item["title"])}" loading="lazy">'
+            rel = str((post.meta or {}).get("card_url") or f"cards/{post.id}.png")
+            if rel.startswith("http") or (dist / rel).exists():
+                image = f'<img src="{_e(rel)}" alt="{_e(item["title"])}" loading="lazy">'
         formula = item.get("formula_latex") or item.get("formula_plain") or ""
         fx = f'<div class="fx">${_e(formula)}$</div>' if formula else ""
         haystack = " ".join(
@@ -1366,16 +1373,19 @@ class SiteBuilder:
         related_html = "".join(
             f'<li><a href="{item.id}.html">{_e(item.title)}</a></li>' for item in related
         )
-        image_path = f"../cards/{post.id}.png"
+        image_path = str((post.meta or {}).get("card_url") or f"../cards/{post.id}.png")
         image_html = (
-            f'<img class="article-card" src="{image_path}" alt="{_e(post.title)}">'
-            if (self.config.dist_dir / "cards" / f"{post.id}.png").exists()
+            f'<img class="article-card" src="{_e(image_path)}" alt="{_e(post.title)}">'
+            if image_path.startswith("http") or (self.config.dist_dir / "cards" / f"{post.id}.png").exists()
             else ""
         )
         formula = post.formula_latex or post.formula_plain
         formula_html = f'<div class="formula">\\[ {_e(formula)} \\]</div>' if formula else ""
         code_html = f"<h2>Код</h2><pre><code>{_e(post.code)}</code></pre>" if post.code else ""
+        audio_url = str((post.meta or {}).get("audio_url") or "")
         audio_file = self.config.dist_dir / "audio" / f"{post.id}.mp3"
+        if not audio_url and audio_file.exists():
+            audio_url = f"../audio/{post.id}.mp3"
         subtitle_track = (
             f'<track kind="subtitles" srclang="ru" label="Русский" '
             f'src="../audio/{post.id}.vtt" default>'
@@ -1383,17 +1393,20 @@ class SiteBuilder:
             else ""
         )
         audio_html = (
-            f'<h2>Слушать</h2><audio controls preload="none" src="../audio/{post.id}.mp3" '
+            f'<h2>Слушать</h2><audio controls preload="none" src="{_e(audio_url)}" '
             f'style="width:100%">{subtitle_track}</audio>'
-            if audio_file.exists()
+            if audio_url
             else ""
         )
+        audiogram_url = str((post.meta or {}).get("audiogram_url") or "")
         audiogram_file = self.config.dist_dir / "audiogram" / f"{post.id}.mp4"
+        if not audiogram_url and audiogram_file.exists():
+            audiogram_url = f"../audiogram/{post.id}.mp4"
         audiogram_html = (
             f'<h2>Видео-разбор</h2><video controls preload="none" playsinline '
-            f'poster="../cards/{post.id}.png" src="../audiogram/{post.id}.mp4" '
+            f'poster="{_e(image_path)}" src="{_e(audiogram_url)}" '
             'style="width:100%;max-width:520px"></video>'
-            if audiogram_file.exists()
+            if audiogram_url
             else ""
         )
         source_html = (

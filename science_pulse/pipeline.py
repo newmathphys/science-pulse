@@ -495,20 +495,26 @@ class Pipeline:
             }
 
         self.storage.mark_publishing(post.id)
-        public_card_url = ""
-        if self.config.site_base_url:
-            public_card_url = f"{self.config.site_base_url}/cards/{post.id}.png"
-
-        video_url = ""
-        threads_cfg = dict(self.config.raw.get("threads") or {})
-        threads_pub = getattr(self.publishers, "publishers", {}).get("threads")
-        if threads_cfg.get("video_first") and threads_pub is not None and threads_pub.available():
+        media_urls: Dict[str, str] = {}
+        media_cfg = dict(self.config.raw.get("media_vault") or {})
+        if media_cfg.get("enabled", True):
             try:
-                from .media_vault import upload_audiogram
+                from .media_vault import upload_post_media
 
-                video_url = upload_audiogram(post, self.config)
+                media_urls = upload_post_media(post, self.config)
+                for key, value in media_urls.items():
+                    post.meta[key] = value
+                    try:
+                        self.storage.set_post_meta(post.id, key, value)
+                    except Exception as exc:
+                        LOGGER.warning("media meta %s: %s", key, exc)
             except Exception as exc:
                 LOGGER.warning("media vault: %s", exc)
+
+        public_card_url = media_urls.get("card_url", "")
+        if not public_card_url and self.config.site_base_url:
+            public_card_url = f"{self.config.site_base_url}/cards/{post.id}.png"
+        video_url = media_urls.get("audiogram_url", "")
 
         results = self.publishers.publish(
             post,

@@ -72,36 +72,71 @@ def _ensure_release(repo: str, tag: str, token: str) -> Optional[int]:
     return None
 
 
-def upload_audiogram(post: Post, config: Config) -> str:
-    """Готовит MP4 и загружает его в GitHub Release. Возвращает public URL."""
+def upload_file(post: Post, config: Config, path: str | Path, kind: str) -> str:
+    """Загружает произвольный файл в месячный Release и возвращает public URL."""
     token, repo = _token(), _repo()
     if not token or not repo:
         return ""
-    path = audiogram_for_post(post, config)
-    if not path:
+    source = Path(path)
+    if not source.is_file():
         return ""
     tag = _month_tag(post)
     release_id = _ensure_release(repo, tag, token)
     if not release_id:
         return ""
-    name = f"audiogram-{post.id}.mp4"
+    name = f"{kind}-{post.id}{source.suffix}"
     url = f"https://uploads.github.com/repos/{repo}/releases/{release_id}/assets"
     try:
-        with Path(path).open("rb") as handle:
+        with source.open("rb") as handle:
             response = requests.post(
                 url,
-                headers={**_headers(token), "Content-Type": "video/mp4"},
+                headers={**_headers(token), "Content-Type": "application/octet-stream"},
                 params={"name": name},
                 data=handle,
                 timeout=180,
             )
     except Exception as exc:
-        LOGGER.warning("media upload %s: %s", post.id, exc)
+        LOGGER.warning("media upload %s/%s: %s", kind, post.id, exc)
         return ""
     if response.status_code in (200, 201):
         return str((response.json() or {}).get("browser_download_url") or "")
     if response.status_code == 422:
-        # Ассет уже есть — отдаём стабильный URL.
         return f"https://github.com/{repo}/releases/download/{tag}/{name}"
-    LOGGER.warning("media upload %s: %s %s", post.id, response.status_code, response.text[:160])
+    LOGGER.warning("media upload %s/%s: %s %s", kind, post.id, response.status_code, response.text[:160])
     return ""
+
+
+def upload_card(post: Post, config: Config) -> str:
+    card = Path(post.card_path) if post.card_path else config.cards_dir / f"{post.id}.png"
+    if not card.is_file():
+        card = config.cards_dir / f"{post.id}.png"
+    return upload_file(post, config, card, "card")
+
+
+def upload_audio(post: Post, config: Config) -> str:
+    from .voice import voice_for_post
+
+    artifact = voice_for_post(post, config)
+    if artifact is None:
+        return ""
+    return upload_file(post, config, artifact.mp3_path, "audio")
+
+
+def upload_audiogram(post: Post, config: Config) -> str:
+    """Готовит MP4 и загружает его в GitHub Release. Возвращает public URL."""
+    path = audiogram_for_post(post, config)
+    if not path:
+        return ""
+    return upload_file(post, config, path, "audiogram")
+
+
+def upload_post_media(post: Post, config: Config) -> dict[str, str]:
+    """Карточка + аудио + аудиограмма; пустые значения при отсутствии токена."""
+    if not _token() or not _repo():
+        return {}
+    result = {
+        "card_url": upload_card(post, config),
+        "audio_url": upload_audio(post, config),
+        "audiogram_url": upload_audiogram(post, config),
+    }
+    return {key: value for key, value in result.items() if value}

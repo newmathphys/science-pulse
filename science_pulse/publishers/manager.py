@@ -67,6 +67,7 @@ class PublisherManager:
         from ..platforms_info import PlatformRules
 
         rules = PlatformRules.load(self.storage, self.config)
+        public_card_url = public_card_url or str((post.meta or {}).get("card_url") or "")
         context = PublishContext(
             site_url=site_url,
             public_card_url=public_card_url,

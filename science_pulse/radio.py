@@ -83,6 +83,7 @@ def episode_entry(post: Post, base_url: str, audio_dir: Path, status: str = "pub
     section = str(meta.get("section_num") or "").strip()
     audio = f"audio/{post.id}.mp3"
     has_audio = (Path(audio_dir) / f"{post.id}.mp3").is_file()
+    audio_url = str(meta.get("audio_url") or (audio if has_audio else ""))
     return {
         "id": post.id,
         "section": section,
@@ -97,8 +98,8 @@ def episode_entry(post: Post, base_url: str, audio_dir: Path, status: str = "pub
         "hook": post.hook,
         "script": _lecture_script(post),
         "notes": _entry_notes(post),
-        "audio": audio if has_audio else "",
-        "card": f"cards/{post.id}.png",
+        "audio": audio_url,
+        "card": str(meta.get("card_url") or f"cards/{post.id}.png"),
         "page": f"post/{post.id}.html",
         "url": f"{base_url}/post/{post.id}.html" if base_url else f"post/{post.id}.html",
         "status": status,
@@ -173,7 +174,7 @@ def build_podcast_xml(entries: Sequence[Dict[str, Any]], config: Config) -> str:
             f"<description>{hook}</description>"
             f"<itunes:author>{html.escape(str(entry.get('scientist') or RADIO_TITLE))}</itunes:author>"
             f"<itunes:summary>{hook}</itunes:summary>"
-            f'<enclosure url="{html.escape(base + "/" + str(entry["audio"]))}" '
+            f'<enclosure url="{html.escape(str(entry["audio"]) if str(entry["audio"]).startswith("http") else base + "/" + str(entry["audio"]))}" '
             'type="audio/mpeg" length="0"/>'
             "</item>"
         )
@@ -668,7 +669,7 @@ def publish_audio(entries: Sequence[Dict[str, Any]], dist: Path, config: Config)
     copied = 0
     for entry in entries:
         audio = str(entry.get("audio") or "").strip()
-        if not audio:
+        if not audio or audio.startswith("http"):
             continue
         source = source_dir / Path(audio).name
         if not source.is_file():

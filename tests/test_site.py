@@ -70,6 +70,18 @@ class SiteTests(unittest.TestCase):
         self.assertTrue((config.cards_dir / f"{post.id}.png").is_file())
         self.assertTrue((dist / "cards" / f"{post.id}.png").is_file())
 
+    def test_external_media_urls_are_used_and_not_copied(self):
+        post = self.storage.list_posts(status="published")[0]
+        self.storage.set_post_meta(post.id, "card_url", "https://cdn.example/card.png")
+        self.storage.set_post_meta(post.id, "audio_url", "https://cdn.example/audio.mp3")
+        self.storage.set_post_meta(post.id, "audiogram_url", "https://cdn.example/video.mp4")
+        dist = self.builder.build()
+        page = (dist / "post" / f"{post.id}.html").read_text(encoding="utf-8")
+        self.assertIn("https://cdn.example/card.png", page)
+        self.assertIn("https://cdn.example/audio.mp3", page)
+        self.assertIn("https://cdn.example/video.mp4", page)
+        self.assertFalse((dist / "cards" / f"{post.id}.png").exists())
+
     def test_graph_links(self):
         dist = self.builder.build()
         graph = json.loads((dist / "graph.json").read_text(encoding="utf-8"))
