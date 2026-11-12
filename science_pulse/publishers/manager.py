@@ -53,6 +53,7 @@ class PublisherManager:
         card: CardArtifact,
         site_url: str = "",
         public_card_url: str = "",
+        video_url: str = "",
         targets: Optional[Iterable[str]] = None,
         video: bool = False,
     ) -> List[PublishResult]:
@@ -66,7 +67,13 @@ class PublisherManager:
         from ..platforms_info import PlatformRules
 
         rules = PlatformRules.load(self.storage, self.config)
-        context = PublishContext(site_url=site_url, public_card_url=public_card_url, video=video, rules=rules)
+        context = PublishContext(
+            site_url=site_url,
+            public_card_url=public_card_url,
+            video_url=video_url,
+            video=video,
+            rules=rules,
+        )
         results: List[PublishResult] = []
 
         for name in selected:
@@ -98,6 +105,17 @@ class PublisherManager:
 
             results.append(result)
             self.storage.record_publication(post.id, result)
+
+            if name == "threads" and result.ok:
+                meta = result.meta or {}
+                if meta.get("video_id"):
+                    post.meta["threads_video_id"] = str(meta["video_id"])
+                    post.meta["threads_video_url"] = str(meta.get("video_url") or "")
+                    try:
+                        self.storage.set_post_meta(post.id, "threads_video_id", post.meta["threads_video_id"])
+                        self.storage.set_post_meta(post.id, "threads_video_url", post.meta["threads_video_url"])
+                    except Exception as exc:
+                        LOGGER.warning("Threads video meta: %s", exc)
 
             if name == "telegram" and result.ok:
                 file_id = (result.meta or {}).get("file_id")

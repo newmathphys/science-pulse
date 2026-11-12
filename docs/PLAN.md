@@ -410,7 +410,7 @@ python -m unittest discover -v
 
 ```text
 $ python -m unittest discover -v
-Ran 658 tests
+Ran 660 tests
 OK
 ```
 
@@ -848,6 +848,7 @@ Discord, Mastodon и VK **не проверялись**: в среде нет и
 - [x] Голос: убраны казённые метки, отдельная формула не читается; проверенный пример произносится словами.
 - [x] Threads: VIDEO-аудиограмма отдельным ответом, `attach-media` + шаги workflow `Prepare audiogram` / `Attach Threads video`.
 - [x] INFRA-01: D1-Primary + lease-lock, `data/science.db` убран из Git, снимок — в Release `state-backup`.
+- [x] Threads: видео-аудиограмма — первый пост в треде, карточка — ответом; media vault в GitHub Releases.
 - [ ] «Радио моей ветки» в `radio.html`.
 - [ ] Команда боту `?start=branch_<id>`.
 - [ ] Полная разбивка трекера `90Days` по неделям/ступеням.

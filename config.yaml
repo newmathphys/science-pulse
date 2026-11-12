@@ -313,6 +313,9 @@ telegram:
 
 threads:
   user_id: ""
+  # Видео-аудиограмма — первый пост в треде (охват), карточка — ответом.
+  # Требует GITHUB_TOKEN + GITHUB_REPOSITORY для загрузки в Releases.
+  video_first: true
 
 mastodon:
   instance: "https://mathstodon.xyz"

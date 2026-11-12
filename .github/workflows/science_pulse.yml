@@ -104,6 +104,8 @@ jobs:
           VK_ACCESS_TOKEN: ${{ secrets.VK_ACCESS_TOKEN }}
           CF_WORKER_URL: ${{ secrets.CF_WORKER_URL }}
           INGEST_SECRET: ${{ secrets.INGEST_SECRET }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
           STACKEXCHANGE_API_KEY: ${{ secrets.STACKEXCHANGE_API_KEY }}
           SP_SITE_BASE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
           SP_SITE_TITLE: Science Pulse

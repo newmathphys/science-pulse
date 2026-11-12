@@ -138,7 +138,7 @@ class _FakePublishers:
         self.storage = storage
         self.publishers = {"threads": object(), "telegram": object()}
 
-    def publish(self, post, card, site_url="", public_card_url="", targets=None, video=False):
+    def publish(self, post, card, site_url="", public_card_url="", video_url="", targets=None, video=False):
         result = PublishResult(platform="threads", ok=True, external_id="42", url="https://t.me/x")
         self.storage.record_publication(post.id, result)
         return [result]

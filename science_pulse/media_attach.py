@@ -50,11 +50,11 @@ def attach_threads_video(
     wait_public_s: int = 300,
 ) -> PublishResult:
     """Публикует видео-ответ в Threads к уже опубликованному посту."""
-    if post.meta.get("threads_video_reply_id") and not force:
+    if (post.meta.get("threads_video_reply_id") or post.meta.get("threads_video_id")) and not force:
         return PublishResult(
             platform="threads",
             ok=True,
-            external_id=str(post.meta.get("threads_video_reply_id")),
+            external_id=str(post.meta.get("threads_video_reply_id") or post.meta.get("threads_video_id")),
             url=str(post.meta.get("threads_video_url") or ""),
             meta={"skipped": "уже прикреплено"},
         )

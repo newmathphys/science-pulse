@@ -45,7 +45,7 @@ class FakePublishers:
         self.storage = storage
         self.calls = []
 
-    def publish(self, item, card, site_url="", public_card_url="", targets=None, video=False):
+    def publish(self, item, card, site_url="", public_card_url="", video_url="", targets=None, video=False):
         self.calls.append(item.id)
         result = PublishResult(platform="fake", ok=True, external_id="42")
         self.storage.record_publication(item.id, result)

@@ -52,6 +52,11 @@ class ThreadsPublisher(Publisher):
         rules = context_rules(context, self.config)
         limit = rules.limit(self.name, "max_caption_chars", 500)
         chain_parts = max(1, rules.limit(self.name, "max_chain_parts", 2))
+        video_first = bool(context.video_url) and bool(
+            (self.config.raw.get("threads") or {}).get("video_first", False)
+        )
+        if video_first:
+            chain_parts = max(2, chain_parts)
 
         growth = ThreadsGrowthEngine(self.config)
         if growth.enabled:
@@ -72,7 +77,7 @@ class ThreadsPublisher(Publisher):
             chunks = split_text(text, max(80, limit - 10))
             mode = rules.audio_mode(self.name)
             # Звук: Threads не принимает .ogg/.mp3 — либо ссылка, либо видео-аудиограмма.
-            if mode == "mp4":
+            if mode == "mp4" and not video_first:
                 audiogram = audiogram_url(post, context.site_url)
                 if audiogram and chunks:
                     chunks[0] = truncate(f"{chunks[0]}\n\nВидеоразбор: {audiogram}", limit)
@@ -91,59 +96,89 @@ class ThreadsPublisher(Publisher):
                 chunks.append(answer_line)
         if not chunks:
             return PublishResult(platform=self.name, ok=False, error="пустой текст")
+        if video_first and context.public_card_url and len(chunks) < 2:
+            chunks.append(truncate(post.title, limit))
 
         first_id: Optional[str] = None
         previous_id: Optional[str] = None
         published: List[str] = []
+        video_id = ""
+        card_index = 1 if video_first else 0
         for index, chunk in enumerate(chunks[:chain_parts]):
             payload: Dict[str, Any] = {
                 "media_type": "TEXT",
                 "text": chunk,
                 "access_token": self.token,
             }
-            if index == 0 and context.public_card_url:
+            if video_first and index == 0:
+                payload["media_type"] = "VIDEO"
+                payload["video_url"] = context.video_url
+            elif index == card_index and context.public_card_url:
                 payload["media_type"] = "IMAGE"
                 payload["image_url"] = context.public_card_url
             if previous_id:
                 payload["reply_to_id"] = previous_id
 
             creation = self._create_container(payload)
+            if not creation.get("id") and video_first and index == 0:
+                # Видео не принято — деградируем к прежнему IMAGE/TEXT.
+                video_first = False
+                card_index = 0
+                payload = {"media_type": "TEXT", "text": chunk, "access_token": self.token}
+                if context.public_card_url:
+                    payload["media_type"] = "IMAGE"
+                    payload["image_url"] = context.public_card_url
+                creation = self._create_container(payload)
+            if not creation.get("id") and index == card_index and context.public_card_url:
+                # Картинка не принята — повторяем как текст.
+                payload["media_type"] = "TEXT"
+                payload.pop("image_url", None)
+                creation = self._create_container(payload)
             if not creation.get("id"):
-                if index == 0 and context.public_card_url:
-                    # Картинка не принята — повторяем первый пост как текст.
-                    payload["media_type"] = "TEXT"
-                    payload.pop("image_url", None)
-                    creation = self._create_container(payload)
-                if not creation.get("id"):
-                    error = str(creation.get("error") or creation)
-                    if "expired" in error.lower() or "session has expired" in error.lower():
-                        return PublishResult(
-                            platform=self.name, ok=False, skipped=True,
-                            error="Threads token expired",
-                        )
+                error = str(creation.get("error") or creation)
+                if "expired" in error.lower() or "session has expired" in error.lower():
                     return PublishResult(
-                        platform=self.name,
-                        ok=False,
-                        error=error[:200],
+                        platform=self.name, ok=False, skipped=True,
+                        error="Threads token expired",
                     )
+                return PublishResult(
+                    platform=self.name,
+                    ok=False,
+                    error=error[:200],
+                )
 
-            ready, wait_error = self._wait_container(creation["id"])
+            ready, wait_error = self._wait_container(
+                creation["id"],
+                attempts=60 if payload.get("media_type") == "VIDEO" else 15,
+                pause=3.0 if payload.get("media_type") == "VIDEO" else 2.0,
+            )
+            if not ready and video_first and index == 0:
+                video_first = False
+                card_index = 0
+                payload = {"media_type": "TEXT", "text": chunk, "access_token": self.token}
+                if context.public_card_url:
+                    payload["media_type"] = "IMAGE"
+                    payload["image_url"] = context.public_card_url
+                creation = self._create_container(payload)
+                if creation.get("id"):
+                    ready, wait_error = self._wait_container(creation["id"])
+            if not ready and index == card_index and context.public_card_url:
+                payload["media_type"] = "TEXT"
+                payload.pop("image_url", None)
+                creation = self._create_container(payload)
+                if creation.get("id"):
+                    ready, wait_error = self._wait_container(creation["id"])
             if not ready:
-                if index == 0 and context.public_card_url:
-                    payload["media_type"] = "TEXT"
-                    payload.pop("image_url", None)
-                    creation = self._create_container(payload)
-                    if creation.get("id"):
-                        ready, wait_error = self._wait_container(creation["id"])
-                if not ready:
-                    return PublishResult(
-                        platform=self.name, ok=False,
-                        error=f"контейнер не готов: {wait_error}"[:200],
-                    )
+                return PublishResult(
+                    platform=self.name, ok=False,
+                    error=f"контейнер не готов: {wait_error}"[:200],
+                )
 
             published_id = self._publish_container(creation["id"])
             if not published_id:
                 return PublishResult(platform=self.name, ok=False, error="threads_publish не вернул id")
+            if payload.get("media_type") == "VIDEO" and not video_id:
+                video_id = published_id
             published.append(published_id)
             first_id = first_id or published_id
             previous_id = published_id
@@ -153,7 +188,13 @@ class ThreadsPublisher(Publisher):
             ok=True,
             external_id=first_id,
             url=f"https://www.threads.net/t/{first_id}" if first_id else None,
-            meta={"published_ids": published, "chunks": len(published)},
+            meta={
+                "published_ids": published,
+                "chunks": len(published),
+                "video_first": bool(video_id),
+                "video_id": video_id,
+                "video_url": context.video_url if video_id else "",
+            },
         )
 
     def publish_video_reply(

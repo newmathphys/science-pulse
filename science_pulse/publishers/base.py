@@ -15,6 +15,7 @@ SPEC_PAD = 15
 class PublishContext:
     site_url: str = ""
     public_card_url: str = ""
+    video_url: str = ""
     thread_id: str = ""
     video: bool = False
     rules: Any = None  # PlatformRules: единый реестр лимитов и режима звука

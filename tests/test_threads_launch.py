@@ -105,6 +105,36 @@ class ThreadsLaunchTests(unittest.TestCase):
         self.assertNotIn("https://", texts[0])
         self.assertIn("example.org", texts[1])
 
+    def test_video_first_publishes_video_before_card(self):
+        config = Config(raw={"threads": {"user_id": "123", "video_first": True}})
+        publisher = ThreadsPublisher(config)
+        calls = []
+
+        def fake_post(url, data=None, timeout=None):
+            calls.append(dict(data or {}))
+            if url.endswith("/threads"):
+                return FakeResponse({"id": f"c{len(calls)}"})
+            return FakeResponse({"id": f"p{len(calls)}"})
+
+        with patch("science_pulse.publishers.threads.requests.post", side_effect=fake_post), \
+                patch.object(ThreadsPublisher, "_wait_container", return_value=(True, "")), \
+                patch("science_pulse.publishers.threads.time.sleep", return_value=None):
+            result = publisher.publish(
+                make_post(),
+                self.card,
+                PublishContext(
+                    public_card_url="https://example.org/card.png",
+                    video_url="https://example.org/video.mp4",
+                ),
+            )
+
+        self.assertTrue(result.ok)
+        containers = [call for call in calls if call.get("media_type")]
+        self.assertEqual(containers[0]["media_type"], "VIDEO")
+        self.assertEqual(containers[0]["video_url"], "https://example.org/video.mp4")
+        self.assertEqual(containers[1]["media_type"], "IMAGE")
+        self.assertTrue(result.meta["video_first"])
+
     def test_video_reply_uses_video_container(self):
         calls = []
 

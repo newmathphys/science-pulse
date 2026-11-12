@@ -499,11 +499,23 @@ class Pipeline:
         if self.config.site_base_url:
             public_card_url = f"{self.config.site_base_url}/cards/{post.id}.png"
 
+        video_url = ""
+        threads_cfg = dict(self.config.raw.get("threads") or {})
+        threads_pub = getattr(self.publishers, "publishers", {}).get("threads")
+        if threads_cfg.get("video_first") and threads_pub is not None and threads_pub.available():
+            try:
+                from .media_vault import upload_audiogram
+
+                video_url = upload_audiogram(post, self.config)
+            except Exception as exc:
+                LOGGER.warning("media vault: %s", exc)
+
         results = self.publishers.publish(
             post,
             card,
             site_url=self.config.site_base_url,
             public_card_url=public_card_url,
+            video_url=video_url,
             targets=targets,
             video=self._video_mode(video),
         )
