@@ -122,6 +122,28 @@ def upload_audio(post: Post, config: Config) -> str:
     return upload_file(post, config, artifact.mp3_path, "audio")
 
 
+def video_for_post(post: Post, config: Config) -> str | Path | None:
+    """Живой ролик для Threads: book-фильм, иначе аудиограмма."""
+    engine = str((config.raw.get("threads") or {}).get("video_engine", "book_film"))
+    if engine == "book_film":
+        try:
+            from .book_film import book_film_for_post
+
+            produced = book_film_for_post(post, config, aspect="1:1")
+            if produced:
+                return produced
+        except Exception as exc:
+            LOGGER.warning("book film %s: %s", post.id, exc)
+    return audiogram_for_post(post, config)
+
+
+def upload_video(post: Post, config: Config) -> str:
+    path = video_for_post(post, config)
+    if not path:
+        return ""
+    return upload_file(post, config, path, "video")
+
+
 def upload_audiogram(post: Post, config: Config) -> str:
     """Готовит MP4 и загружает его в GitHub Release. Возвращает public URL."""
     path = audiogram_for_post(post, config)
@@ -137,6 +159,6 @@ def upload_post_media(post: Post, config: Config) -> dict[str, str]:
     result = {
         "card_url": upload_card(post, config),
         "audio_url": upload_audio(post, config),
-        "audiogram_url": upload_audiogram(post, config),
+        "audiogram_url": upload_video(post, config),
     }
     return {key: value for key, value in result.items() if value}

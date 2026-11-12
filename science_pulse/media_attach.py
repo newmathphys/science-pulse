@@ -71,7 +71,7 @@ def attach_threads_video(
     if not path:
         return PublishResult(platform="threads", ok=False, error="не удалось собрать аудиограмму")
 
-    url = audiogram_url(post, config.site_base_url)
+    url = str(post.meta.get("audiogram_url") or audiogram_url(post, config.site_base_url))
     if not url:
         return PublishResult(platform="threads", ok=False, error="не задан SP_SITE_BASE_URL")
     if not _wait_public(url, timeout_s=wait_public_s):

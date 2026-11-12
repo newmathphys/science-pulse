@@ -43,6 +43,10 @@ class GrowthTests(unittest.TestCase):
         self.assertIn("t.me/newmathphys", chain[1])
         self.assertTrue(all(len(item) <= 480 for item in chain))
         self.assertIn("ЯВЛЕНИЕ ДНЯ", chain[0])
+        self.assertEqual(chain[0].count("#"), 1)
+        self.assertNotIn("#", chain[1])
+        self.assertNotIn("https://physics.stackexchange.com", chain[1])
+        self.assertIn("Первоисточник:", chain[1])
 
     def test_audience_registry(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -316,6 +316,8 @@ threads:
   # Видео-аудиограмма — первый пост в треде (охват), карточка — ответом.
   # Требует GITHUB_TOKEN + GITHUB_REPOSITORY для загрузки в Releases.
   video_first: true
+  # Живой ролик: book_film (светлая книга, анимация) или audiogram (статика).
+  video_engine: book_film
 
 mastodon:
   instance: "https://mathstodon.xyz"

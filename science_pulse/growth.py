@@ -27,10 +27,12 @@ FORMAT_LABELS = {
     "cs": "АЛГОРИТМ ДНЯ",
 }
 
+# Threads показывает кликабельным только один Topic Tag; гирлянда тегов
+# выглядит как спам для алгоритма Meta. Один точный тег на домен.
 HASHTAGS = {
-    "math": ["#математика", "#math", "#теорема", "#наука"],
-    "physics": ["#физика", "#physics", "#квант", "#наука"],
-    "cs": ["#информатика", "#программирование", "#алгоритмы", "#cs"],
+    "math": ["#математика"],
+    "physics": ["#физика"],
+    "cs": ["#информатика"],
 }
 
 CTA = {
@@ -78,8 +80,8 @@ class ThreadsGrowthEngine:
         return FORMAT_LABELS.get(post.domain, "НАУКА ДНЯ")
 
     @staticmethod
-    def hashtags(post: Post, limit: int = 4) -> str:
-        return " ".join(HASHTAGS.get(post.domain, ["#наука"])[:limit])
+    def hashtags(post: Post, limit: int = 1) -> str:
+        return " ".join(HASHTAGS.get(post.domain, ["#наука"])[:max(1, limit)])
 
     @staticmethod
     def hook_variants(post: Post) -> List[str]:
@@ -112,19 +114,40 @@ class ThreadsGrowthEngine:
         parts.append(self.hashtags(post))
         return truncate("\n\n".join(part for part in parts if part), limit)
 
+    @staticmethod
+    def _post_url(site_url: str, post: Post) -> str:
+        """База сайта → каноническая страница параграфа, без двойного /post/."""
+        base = str(site_url or "").rstrip("/")
+        if not base:
+            return ""
+        suffix = f"/post/{post.id}.html"
+        if base.endswith(suffix) or base.endswith(f"/post/{post.id}"):
+            return base
+        return base + suffix
+
+    @staticmethod
+    def _source_citation(post: Post) -> str:
+        """Сухая академическая ссылка без внешнего URL (Threads не любит гирлянды)."""
+        meta = post.meta or {}
+        scientist = str(meta.get("scientist") or post.source_name or "").strip()
+        era = str(meta.get("era") or "").strip()
+        year = re.search(r"\b(1[0-9]{3}|20[0-9]{2})\b", era)
+        parts = [part for part in (scientist, year.group(1) if year else "") if part]
+        return "Первоисточник: " + ", ".join(parts) if parts else ""
+
     def reply(self, post: Post, site_url: str = "", tg_url: str = "",
               limit: Optional[int] = None) -> str:
         limit = int(limit or self.max_chars)
-        site = utm_url(site_url, content=post.id) if self.with_utm else site_url
+        site = utm_url(self._post_url(site_url, post), content=post.id) if self.with_utm else self._post_url(site_url, post)
         tg = utm_url(tg_url, medium="social", campaign="scm_telegram", content=post.id) if self.with_utm else tg_url
         parts = []
         if site:
             parts.append(f"Полный разбор: {site}")
         if tg:
             parts.append(f"{CTA.get(post.domain, 'Продолжение — в Telegram.')} {tg}")
-        if post.source_url:
-            parts.append(f"Источник: {post.source_url}")
-        parts.append(self.hashtags(post))
+        citation = self._source_citation(post)
+        if citation:
+            parts.append(citation)
         return truncate("\n\n".join(part for part in parts if part), limit)
 
     def chain(self, post: Post, site_url: str = "", tg_url: str = "",
