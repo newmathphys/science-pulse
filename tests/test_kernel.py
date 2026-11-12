@@ -4,6 +4,7 @@ from pathlib import Path
 
 from science_pulse.config import Config
 from science_pulse.kernel import PHASES, SciencePulseKernel
+from science_pulse.sources.history_canon import CANON
 from science_pulse.storage import Storage
 
 
@@ -47,7 +48,7 @@ class KernelStatusTests(KernelTestCase):
     def test_status_report_shape(self):
         report = self.kernel.status_report()
         self.assertEqual(report["phases"], list(PHASES))
-        self.assertEqual(report["canon"]["canon_total"], 30)
+        self.assertEqual(report["canon"]["canon_total"], len(CANON))
         self.assertEqual(report["syllabus"]["branches"], 45)
         self.assertIn("ready", report["queue"])
         self.assertIn("episodes", report["radio"])
@@ -72,11 +73,11 @@ class KernelStatusTests(KernelTestCase):
 
 
 class KernelCycleTests(KernelTestCase):
-    def test_canon_phase_ensures_all_thirty_nodes(self):
+    def test_canon_phase_ensures_all_nodes(self):
         result = self.kernel.phase_canon(expand=False)
-        self.assertEqual(result["canon_total"], 30)
-        self.assertEqual(result["present"], 30)
-        self.assertEqual(result["ensured"], 30)
+        self.assertEqual(result["canon_total"], len(CANON))
+        self.assertEqual(result["present"], len(CANON))
+        self.assertEqual(result["ensured"], len(CANON))
         self.assertEqual(result["missing"], [])
 
     def test_expand_syllabus_pumps_course_topics(self):
@@ -114,7 +115,7 @@ class KernelCycleTests(KernelTestCase):
         for name, payload in report.items():
             self.assertTrue(payload["ok"], f"фаза {name}: {payload}")
         self.assertFalse(report["atlas"]["rebuilt"])
-        self.assertEqual(report["canon"]["present"], 30)
+        self.assertEqual(report["canon"]["present"], len(CANON))
         self.assertTrue(report["telemetry"]["invariants"]["ok"])
 
     def test_run_cycle_rebuilds_site_when_asked(self):

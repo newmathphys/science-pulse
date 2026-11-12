@@ -811,6 +811,70 @@ def _compute_schrodinger() -> Dict[str, str]:
     }
 
 
+def _compute_trigonometry() -> Dict[str, str]:
+    return {
+        "question": "Чему равна сумма sin²φ + cos²φ для любого угла φ?",
+        "hint": "Это теорема Пифагора для точки на единичной окружности.",
+        "answer": "1",
+    }
+
+
+def _compute_logarithm() -> Dict[str, str]:
+    return {
+        "question": "Чему равен log₁₀(100 · 1000), если log(ab)=log a+log b?",
+        "hint": "Сложите логарифмы множителей: 2 + 3.",
+        "answer": "5",
+    }
+
+
+def _compute_vectors() -> Dict[str, str]:
+    return {
+        "question": "Чему равно скалярное произведение векторов (3, 4) и (1, 0)?",
+        "hint": "a·b = aₓbₓ + a_yb_y.",
+        "answer": "3",
+    }
+
+
+def _compute_matrices() -> Dict[str, str]:
+    return {
+        "question": "Чему равен определитель матрицы [[3, 1], [2, 4]]?",
+        "hint": "det A = ad − bc.",
+        "answer": "10",
+    }
+
+
+def _compute_binary_memory() -> Dict[str, str]:
+    return {
+        "question": "Какое десятичное число соответствует двоичному 1011?",
+        "hint": "Сложите степени двойки: 8 + 2 + 1.",
+        "answer": "11",
+    }
+
+
+def _compute_harmonic_oscillator() -> Dict[str, str]:
+    return {
+        "question": "Чему равен период T = 2π√(m/k) при m = 1 кг и k = 4 Н/м?",
+        "hint": "√(1/4) = 1/2, значит T = π секунд.",
+        "answer": "π секунд (≈ 3.14159)",
+    }
+
+
+def _compute_wave_phase() -> Dict[str, str]:
+    return {
+        "question": "Чему равна разность фаз Δφ = 2π·Δx/λ при Δx = λ/2?",
+        "hint": "Подставьте Δx = λ/2: 2π · (λ/2) / λ.",
+        "answer": "π радиан",
+    }
+
+
+def _compute_mcculloch_pitts() -> Dict[str, str]:
+    return {
+        "question": "Нейрон с весами (1, 1), входами (1, 0) и порогом θ = 1: каков выход y?",
+        "hint": "Сумма 1·1 + 1·0 = 1, она достигает порога.",
+        "answer": "1",
+    }
+
+
 CANON_COMPUTABLE = {
     "archimedes": _compute_archimedes,
     "leibniz_boolean": _compute_leibniz_boolean,
@@ -826,6 +890,14 @@ CANON_COMPUTABLE = {
     "lj_lorenz": _compute_lj_lorenz,
     "bernoulli_flow": _compute_bernoulli,
     "schrodinger": _compute_schrodinger,
+    "trigonometry": _compute_trigonometry,
+    "logarithm": _compute_logarithm,
+    "vectors": _compute_vectors,
+    "matrices": _compute_matrices,
+    "binary_memory": _compute_binary_memory,
+    "harmonic_oscillator": _compute_harmonic_oscillator,
+    "wave_phase": _compute_wave_phase,
+    "mcculloch_pitts": _compute_mcculloch_pitts,
 }
 
 

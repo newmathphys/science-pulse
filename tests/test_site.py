@@ -5,6 +5,7 @@ from pathlib import Path
 
 from science_pulse.config import Config
 from science_pulse.site import SiteBuilder, _e
+from science_pulse.sources.history_canon import CANON
 from science_pulse.sources.offline import OfflineBunkerSource
 from science_pulse.storage import Storage
 
@@ -203,7 +204,7 @@ class SiteTests(unittest.TestCase):
         self.assertIn("id=\"poincare-path\"", index)
         self.assertIn("mobius", index)
         payload = json.loads((dist / "poincare.json").read_text(encoding="utf-8"))
-        self.assertEqual(len(payload["nodes"]), 30)
+        self.assertEqual(len(payload["nodes"]), len(CANON))
         self.assertTrue(payload["edges"])
         for node in payload["nodes"]:
             self.assertLess(node["x"] ** 2 + node["y"] ** 2, 1.0)
