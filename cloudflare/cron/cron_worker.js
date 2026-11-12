@@ -30,9 +30,50 @@ export default {
 
 async function runSlot(env) {
   const hour = new Date().getUTCHours();
-  if (!SLOT_HOURS.includes(hour)) return;
+  if (SLOT_HOURS.includes(hour)) {
+    const result = await dispatch(env, "run");
+    if (!result.ok) console.error("dispatch failed", result.status, result.body);
+    return;
+  }
+  await checkSilence(env);
+}
+
+async function stateRequest(env, method, body) {
+  if (!env.CF_WORKER_URL || !env.INGEST_SECRET) return null;
+  const url = `${env.CF_WORKER_URL.replace(/\/$/, "")}/api/state${method === "GET" ? "?full=1" : ""}`;
+  const response = await fetch(url, {
+    method,
+    headers: {
+      Authorization: `Bearer ${env.INGEST_SECRET}`,
+      "Content-Type": "application/json",
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!response.ok) return null;
+  return method === "GET" ? response.json() : response.json().catch(() => ({}));
+}
+
+async function checkSilence(env) {
+  const state = await stateRequest(env, "GET");
+  if (!state) return;
+  const tables = state.tables || {};
+  const pubs = tables.publications || [];
+  let lastMs = 0;
+  for (const row of pubs) {
+    if (row.status !== "ok" || !row.created_at) continue;
+    const ts = Date.parse(row.created_at);
+    if (ts > lastMs) lastMs = ts;
+  }
+  const hours = lastMs ? (Date.now() - lastMs) / 3600000 : Infinity;
+  if (hours < 8) return;
+  const kv = tables.kv || [];
+  const lastDispatch = Number((kv.find((x) => x.key === "cron_last_dispatch_at") || {}).value || 0);
+  if (lastDispatch && Date.now() - lastDispatch < 2 * 3600000) return;
   const result = await dispatch(env, "run");
-  if (!result.ok) console.error("dispatch failed", result.status, result.body);
+  await stateRequest(env, "POST", {
+    tables: { kv: [{ key: "cron_last_dispatch_at", value: String(Date.now()) }] },
+  });
+  if (!result.ok) console.error("silence dispatch failed", result.status, result.body);
 }
 
 async function dispatch(env, command) {
