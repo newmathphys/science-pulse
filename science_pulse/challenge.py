@@ -875,6 +875,120 @@ def _compute_mcculloch_pitts() -> Dict[str, str]:
     }
 
 
+CANON_QUESTIONS: Dict[str, Dict[str, str]] = {
+    "complex_numbers": {
+        "question": "Чему равно e^{iπ} по формуле Эйлера?",
+        "hint": "e^{iφ} = cos φ + i sin φ; подставьте φ = π.",
+        "answer": "-1",
+    },
+    "derivative": {
+        "question": "Чему равна производная f(x) = x² в точке x = 3?",
+        "hint": "Правило степени: (x²)′ = 2x.",
+        "answer": "6",
+    },
+    "probability": {
+        "question": "Какова вероятность выпадения чётного числа на честном кубике?",
+        "hint": "Благоприятны 2, 4, 6 из шести исходов.",
+        "answer": "1/2",
+    },
+    "bayes": {
+        "question": "Если P(B|A)=1, P(A)=0.5, P(B)=1, чему равно P(A|B)?",
+        "hint": "Подставьте в P(A|B)=P(B|A)P(A)/P(B).",
+        "answer": "0.5",
+    },
+    "differential_equations": {
+        "question": "Какая функция решает y′ = y с начальным y(0)=1?",
+        "hint": "Скорость роста равна значению; это экспонента.",
+        "answer": "e^t",
+    },
+    "number_theory": {
+        "question": "Чему равно 2⁶ по модулю 7?",
+        "hint": "2⁶ = 64; разделите на 7 с остатком.",
+        "answer": "1",
+    },
+    "dimensional_analysis": {
+        "question": "Какая размерность у силы F в системе M, L, T?",
+        "hint": "F = m·a; масса M, ускорение L/T².",
+        "answer": "M·L·T⁻²",
+    },
+    "conservation_energy": {
+        "question": "Тело падает с высоты 5 м без трения. Какова скорость у земли при g=10 м/с²?",
+        "hint": "mgh = mv²/2, значит v = √(2gh).",
+        "answer": "10 м/с",
+    },
+    "thermodynamics": {
+        "question": "Каков КПД Карно при T_h=600 K и T_c=300 K?",
+        "hint": "η = 1 − T_c/T_h.",
+        "answer": "0.5 (50%)",
+    },
+    "electromagnetic_wave": {
+        "question": "Чему равна скорость волны при λ=3 м и f=10⁸ Гц?",
+        "hint": "c = λ·f.",
+        "answer": "3·10⁸ м/с",
+    },
+    "quantum_uncertainty": {
+        "question": "Во сколько раз минимальная неопределённость Δx·Δp отличается от ℏ?",
+        "hint": "Соотношение Гейзенберга: Δx·Δp ≥ ℏ/2.",
+        "answer": "в 2 раза (≥ ℏ/2)",
+    },
+    "gravitational_waves": {
+        "question": "Как меняется амплитуда гравитационной волны h с ростом расстояния r?",
+        "hint": "h ~ 2GM/(c²r).",
+        "answer": "убывает как 1/r",
+    },
+    "boolean_logic": {
+        "question": "Чему равно A ∧ (A ∨ B) по закону поглощения?",
+        "hint": "Если A истинно, скобка уже истинна.",
+        "answer": "A",
+    },
+    "finite_automata": {
+        "question": "Сколько состояний у автомата, распознающего ровно одну единицу в строке?",
+        "hint": "Нужно помнить: единиц ещё не было / уже была.",
+        "answer": "2 состояния",
+    },
+    "recursion": {
+        "question": "Чему равен 5! по рекурсивному определению n!=n·(n−1)!?",
+        "hint": "5! = 5·4·3·2·1.",
+        "answer": "120",
+    },
+    "hash_table": {
+        "question": "В какую ячейку попадёт ключ 17 при h(k)=k mod 10?",
+        "hint": "Остаток от деления 17 на 10.",
+        "answer": "7",
+    },
+    "graph_algorithms": {
+        "question": "Какую сложность имеет алгоритм Дейкстры с двоичной кучей?",
+        "hint": "Каждое ребро и вершина обрабатываются через кучу.",
+        "answer": "O((V+E) log V)",
+    },
+    "information_theory": {
+        "question": "Чему равна энтропия честной монеты в битах?",
+        "hint": "Два равновероятных исхода: −Σ p log₂ p.",
+        "answer": "1 бит",
+    },
+    "machine_learning": {
+        "question": "В какую сторону градиентный спуск сдвигает параметр θ?",
+        "hint": "θ ← θ − η∇L: против градиента.",
+        "answer": "против градиента функции потерь",
+    },
+    "feedback_control": {
+        "question": "Какой сигнал ошибки использует ПИД-регулятор?",
+        "hint": "Сравните желаемое r и фактическое y.",
+        "answer": "e = r − y",
+    },
+    "homeostasis": {
+        "question": "К чему стремится ошибка e(t)=r(t)−y(t) в устойчивой системе?",
+        "hint": "Отрицательная обратная связь уменьшает отклонение.",
+        "answer": "к нулю",
+    },
+    "hadamard_matrices": {
+        "question": "Чему равно произведение H₂·H₂ᵀ для матрицы Адамара порядка 2?",
+        "hint": "Строки ортогональны; H_nH_nᵀ = nI.",
+        "answer": "2I",
+    },
+}
+
+
 CANON_COMPUTABLE = {
     "archimedes": _compute_archimedes,
     "leibniz_boolean": _compute_leibniz_boolean,
@@ -906,11 +1020,11 @@ def _canon_computable_challenge(post: Post, seed: int) -> Optional[Dict[str, Any
     meta = getattr(post, "meta", {}) or {}
     canon_id = str(meta.get("canon_id") or meta.get("foundation_id") or "").strip()
     builder = CANON_COMPUTABLE.get(canon_id)
-    if not builder:
-        return None
     try:
-        data = builder()
+        data = builder() if builder else CANON_QUESTIONS.get(canon_id)
     except Exception:  # pragma: no cover - защитный контур
+        return None
+    if not data:
         return None
     return {
         "kind": "canon_computable",

@@ -88,7 +88,7 @@ Mastodon → VK**. Telegram идёт первым, потому что отда�
 
 | Модуль | Роль |
 |:--|:--|
-| `sources/history_canon.py` | 38 узлов канона: текст, формула, эпоха, первоисточник |
+| `sources/history_canon.py` | 60 узлов канона: текст, формула, эпоха, первоисточник |
 | `sources/foundation.py` | ступени фундамента, порядок публикации |
 | `sources/wikipedia.py` | ru-wikipedia |
 | `sources/stackexchange.py` | Stack Exchange |
