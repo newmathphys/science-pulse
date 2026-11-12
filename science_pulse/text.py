@@ -370,6 +370,27 @@ def translate_text(text: str, target: str = "ru", source: str = "en") -> str:
     return text
 
 
+# Детерминированный глоссарий: чинит типовые ошибки машинного перевода
+# вокруг математических терминов. Только точные фразы, без «умных» догадок.
+GLOSSARY_REPLACEMENTS = (
+    (r"\bтеория звонков\b", "теория колец"),
+    (r"\bконечный звонок\b", "конечное кольцо"),
+    (r"\bкоммутативный звонок\b", "коммутативное кольцо"),
+    (r"\bвекторная область\b", "векторное поле"),
+    (r"\bэлектрическая область\b", "электрическое поле"),
+    (r"\bмагнитная область\b", "магнитное поле"),
+    (r"\bскалярная область\b", "скалярное поле"),
+)
+
+
+def apply_glossary(text: str) -> str:
+    """Post-processing перевода по точному словарю предметных терминов."""
+    value = str(text or "")
+    for pattern, replacement in GLOSSARY_REPLACEMENTS:
+        value = re.sub(pattern, replacement, value, flags=re.IGNORECASE)
+    return value
+
+
 def translation_seam_score(text: str) -> tuple[int, list[str]]:
     """Эвристика «машинного шва» вокруг формул после перевода.
 
@@ -398,7 +419,7 @@ def translation_seam_score(text: str) -> tuple[int, list[str]]:
 def translate_preserving_latex(text: str, target: str = "ru") -> str:
     masked, saved = mask_protected(text)
     translated = translate_text(masked, target=target)
-    return unmask_protected(translated, saved)
+    return apply_glossary(unmask_protected(translated, saved))
 
 
 def _tokens(text: str) -> List[str]:

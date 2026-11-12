@@ -410,7 +410,7 @@ python -m unittest discover -v
 
 ```text
 $ python -m unittest discover -v
-Ran 663 tests
+Ran 664 tests
 OK
 ```
 
@@ -851,6 +851,7 @@ Discord, Mastodon и VK **не проверялись**: в среде нет и
 - [x] Threads: видео-аудиограмма — первый пост в треде, карточка — ответом; media vault в GitHub Releases.
 - [x] P0.2 media vault: карточка/аудио/аудиограмма в Releases; site и podcast используют внешние URL.
 - [x] P1.3: 8-й рубеж `translation_seam` — эвристика машинного шва вокруг формул.
+- [x] P1.3b: детерминированный глоссарий `apply_glossary` для математических терминов.
 - [ ] «Радио моей ветки» в `radio.html`.
 - [ ] Команда боту `?start=branch_<id>`.
 - [ ] Полная разбивка трекера `90Days` по неделям/ступеням.

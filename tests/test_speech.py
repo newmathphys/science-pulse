@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 
 from science_pulse.config import Config, parse_git_remote
+from science_pulse.text import apply_glossary
 from science_pulse.voice import math_to_spoken_russian, speech_text
 
 
@@ -57,6 +58,13 @@ class SpokenMathTests(unittest.TestCase):
         self.assertIn("о большое от эн логарифм эн", text)
         self.assertIn("це в квадрате", text)
         self.assertNotIn("O(N", text)
+
+
+class GlossaryTests(unittest.TestCase):
+    def test_math_terms_are_fixed(self):
+        self.assertIn("теория колец", apply_glossary("Теория звонков изучает структуры."))
+        self.assertIn("векторное поле", apply_glossary("Векторная область задана в пространстве."))
+        self.assertIn("электрическое поле", apply_glossary("Электрическая область меняется."))
 
 
 class GitRemoteTests(unittest.TestCase):
