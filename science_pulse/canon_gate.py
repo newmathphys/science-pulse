@@ -21,6 +21,7 @@
 from __future__ import annotations
 
 import ast
+import json
 import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -179,17 +180,7 @@ class CanonGate:
     # ------------------------------------------------------------------
     # N+1 warm staging
     # ------------------------------------------------------------------
-    def stage_next(self, pipeline: Any, enforce: bool = True, render_card: bool = True) -> Dict[str, Any]:
-        """Готовит следующий `ready`-пост (лонгрид + паспорт + карточка + приёмка).
-
-        `enforce=False` — неразрушающий режим для авто-стейджинга сразу после
-        публикации: готовим данные и помечаем `staged_next_post_id`, но НЕ
-        запускаем отклоняющую приёмку (иначе слабый пост мог бы уйти в карантин
-        без участия оператора).
-        """
-        post: Optional[Post] = pipeline.choose_next()
-        if post is None:
-            return {"ok": False, "error": "нет ready-постов"}
+    def _stage_post(self, post: Post, enforce: bool = True, render_card: bool = True) -> Dict[str, Any]:
         from .enricher import enrich_post_longread
         from .post_proof import build_post_proof
 
@@ -221,7 +212,6 @@ class CanonGate:
                 "reasons": [] if card_path else ["карточка будет отрендерена при публикации"],
             }
         try:
-            self.storage.kv_set("staged_next_post_id", post.id)
             self.storage.set_post_meta(post.id, "longread_body", str((post.meta or {}).get("longread_body") or ""))
             if card_path:
                 self.storage.set_post_meta(post.id, "card_path", card_path)
@@ -235,5 +225,49 @@ class CanonGate:
             "reasons": report["reasons"],
             "card_path": card_path,
         }
+
+    def stage_next(self, pipeline: Any, enforce: bool = True, render_card: bool = True) -> Dict[str, Any]:
+        """Готовит следующий `ready`-пост (лонгрид + паспорт + карточка + приёмка)."""
+        post: Optional[Post] = pipeline.choose_next()
+        if post is None:
+            return {"ok": False, "error": "нет ready-постов"}
+        result = self._stage_post(post, enforce=enforce, render_card=render_card)
+        try:
+            self.storage.kv_set("staged_next_post_id", post.id)
+        except Exception:
+            pass
+        return result
+
+    def stage_buffer(self, pipeline: Any, count: int = 3, render_card: bool = True) -> Dict[str, Any]:
+        """N+3 warm staging: готовит несколько следующих постов, не публикуя их."""
+        from .curriculum import open_posts, order_posts, published_ids
+
+        limit = max(1, int(count))
+        ready = self.storage.list_posts(status="ready", limit=300, order="created_at ASC")
+        published = published_ids(self.storage)
+        allowed = open_posts(ready, published)
+        candidates = order_posts(allowed or ready)
+        if not candidates:
+            return {"ok": False, "error": "нет ready-постов", "staged": [], "results": []}
+        results = []
+        staged_ids = []
+        for post in candidates[:limit]:
+            result = self._stage_post(post, enforce=False, render_card=render_card)
+            results.append(result)
+            if result.get("ok"):
+                staged_ids.append(post.id)
+        try:
+            self.storage.kv_set("staged_buffer", json.dumps(staged_ids, ensure_ascii=False))
+            if staged_ids:
+                self.storage.kv_set("staged_next_post_id", staged_ids[0])
+        except Exception:
+            pass
+        return {
+            "ok": bool(staged_ids),
+            "staged": staged_ids,
+            "results": results,
+            "count": len(staged_ids),
+        }
+
 
 

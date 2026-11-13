@@ -616,10 +616,11 @@ class Pipeline:
             try:
                 from .canon_gate import CanonGate
 
-                staged = CanonGate(self.storage, self.config).stage_next(
-                    self, enforce=False, render_card=False
+                buffer_size = int((self.config.raw.get("staging") or {}).get("buffer_size", 3) or 3)
+                staged = CanonGate(self.storage, self.config).stage_buffer(
+                    self, count=buffer_size, render_card=True
                 )
-                LOGGER.info("N+1 staged: %s (ok=%s)", staged.get("post_id"), staged.get("ok"))
+                LOGGER.info("N+%s staged: %s (ok=%s)", buffer_size, staged.get("staged"), staged.get("ok"))
             except Exception as exc:  # pragma: no cover - защита публикации
                 LOGGER.warning("N+1 staging не удался: %s", exc)
 

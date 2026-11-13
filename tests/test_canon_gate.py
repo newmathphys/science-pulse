@@ -74,6 +74,24 @@ class CanonGateTests(unittest.TestCase):
         self.assertFalse(report["ok"])
         self.assertTrue(any("карточка не найдена" in reason for reason in report["reasons"]))
 
+    def test_stage_buffer_prepares_three(self):
+        samples = (
+            ("math", "Пифагор: метрика пространства", "a^2 + b^2 = c^2",
+             "Квадрат гипотенузы равен сумме квадратов катетов в прямоугольном треугольнике. " * 6),
+            ("physics", "Ньютон: сила и ускорение", "F = m * a",
+             "Сила равна произведению массы тела на его ускорение в инерциальной системе отсчёта. " * 6),
+            ("cs", "Хоар: быстрая сортировка", "T(n) = O(n log n)",
+             "Быстрая сортировка делит массив опорным элементом и рекурсивно сортирует части. " * 6),
+        )
+        for index, (domain, title, formula, body) in enumerate(samples):
+            post = make_post(id=f"gate{index}", domain=domain, title=title,
+                             formula_plain=formula, body=body)
+            self.storage.add_post(post)
+        report = self.gate.stage_buffer(Pipeline(self.config), count=3)
+        self.assertTrue(report["ok"], report)
+        self.assertEqual(len(report["staged"]), 3)
+        self.assertEqual(self.storage.kv_get("staged_next_post_id", ""), report["staged"][0])
+
     def test_stage_next_sets_kv(self):
         post = make_post()
         self.storage.add_post(post)
