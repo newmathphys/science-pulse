@@ -243,6 +243,23 @@ class StandardsChecker:
             violations.append(Violation("html", detail))
 
         checked += 1
+        from .text import check_unmapped_latex, clean_latex_for_telegram
+
+        formula_raw = str(getattr(post, "formula_latex", "") or getattr(post, "formula_plain", "") or "")
+        unknown = check_unmapped_latex(formula_raw)
+        if unknown:
+            violations.append(Violation(
+                "cross_modal",
+                "неизвестные LaTeX-команды: " + ", ".join("\\" + item for item in unknown),
+            ))
+        cleaned_formula = clean_latex_for_telegram(formula_raw)
+        if re.search(r"\bA\s+B\b|\bB\s+A\b", cleaned_formula):
+            violations.append(Violation(
+                "cross_modal",
+                "в формуле пропал оператор между переменными",
+            ))
+
+        checked += 1
         from .text import translation_seam_score
 
         seam_score, seam_details = translation_seam_score(plain)

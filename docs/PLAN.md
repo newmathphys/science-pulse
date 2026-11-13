@@ -410,7 +410,7 @@ python -m unittest discover -v
 
 ```text
 $ python -m unittest discover -v
-Ran 674 tests
+Ran 676 tests
 OK
 ```
 
@@ -858,6 +858,7 @@ Discord, Mastodon и VK **не проверялись**: в среде нет и
 - [x] P1.1c: Wikidata SPARQL-мост с User-Agent, JSON-кэшем и офлайн-тестами.
 - [x] P1.2: Maturity Score — book_film 100, audiogram fallback 85; gate выключен до staged-буфера.
 - [x] book_film: для булевой логики рисуется таблица истинности, а не ложный график F(r).
+- [x] P0.FIX: Strict LaTeX (`\land/\lor/\neg/...`), доменная легенда сайта, 9-й рубеж `cross_modal`, `canon-sync`, тест 60/60.
 - [ ] «Радио моей ветки» в `radio.html`.
 - [ ] Команда боту `?start=branch_<id>`.
 - [ ] Полная разбивка трекера `90Days` по неделям/ступеням.

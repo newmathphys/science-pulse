@@ -121,6 +121,49 @@ MATH_GREEK = {
     r"\cos": "cos",
     r"\tan": "tan",
     r"\exp": "exp",
+    r"\Gamma": "Γ",
+    r"\Sigma": "Σ",
+    r"\Lambda": "Λ",
+    r"\Pi": "Π",
+    r"\Theta": "Θ",
+    r"\land": "∧",
+    r"\lor": "∨",
+    r"\neg": "¬",
+    r"\lnot": "¬",
+    r"\implies": "⇒",
+    r"\Longrightarrow": "⇒",
+    r"\Leftrightarrow": "⇔",
+    r"\mid": "∣",
+    r"\parallel": "∥",
+    r"\perp": "⊥",
+    r"\propto": "∝",
+    r"\equiv": "≡",
+    r"\mapsto": "↦",
+    r"\leftarrow": "←",
+    r"\gets": "←",
+    r"\uparrow": "↑",
+    r"\downarrow": "↓",
+    r"\ldots": "…",
+    r"\dots": "…",
+    r"\cdots": "⋯",
+    r"\|": "‖",
+    r"\gcd": "gcd",
+    r"\bmod": "mod",
+    r"\varepsilon": "ε",
+    r"\Longleftrightarrow": "⇔",
+    r"\Psi": "Ψ",
+    r"\kappa": "κ",
+    r"\lim": "lim",
+    r"\min": "min",
+    r"\nu": "ν",
+    r"\eta": "η",
+    r"\geqq": "≥",
+    r"\leq": "≤",
+    r"\geq": "≥",
+    r"\nvdash": "⊬",
+    r"\det": "det",
+    r"\sim": "∼",
+    r"\ddot": "",
 }
 
 
@@ -586,7 +629,8 @@ def _brace_content(text: str, start: int) -> tuple[str | None, int]:
 def _latex_to_plain(text: str) -> str:
     result: List[str] = []
     index = 0
-    wrappers = ("\\textrm", "\\text", "\\mathrm", "\\mathbf", "\\mathit")
+    wrappers = ("\\textrm", "\\text", "\\mathrm", "\\mathbf", "\\mathit",
+                "\\hat", "\\dot", "\\ddot", "\\bar", "\\vec")
     while index < len(text):
         if text.startswith("\\frac", index):
             numerator, end = _brace_content(text, index + 5)
@@ -600,6 +644,20 @@ def _latex_to_plain(text: str) -> str:
             content, end = _brace_content(text, index + 5)
             if content is not None:
                 result.append(f"√({_latex_to_plain(content)})")
+                index = end
+                continue
+        if text.startswith("\\binom", index):
+            numerator, end = _brace_content(text, index + 6)
+            if numerator is not None:
+                denominator, end2 = _brace_content(text, end)
+                if denominator is not None:
+                    result.append(f"C({_latex_to_plain(numerator)}, {_latex_to_plain(denominator)})")
+                    index = end2
+                    continue
+        if text.startswith("\\pmod", index):
+            content, end = _brace_content(text, index + 5)
+            if content is not None:
+                result.append(f" (mod {_latex_to_plain(content)})")
                 index = end
                 continue
         matched_wrapper = next((wrapper for wrapper in wrappers if text.startswith(wrapper, index)), None)
@@ -618,24 +676,51 @@ def _latex_to_plain(text: str) -> str:
     plain = re.sub(r"\\mathbb\{Z\}", "ℤ", plain)
     plain = re.sub(r"\\mathbb\{C\}", "ℂ", plain)
     plain = re.sub(r"\\mathcal\{O\}", "O", plain)
+    plain = re.sub(r"\\mathbb\{E\}", "𝔼", plain)
+    plain = plain.replace("\\{", "⟦").replace("\\}", "⟧")
     plain = plain.replace("\\left", "").replace("\\right", "")
-    for spacing in ("\\,", "\\;", "\\:", "\\quad", "\\qquad"):
+    for spacing in ("\\,", "\\;", "\\:", "\\quad", "\\qquad", "\\ "):
         plain = plain.replace(spacing, " ")
     plain = plain.replace("\\!", "")
     for latex, unicode_value in MATH_GREEK.items():
-        plain = re.sub(re.escape(latex) + r"(?![A-Za-z])", unicode_value, plain)
+        suffix = r"(?![A-Za-z])" if latex[-1:].isalpha() else ""
+        plain = re.sub(re.escape(latex) + suffix, unicode_value, plain)
     plain = re.sub(r"\^\{([0-9n+\-=()]+)\}", lambda m: m.group(1).translate(SUPERSCRIPT), plain)
     plain = re.sub(r"\^([0-9n])", lambda m: m.group(1).translate(SUPERSCRIPT), plain)
     plain = re.sub(r"_\{([0-9ijknm+\-=()]+)\}", lambda m: m.group(1).translate(SUBSCRIPTS), plain)
     plain = re.sub(r"_([0-9ijknm])", lambda m: m.group(1).translate(SUBSCRIPTS), plain)
+    plain = re.sub(r"\^\{([^{}]+)\}", r"^(\1)", plain)
+    plain = re.sub(r"_\{([^{}]+)\}", r"_(\1)", plain)
     plain = re.sub(r"\\[a-zA-Z]+", "", plain)
     plain = plain.replace("{", "").replace("}", "").replace("$", "")
+    plain = plain.replace("⟦", "{").replace("⟧", "}")
     return plain
 
 
 def clean_latex_for_telegram(text: str) -> str:
     """Чистый текст без LaTeX-мусора для Telegram/карточек."""
     return normalize_whitespace(_latex_to_plain(text or ""))
+
+
+def unmapped_latex_commands(text: str) -> List[str]:
+    """Возвращает LaTeX-команды, которых нет в словаре Unicode."""
+    commands = set(re.findall(r"\\([A-Za-z]+)", str(text or "")))
+    known = {key.lstrip("\\") for key in MATH_GREEK}
+    allowed = known | {"frac", "sqrt", "text", "textrm", "mathrm", "mathbf", "mathit",
+                       "left", "right", "quad", "qquad", "binom", "pmod", "mathbb",
+                       "mathcal", "hline", "hat", "dot", "ddot", "bar", "vec"}
+    return sorted(command for command in commands if command not in allowed)
+
+
+def check_unmapped_latex(text: str) -> List[str]:
+    """Fail-closed: неизвестные макросы нельзя молча вырезать."""
+    return unmapped_latex_commands(text)
+
+
+def latex_to_unicode(text: str, max_len: int = 0) -> str:
+    """Совместимый алиас: LaTeX → Unicode без потери операторов."""
+    value = clean_latex_for_telegram(text)
+    return truncate(value, max_len) if max_len else value
 
 
 def lead_sentence(text: str, max_len: int = 190) -> str:

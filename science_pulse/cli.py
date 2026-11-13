@@ -734,6 +734,23 @@ def cmd_retranslate(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_canon_sync(args: argparse.Namespace) -> int:
+    """Синхронизировать CANON в неопубликованные posts (prereq_ids/formula)."""
+    from .canon_sync import sync_canon
+
+    pipeline = _pipeline(args)
+    result = sync_canon(pipeline.storage, dry_run=args.dry_run)
+    if pipeline.d1_primary_enabled() and not args.dry_run:
+        pushed = pipeline.push_state()
+        result["d1"] = pushed
+    _checkpoint(pipeline)
+    print(json.dumps(result, ensure_ascii=False, indent=2) if args.json else (
+        f"Canon sync: changed={result['changed']} published_skipped={result['skipped_published']} "
+        f"missing={result['missing']}" + (" (dry-run)" if args.dry_run else "")
+    ))
+    return 0
+
+
 def cmd_state(args: argparse.Namespace) -> int:
     from .state_export import StateSync
 
@@ -1703,6 +1720,11 @@ def build_parser() -> argparse.ArgumentParser:
     formal = subparsers.add_parser("formal", help="машинно проверить Lean-доказательства инвариантов")
     formal.add_argument("--json", action="store_true")
     formal.set_defaults(func=cmd_formal)
+
+    canon_sync = subparsers.add_parser("canon-sync", help="синхронизировать CANON в очередь БД")
+    canon_sync.add_argument("--dry-run", action="store_true")
+    canon_sync.add_argument("--json", action="store_true")
+    canon_sync.set_defaults(func=cmd_canon_sync)
 
     state = subparsers.add_parser("state", help="снимок состояния: экспорт SQL / реплика в D1")
     state.add_argument("--export", default=None, help="путь для SQL-дампа ('-' = stdout)")

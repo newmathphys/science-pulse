@@ -1509,6 +1509,10 @@ CANON.extend([
         "modern_application": "цифровые схемы, процессоры, SQL, формальная верификация",
         "concept": "булева логика",
         "visual_type": "cheatsheet_table",
+        "symbols": {
+            "A": "первое логическое высказывание (0 или 1)",
+            "B": "второе логическое высказывание (0 или 1)",
+        },
     },
     {
         "id": "finite_automata",
