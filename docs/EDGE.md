@@ -78,7 +78,7 @@ GitHub Release `state-backup` как `state_backup.sqlite.gz`.
 развёрнут в аккаунте, доступном Wrangler, и не хранит состояние:
 
 ```text
-https://science-pulse-cron.kompyutershik24.workers.dev
+https://science-pulse-cron.newmathphys.workers.dev
 ```
 
 Он вызывает GitHub `workflow_dispatch` в `06/10/14/18 UTC`, проверяет

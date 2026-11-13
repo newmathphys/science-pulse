@@ -148,8 +148,8 @@ platform_rules:
 edge:
   d1_primary: true
   lock_ttl_seconds: 900
-  # true — после деплоя Worker с /api/state/lock; до деплоя lock degraded
-  lock_required: false
+  # Worker /api/state/lock задеплоен в аккаунте 751...
+  lock_required: true
 
 # Живые датчики Планеты и Космоса (без ключей и регистрации): USGS Earthquakes,
 # NOAA SWPC (Kp-индекс), LIGO GWOSC (массы слияния), WhereTheISS.at (орбита МКС).
