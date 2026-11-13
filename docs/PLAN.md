@@ -294,7 +294,7 @@ seen(hash PK, post_id, created_at)
       шаги сортировки) + `video.py` (30 кадров книжной страницы + ffmpeg →
       MP4 H.264+AAC, fallback GIF), режим `video.every_nth_post`, `sendVideo`,
       `--video` / `/force video` / `/preview video` — см. `docs/VIDEO.md`.
-- [x] Контур качества: `standards.py` (8 рубежей, авто-лечение, карантин
+- [x] Контур качества: `standards.py` (9 рубежей, авто-лечение, карантин
       `rejected`) + `preflight.py` (предполётная проверка), команды
       `standards`/`quarantine`/`reject`/`preflight` — см. `docs/QUALITY.md`.
 - [x] Старт от фундамента: `sources/foundation.py` (ступени 1–6) + `evolve.py`

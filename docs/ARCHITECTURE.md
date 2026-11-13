@@ -50,7 +50,7 @@ SCM (Scientific Content Machine) — детерминированная маши
 sources/*.fetch()
   → Post (models.py)
   → storage.add_post() + seen (дедупликация)
-  → canon_gate / standards (8 рубежей)
+  → canon_gate / standards (9 рубежей)
   → preflight (карточка, сигнал, готовность)
   → pipeline.choose_next()
   → themes / post_modes / signal_engine
@@ -102,7 +102,7 @@ Mastodon → VK**. Telegram идёт первым, потому что отда�
 | `sources/manager.py` | порядок источников, circuit breaker |
 | `enricher.py` | длинный разбор из данных поста |
 | `canon_gate.py` | двухпроходная приёмка канона |
-| `standards.py` | 8 рубежей качества, heal, quarantine |
+| `standards.py` | 9 рубежей качества, heal, quarantine |
 | `preflight.py` | предполётная проверка следующего поста |
 
 ### 4.3. Состояние
@@ -369,7 +369,7 @@ radio.html, pult.html (Mini App), book.pdf
   → knowledge integrity
 ```
 
-8 рубежей `standards.py`: кириллица, длина, LaTeX, скобки, AST кода,
+9 рубежей `standards.py`: кириллица, длина, LaTeX, скобки, AST кода,
 карточка, HTML. Плохой пост → `rejected`, не публикуется.
 
 ## 13. Конфигурация и секреты
