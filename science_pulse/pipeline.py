@@ -251,7 +251,15 @@ class Pipeline:
         if allowed:
             ready = allowed
         else:
-            LOGGER.warning("Все готовые посты ждут родителей — беру ближайший по ступеням")
+            # Не выпускаем канон раньше родителей: если все foundation-узлы
+            # ждут prereq, берём внешние online-посты, а не ломаем лестницу.
+            online = [post for post in ready if not is_foundation(post)]
+            if online:
+                LOGGER.warning("Все foundation-посты ждут родителей — беру online-пост")
+                ready = online
+            else:
+                LOGGER.warning("Все готовые посты ждут родителей — очередь отложена")
+                return None
         # 1) Узлы фундамента выходят строго по ступеням (Пифагор → Евклид → Архимед …).
         foundation = [post for post in ready if is_foundation(post)]
         if foundation:
