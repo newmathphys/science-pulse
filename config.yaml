@@ -344,7 +344,9 @@ media_vault:
 # Порог зрелости выпуска: 100 = book_film + standards + card + verified challenge + prereq.
 # 85 = fallback audiogram. Включать после стабилизации staged-буфера.
 maturity:
-  enabled: true
+  # Пока очередь содержит старые prereq-мета, гейт выключаем:
+  # score пишется в meta, но слоты не блокируются.
+  enabled: false
   threshold: 100
   # Внешние online-посты с concept-задачей не блокируем: у канона — строго 100.
   enforce_canon_only: true
