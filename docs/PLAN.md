@@ -862,7 +862,7 @@ Discord, Mastodon и VK **не проверялись**: в среде нет и
 - [x] P2: обложка подкаста 3000×3000, og:image 1200×630, `radio --mix` (локально 12 мин).
 - [x] P0.1c: основной Worker и cron перенесены в аккаунт newmathphys; D1 lock задеплоен.
 - [x] P1.2b: staged-буфер N+3 (`staged_buffer`), карточки готовятся заранее.
-- [x] Maturity gate включён: book_film 100, audiogram fallback 85 → deferred.
+- [x] Maturity Score: book_film 100, audiogram fallback 85; гейт временно выключен до аудита старых prereq.
 - [ ] «Радио моей ветки» в `radio.html`.
 - [ ] Команда боту `?start=branch_<id>`.
 - [ ] Полная разбивка трекера `90Days` по неделям/ступеням.
