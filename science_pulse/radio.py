@@ -158,6 +158,46 @@ def _rfc822(stamp: str) -> str:
     return format_datetime(moment)
 
 
+def build_podcast_cover(dist: Path, config: Config) -> Optional[Path]:
+    """Квадратная обложка подкаста 3000×3000 для Apple/Яндекс."""
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+    except Exception:
+        return None
+    size = 3000
+    image = Image.new("RGB", (size, size), "#FAF8F4")
+    draw = ImageDraw.Draw(image)
+    ink, accent, rule = "#111827", "#9F1239", "#D6D3CD"
+    margin = 220
+    draw.rectangle((margin, margin, size - margin, size - margin), outline=ink, width=10)
+    draw.rectangle((margin + 40, margin + 40, size - margin - 40, margin + 62), fill=accent)
+    font_paths = ("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
+                  "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf")
+    def font(px: int):
+        for path in font_paths:
+            try:
+                return ImageFont.truetype(path, px)
+            except OSError:
+                continue
+        return ImageFont.load_default()
+    title = str(getattr(config, "site_title", "") or "Science Pulse")
+    draw.text((margin + 80, margin + 130), "SCIENCE PULSE FM", fill=accent, font=font(120))
+    draw.text((margin + 80, margin + 330), "Научное радио", fill=ink, font=font(300))
+    draw.text((margin + 80, margin + 700), "24/7 · без LLM", fill=ink, font=font(190))
+    draw.line((margin + 80, margin + 1050, size - margin - 80, margin + 1050), fill=rule, width=6)
+    lines = ["Академические лекции", "Формулы, голос, тишина", "и музыка сфер"]
+    y = margin + 1150
+    for line in lines:
+        draw.text((margin + 80, y), line, fill=ink, font=font(150))
+        y += 220
+    draw.text((margin + 80, size - margin - 180), title, fill=ink, font=font(110))
+    draw.text((margin + 80, size - margin - 90), "newmathphys.com", fill=accent, font=font(70))
+    target = Path(dist) / "podcast-cover.png"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    image.save(target, format="PNG", optimize=True)
+    return target
+
+
 def build_podcast_xml(entries: Sequence[Dict[str, Any]], config: Config) -> str:
     """RSS 2.0 подкаст-фид с тегами `itunes` и `enclosure` (audio/mpeg)."""
     base = (config.site_base_url or "").rstrip("/") or "https://science-pulse.local"
@@ -191,7 +231,9 @@ def build_podcast_xml(entries: Sequence[Dict[str, Any]], config: Config) -> str:
         "<itunes:author>Science Pulse</itunes:author>"
         '<itunes:category text="Science"/>'
         "<itunes:explicit>false</itunes:explicit>"
-        f'<itunes:image href="{html.escape(base)}/icon-512.png"/>'
+        f'<itunes:image href="{html.escape(base)}/podcast-cover.png"/>'
+        f"<itunes:owner><itunes:name>{html.escape(str(getattr(config, 'site_title', '') or 'Science Pulse'))}</itunes:name>"
+        f"<itunes:email>{html.escape(str((getattr(config, 'raw', {}) or {}).get('podcast', {}).get('email') or 'podcast@newmathphys.com'))}</itunes:email></itunes:owner>"
         f"{''.join(items)}"
         "</channel></rss>"
     )
@@ -688,6 +730,7 @@ def write_radio(dist: Path, posts: Sequence[Post], config: Config) -> Dict[str, 
     dist = Path(dist)
     entries = radio_playlist(posts, config)
     copied = publish_audio(entries, dist, config)
+    cover = build_podcast_cover(dist, config)
     has_mix = (dist / "radio_mix.mp4").is_file()
     (dist / "radio.html").write_text(
         radio_page_html(entries, config, has_mix=has_mix), encoding="utf-8"
@@ -704,6 +747,7 @@ def write_radio(dist: Path, posts: Sequence[Post], config: Config) -> Dict[str, 
     return {
         "radio": str(dist / "radio.html"),
         "podcast": str(dist / "podcast.xml"),
+        "cover": str(cover) if cover else "",
         "playlist": str(dist / "radio.json"),
         "episodes": len(entries),
         "with_audio": sum(1 for item in entries if item.get("audio")),

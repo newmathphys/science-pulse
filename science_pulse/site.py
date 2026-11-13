@@ -683,6 +683,7 @@ class SiteBuilder:
         self._write_llms(posts + programme, dist)
         self._write_poincare(posts, dist)
         self._write_bibtex(posts, dist)
+        self._write_og_images(posts, dist)
         self._write_legal(dist)
         self._write_radio(posts + programme, dist)
         self._write_pwa(dist)
@@ -829,6 +830,67 @@ class SiteBuilder:
                 pass
             image.save(dist / f"icon-{size}.png")
 
+    def _write_og_images(self, posts: List[Post], dist: Path) -> None:
+        """OG-превью 1200×630: карточка слева, заголовок справа."""
+        try:
+            from PIL import Image, ImageDraw, ImageFont
+        except Exception:
+            return
+        og_dir = dist / "og"
+        og_dir.mkdir(parents=True, exist_ok=True)
+        font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf"
+        try:
+            font = ImageFont.truetype(font_path, 52)
+            small = ImageFont.truetype(font_path, 26)
+        except OSError:
+            font = ImageFont.load_default()
+            small = font
+
+        probe_draw = ImageDraw.Draw(Image.new("RGB", (1, 1)))
+
+        def wrap(value: str, width: int) -> List[str]:
+            words, lines, current = value.split(), [], ""
+            for word in words:
+                candidate = f"{current} {word}".strip()
+                if current and probe_draw.textlength(candidate, font=font) > width:
+                    lines.append(current)
+                    current = word
+                else:
+                    current = candidate
+            if current:
+                lines.append(current)
+            return lines[:3]
+
+        def compose(card: Path | None, title: str, target: Path) -> None:
+            image = Image.new("RGB", (1200, 630), "#FAF8F4")
+            draw = ImageDraw.Draw(image)
+            draw.rectangle((28, 28, 1172, 602), outline="#111827", width=3)
+            if card and card.is_file():
+                thumb = Image.open(card).convert("RGB").resize((560, 560), Image.LANCZOS)
+                image.paste(thumb, (38, 38))
+                text_x = 630
+            else:
+                text_x = 90
+            draw.rectangle((text_x, 70, text_x + 8, 560), fill="#9F1239")
+            y = 82
+            for line in wrap(title, 500):
+                draw.text((text_x + 34, y), line, fill="#111827", font=font)
+                y += 64
+            draw.text((text_x + 34, 560), "Science Pulse · без LLM", fill="#9F1239", font=small)
+            image.save(target, format="JPEG", quality=88, optimize=True)
+
+        for post in posts:
+            card = Path(post.card_path) if post.card_path else self.config.cards_dir / f"{post.id}.png"
+            if not card.is_file():
+                card = self.config.cards_dir / f"{post.id}.png"
+            compose(card if card.is_file() else None, post.title, og_dir / f"{post.id}.jpg")
+        first = posts[0] if posts else None
+        card = None
+        if first is not None:
+            candidate = Path(first.card_path) if first.card_path else self.config.cards_dir / f"{first.id}.png"
+            card = candidate if candidate.is_file() else None
+        compose(card, self.config.site_title, og_dir / "index.jpg")
+
     def _write_bibtex(self, posts: List[Post], dist: Path) -> None:
         """BibTeX-экспорт постов: ``dist/bibtex.bib``."""
         entries: List[str] = []
@@ -868,9 +930,17 @@ class SiteBuilder:
             .replace("$", "\\$")
         )
 
-    def _page(self, title: str, content: str, depth: int = 0, extra_head: str = "") -> str:
+    def _page(self, title: str, content: str, depth: int = 0, extra_head: str = "", og_image: str = "") -> str:
         prefix = "../" * depth
         site_title = _e(self.config.site_title)
+        og_tags = ""
+        if og_image:
+            og_tags = (
+                f'<meta property="og:title" content="{_e(title)}">\n'
+                f'<meta property="og:description" content="Детерминированная научная лента: математика, физика, информатика.">\n'
+                f'<meta property="og:image" content="{_e(og_image)}">\n'
+                '<meta name="twitter:card" content="summary_large_image">\n'
+            )
         return f"""<!doctype html>
 <html lang="ru">
 <head>
@@ -879,6 +949,7 @@ class SiteBuilder:
 <title>{_e(title)} · {site_title}</title>
 <meta name="description" content="Детерминированная научная лента: математика, физика, информатика.">
 <meta name="theme-color" content="#FAF8F4">
+{og_tags}
 <link rel="manifest" href="{prefix}manifest.webmanifest">
 <link rel="icon" type="image/png" href="{prefix}icon-192.png">
 <link rel="apple-touch-icon" href="{prefix}icon-192.png">
@@ -1132,7 +1203,11 @@ class SiteBuilder:
 · <a href="sitemap.xml">sitemap.xml</a> · <a href="search.json">search.json</a> · <a href="bibtex.bib">bibtex.bib</a></p>
 <script>{INDEX_JS}</script>
 """
-        (dist / "index.html").write_text(self._page(self.config.site_title, content, depth=0), encoding="utf-8")
+        base = self.config.site_base_url.rstrip("/")
+        og_image = f"{base}/og/index.jpg" if base else "og/index.jpg"
+        (dist / "index.html").write_text(
+            self._page(self.config.site_title, content, depth=0, og_image=og_image), encoding="utf-8"
+        )
 
     def _longread_text(self, post: Post) -> str:
         """Пятичастный лонгрид (`enricher.py`); офлайн-сборка без сети."""
@@ -1610,7 +1685,11 @@ class SiteBuilder:
 </article>
 <script>{DEPTH_JS}</script>
 """
-        (posts_dir / f"{post.id}.html").write_text(self._page(post.title, content, depth=1), encoding="utf-8")
+        base = self.config.site_base_url.rstrip("/")
+        og_image = f"{base}/og/{post.id}.jpg" if base else f"../og/{post.id}.jpg"
+        (posts_dir / f"{post.id}.html").write_text(
+            self._page(post.title, content, depth=1, og_image=og_image), encoding="utf-8"
+        )
 
     @staticmethod
     def _paragraphs(text: str) -> str:

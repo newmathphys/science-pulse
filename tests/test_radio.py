@@ -156,6 +156,14 @@ class RadioPageTests(unittest.TestCase):
         for name in names:
             self.assertTrue((dist / "audio" / name).is_file(), f"нет файла {name}")
 
+    def test_podcast_cover_is_3000(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dist = Path(tmp)
+            write_radio(dist, [], self.config)
+            from PIL import Image
+            image = Image.open(dist / "podcast-cover.png")
+            self.assertEqual(image.size, (3000, 3000))
+
     def test_write_radio_creates_three_artifacts(self):
         dist = self.config.dist_dir
         dist.mkdir(parents=True, exist_ok=True)

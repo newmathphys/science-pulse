@@ -92,6 +92,14 @@ class SiteTests(unittest.TestCase):
         self.assertIn("https://cdn.example/video.mp4", page)
         self.assertFalse((dist / "cards" / f"{post.id}.png").exists())
 
+    def test_og_images_are_generated(self):
+        dist = self.builder.build()
+        from PIL import Image
+        image = Image.open(dist / "og" / "index.jpg")
+        self.assertEqual(image.size, (1200, 630))
+        index = (dist / "index.html").read_text(encoding="utf-8")
+        self.assertIn('property="og:image"', index)
+
     def test_graph_links(self):
         dist = self.builder.build()
         graph = json.loads((dist / "graph.json").read_text(encoding="utf-8"))
