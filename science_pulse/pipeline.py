@@ -557,7 +557,9 @@ class Pipeline:
             self.storage.set_post_meta(post.id, "maturity", maturity)
         except Exception as exc:
             LOGGER.warning("maturity meta: %s", exc)
-        if maturity_cfg.get("enabled", False) and not maturity["ok"]:
+        is_canon = bool((post.meta or {}).get("foundation_id") or (post.meta or {}).get("canon_id"))
+        enforce_canon_only = bool(maturity_cfg.get("enforce_canon_only", True))
+        if maturity_cfg.get("enabled", False) and (is_canon or not enforce_canon_only) and not maturity["ok"]:
             return self._deferred(
                 "maturity",
                 f"Maturity {maturity['score']}/{maturity['threshold']} · video={video_engine}",

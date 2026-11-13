@@ -346,3 +346,5 @@ media_vault:
 maturity:
   enabled: true
   threshold: 100
+  # Внешние online-посты с concept-задачей не блокируем: у канона — строго 100.
+  enforce_canon_only: true
