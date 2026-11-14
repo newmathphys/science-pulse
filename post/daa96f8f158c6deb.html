@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Евклид: алгоритм НОД — древнейший рабочий алгоритм · Science Pulse</title>
+<meta name="description" content="Детерминированная научная лента: математика, физика, информатика.">
+<meta name="theme-color" content="#FAF8F4">
+<meta property="og:title" content="Евклид: алгоритм НОД — древнейший рабочий алгоритм">
+<meta property="og:description" content="Детерминированная научная лента: математика, физика, информатика.">
+<meta property="og:image" content="https://newmathphys.github.io/science-pulse/og/daa96f8f158c6deb.jpg">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" type="image/png" href="../icon-192.png">
+<link rel="apple-touch-icon" href="../icon-192.png">
+<link rel="alternate" type="application/x-bibtex" href="../bibtex.bib" title="BibTeX">
+<link rel="stylesheet" href="../assets/style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+  onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\\[', right: '\\]', display: true}, {left: '$', right: '$', display: false}, {left: '\\(', right: '\\)', display: false}]});"></script>
+
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="brand"><h1><a href="../index.html" style="color:inherit">Science Pulse</a></h1><span>системный атлас точных наук</span></div>
+  <div class="stats"><span>постов: 22</span><span>3 дисциплины</span><span>4 публикации в сутки</span><span>0 LLM</span></div>
+</header>
+
+<article>
+  <a href="../index.html">← ко всем разборам</a>
+  <p class="meta"><a href="../radio.html">Слушать этот параграф в эфире Science Pulse FM</a>
+  · <a href="../podcast.xml">подкаст (RSS)</a></p>
+  <div class="journal">
+    <aside class="side"><h2>Паспорт параграфа</h2><ul class="spec"><li><b>ПАРАГРАФ</b><span>§ 1.2 · Ступень 1 · Зарождение аксиом, алгоритмов и статики</span></li><li><b>ДИСЦИПЛИНА</b><span>ИНФОРМАТИКА</span></li><li><b>АВТОР / ЭПОХА</b><span>Евклид («Начала», книга VII) · 300 г. до н.э. • Александрия</span></li><li><b>ПЕРВОИСТОЧНИК</b><span>Фундамент Науки · Евклид («Начала», книга VII)</span></li><li><b>ИНВАРИАНТ</b><span><code>gcd(a, b) = gcd(b, a mod b) • Time: O(log n)</code></span></li></ul></aside>
+    <div class="main">
+      <div class="badge cs">ИНФОРМАТИКА</div>
+      <h1>Евклид: алгоритм НОД — древнейший рабочий алгоритм</h1>
+      <p class="lead">Как метод деления отрезков из «Начал» стал фундаментом RSA и современной криптографии?</p>
+      <button id="master-btn" class="mini-action" data-post-id="daa96f8f158c6deb" type="button">✓ Отметить параграф освоенным</button>
+      <div class="badges"><details><summary>[АННОТАЦИЯ]</summary><p>Как метод деления отрезков из «Начал» стал фундаментом RSA и современной криптографии?</p></details><details><summary>[LATEX]</summary><pre><code>\gcd(a, b) = \gcd(b, a \bmod b), \quad T(n) = \mathcal{O}(\log n)</code></pre></details><details><summary>[PYTHON]</summary><pre><code>def euclid_gcd(a: int, b: int) -&gt; int:
+    # 300 г. до н.э. — Александрийский канон
+    while b != 0:
+        a, b = b, a % b
+    return a
+
+def extended_gcd(a: int, b: int) -&gt; tuple:
+    if b == 0:
+        return (a, 1, 0)
+    g, x1, y1 = extended_gcd(b, a % b)
+    return (g, y1, x1 - (a // b) * y1)</code></pre></details><details><summary>[BIBTEX]</summary><pre><code>@misc{sciencepulse_daa96f8f158c6deb,
+  title = {Евклид: алгоритм НОД — древнейший рабочий алгоритм},
+  author = {Фундамент Науки · Евклид («Начала», книга VII)},
+  note = {gcd(a, b) = gcd(b, a mod b) • Time: O(log n)},
+  howpublished = {\url{https://ru.wikipedia.org/wiki/Алгоритм_Евклида}},
+  year = {2026},
+  url = {https://newmathphys.github.io/science-pulse/post/daa96f8f158c6deb.html}
+}</code></pre></details><details><summary>[ЗАДАЧА]</summary><details class="flash"><summary>Просветительская задача для самопроверки</summary><p><b>На сколько шагов больше потребуется алгоритму для входа, который в 1024 раз длиннее?</b></p><p><i>Подсказка: Логарифмическая сложность: шаги растут как log₂ размера.</i></p><p>Ответ: на 10 шагов больше. log₂(1024) = 10: во столько шагов укладывается рост входа.</p></details></details></div>
+      
+      <div class="depth-nav"><button class="depth-btn" data-depth="0">z = 0 · Граница / Импульс</button><button class="depth-btn" data-depth="1">z = 1 · Интуиция и генезис</button><button class="depth-btn" data-depth="2">z = 2 · Формализм</button><button class="depth-btn" data-depth="3">z = 3 · Симуляция</button><button class="depth-btn" data-depth="4">z = 4 · Сертификат истины</button><button class="depth-btn" data-depth="all">Все слои</button></div>
+      <section class="anatomy"><h2>Как это работает · путеводитель по главе</h2><ol><li><b>Суть в одном предложении.</b> Евклид описал способ нахождения наибольшего общего делителя двух целых чисел без полного перебора делителей.</li><li><b>Что означает каждая буква.</b> <span class="legend"><b>d</b> — расстояние / глубина; <b>T</b> — время / число операций; <b>O</b> — асимптотическая оценка роста; <b>n</b> — размер входа (число элементов)</span></li><li><b>Зачем это нужно.</b> алгоритм RSA и TLS в каждом браузере и смартфоне</li><li><b>Как читать чертёж.</b> книжный чертёж с подписями</li></ol></section>
+      
+      <section class="depth" data-depth="0"><h2>z = 0 · Граница / Импульс</h2><img class="article-card" src="https://github.com/newmathphys/science-pulse/releases/download/media-2026-11/card-daa96f8f158c6deb.png" alt="Евклид: алгоритм НОД — древнейший рабочий алгоритм"><h2>Слушать</h2><audio controls preload="none" src="https://github.com/newmathphys/science-pulse/releases/download/media-2026-11/audio-daa96f8f158c6deb.mp3" style="width:100%"></audio><h2>Видео-разбор</h2><video controls preload="none" playsinline poster="https://github.com/newmathphys/science-pulse/releases/download/media-2026-11/card-daa96f8f158c6deb.png" src="https://github.com/newmathphys/science-pulse/releases/download/media-2026-11/audiogram-daa96f8f158c6deb.mp4" style="width:100%;max-width:520px"></video></section><section class="depth" data-depth="1"><h2>z = 1 · Интуиция и генезис</h2><p>I. Исторический контекст и постановка задачи</p><p>300 г. до н.э. • Александрия · Евклид («Начала», книга VII).</p><p>Ключевой вопрос: Как метод деления отрезков из «Начал» стал фундаментом RSA и современной криптографии?</p><p>Евклид описал способ нахождения наибольшего общего делителя двух целых чисел без полного перебора делителей. Ключевой шаг — замена большего числа остатком от деления: gcd(a, b) = gcd(b, a mod b). Алгоритм завершается за логарифмическое число шагов O(log min(a, b)). Расширенная версия находит коэффициенты Безу и обратный элемент по модулю. Именно она используется в каждом браузере и смартфоне при вычислении ключей RSA и TLS. Это первый в истории строго сформулированный вычислительный алгоритм, доживший до наших дней.</p><p>Евклид описал способ нахождения наибольшего общего делителя двух целых чисел без полного перебора делителей. Ключевой шаг — замена большего числа остатком от деления: gcd(a, b) = gcd(b, a mod b). Алгоритм завершается за логарифмическое число шагов O(log min(a, b)). Расширенная версия находит коэффициенты Безу и обратный элемент по модулю. Именно она используется в каждом браузере и смартфоне при вычислении ключей RSA и TLS. Это первый в истории строго сформулированный вычислительный алгоритм, доживший до наших дней.</p><p>V. Инженерное применение в XXI веке</p><p>алгоритм RSA и TLS в каждом браузере и смартфоне</p></section><section class="depth" data-depth="2"><h2>z = 2 · Формализм</h2><div class="formula">\[ \gcd(a, b) = \gcd(b, a \bmod b), \quad T(n) = \mathcal{O}(\log n) \]</div><p>II. Аналитическая модель и экспликация величин</p><p>Формула: gcd(a, b) = gcd(b, a mod b) • Time: O(log n)</p></section><section class="depth" data-depth="3"><h2>z = 3 · Симуляция</h2><p class="mono">Профиль сонификации: ⠀⠀⡀⡄⡇</p><section class="sandbox" data-sandbox="cs"><h2>Интерактивная лаборатория</h2><canvas id="sandbox-canvas" width="680" height="280"></canvas><div class="ctl"><label>A (масштаб) <input id="param-a" type="range" min="0.2" max="3.0" step="0.1" value="1.0"> <span id="val-a">1.0</span></label><label>k (частота) <input id="param-b" type="range" min="0.5" max="4.0" step="0.1" value="1.0"> <span id="val-b">1.0</span></label><label>x <input id="sandbox-x" type="number" value="1.0" step="0.1"></label><span>y(x) = <output id="sandbox-y">—</output></span><button id="sandbox-audio" class="mini-action" type="button">Услышать частоту формулы</button><button id="sandbox-svg" class="mini-action" type="button">Экспорт графика в SVG</button><button id="sandbox-fork" class="mini-action fork-copy" type="button">🌿 Скопировать ссылку на мою ветку</button></div><script>
+(function () {
+  const box = document.querySelector('.sandbox');
+  if (!box) return;
+  const canvas = document.getElementById('sandbox-canvas');
+  if (!canvas || !canvas.getContext) return;
+  const ctx = canvas.getContext('2d');
+  const out = document.getElementById('sandbox-y');
+  const domain = box.dataset.sandbox || 'math';
+  const userFn = null;
+  const aEl = document.getElementById('param-a');
+  const bEl = document.getElementById('param-b');
+  const xEl = document.getElementById('sandbox-x');
+  const va = document.getElementById('val-a');
+  const vb = document.getElementById('val-b');
+  const W = canvas.width, H = canvas.height, XMIN = -3.2, XMAX = 3.2, YMAX = 1.7;
+  const toPx = x => (x - XMIN) / (XMAX - XMIN) * W;
+  const toPy = y => H / 2 - (y / YMAX) * (H / 2);
+  function f(x, A, k) {
+    if (userFn) { try { const v = userFn(x, A, k); if (isFinite(v)) return v; } catch (e) {} }
+    if (domain === 'physics') return A * Math.exp(-x * x / 4) * Math.cos(k * x);
+    if (domain === 'cs') return A * Math.max(2, x) * Math.log2(Math.max(2, x)) / 12;
+    return A * Math.sin(k * x);
+  }
+  function axes() {
+    ctx.fillStyle = '#F3F0EA'; ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = '#D6D1C7'; ctx.lineWidth = 1;
+    for (let gx = -3; gx <= 3; gx++) { ctx.beginPath(); ctx.moveTo(toPx(gx), 0); ctx.lineTo(toPx(gx), H); ctx.stroke(); }
+    for (let gy = -1.5; gy <= 1.5; gy += 0.5) { ctx.beginPath(); ctx.moveTo(0, toPy(gy)); ctx.lineTo(W, toPy(gy)); ctx.stroke(); }
+    ctx.strokeStyle = '#111827'; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(0, toPy(0)); ctx.lineTo(W, toPy(0)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(toPx(0), 0); ctx.lineTo(toPx(0), H); ctx.stroke();
+  }
+  function curve(fn, color, width) {
+    ctx.strokeStyle = color; ctx.lineWidth = width; ctx.beginPath();
+    let first = true;
+    for (let i = 0; i <= 340; i++) {
+      const xv = XMIN + (i / 340) * (XMAX - XMIN);
+      const yv = fn(xv);
+      if (!isFinite(yv)) { first = true; continue; }
+      const px = toPx(xv), py = toPy(yv);
+      first ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+      first = false;
+    }
+    ctx.stroke();
+  }
+  function draw() {
+    const A = parseFloat(aEl.value) || 1, k = parseFloat(bEl.value) || 1;
+    const x = parseFloat(xEl.value) || 0;
+    axes();
+    if (domain === 'cs') curve(n => k * n * n / 40, '#9F1239', 2);
+    curve(xv => f(xv, A, k), '#1E3A8A', 2.6);
+    const yx = f(x, A, k);
+    ctx.fillStyle = '#065F46';
+    ctx.beginPath(); ctx.arc(toPx(x), toPy(yx), 5, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#9F1239'; ctx.setLineDash([4, 3]); ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(toPx(x), toPy(0)); ctx.lineTo(toPx(x), toPy(yx)); ctx.stroke();
+    ctx.setLineDash([]);
+    if (out) out.textContent = (Math.round(yx * 1000) / 1000).toString();
+    if (va) va.textContent = A.toFixed(1);
+    if (vb) vb.textContent = k.toFixed(1);
+  }
+  [aEl, bEl, xEl].forEach(el => { if (el) el.addEventListener('input', draw); });
+  draw();
+
+  // Клиентский синтезатор (WebAudio API): озвучивает текущую кривую f(x)
+  // прямо в браузере, без скачивания файлов.
+  const audioBtn = document.getElementById('sandbox-audio');
+  let audioCtx = null, tone = null;
+  function stopTone() {
+    if (tone) { try { tone.stop(); } catch (error) {} tone = null; }
+  }
+  function playTone() {
+    const Ctor = window.AudioContext || window.webkitAudioContext;
+    if (!Ctor) return;
+    audioCtx = audioCtx || new Ctor();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const A = parseFloat(aEl.value) || 1, k = parseFloat(bEl.value) || 1;
+    stopTone();
+    tone = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    tone.type = domain === 'physics' ? 'sine' : (domain === 'cs' ? 'square' : 'triangle');
+    tone.frequency.value = Math.max(60, Math.min(1400, 220 * A * k));
+    gain.gain.value = 0.07;
+    tone.connect(gain); gain.connect(audioCtx.destination);
+    tone.start();
+    setTimeout(stopTone, 1200);
+  }
+  if (audioBtn) audioBtn.addEventListener('click', playTone);
+
+  // Экспорт векторного графика: чистый SVG (для сайта и печати).
+  const svgBtn = document.getElementById('sandbox-svg');
+  function downloadSvg() {
+    const A = parseFloat(aEl.value) || 1, k = parseFloat(bEl.value) || 1;
+    const pts = [];
+    for (let i = 0; i <= 340; i++) {
+      const xv = XMIN + (i / 340) * (XMAX - XMIN);
+      const yv = f(xv, A, k);
+      if (!isFinite(yv)) continue;
+      pts.push([toPx(xv), toPy(yv)]);
+    }
+    const path = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(2) + ' ' + p[1].toFixed(2)).join(' ');
+    const grid = [];
+    for (let gx = -3; gx <= 3; gx++) {
+      grid.push('<line x1="' + toPx(gx) + '" y1="0" x2="' + toPx(gx) + '" y2="' + H + '" stroke="#D6D1C7"/>');
+    }
+    for (let gy = -1.5; gy <= 1.5; gy += 0.5) {
+      grid.push('<line x1="0" y1="' + toPy(gy) + '" x2="' + W + '" y2="' + toPy(gy) + '" stroke="#D6D1C7"/>');
+    }
+    const svg = '<?xml version="1.0" encoding="UTF-8"?>'
+      + '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '">'
+      + '<rect width="' + W + '" height="' + H + '" fill="#F3F0EA"/>'
+      + grid.join('')
+      + '<line x1="0" y1="' + toPy(0) + '" x2="' + W + '" y2="' + toPy(0) + '" stroke="#111827" stroke-width="1.4"/>'
+      + '<line x1="' + toPx(0) + '" y1="0" x2="' + toPx(0) + '" y2="' + H + '" stroke="#111827" stroke-width="1.4"/>'
+      + '<path d="' + path + '" fill="none" stroke="#1E3A8A" stroke-width="2.6"/>'
+      + '</svg>';
+    const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'science-pulse-graph.svg';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+  }
+  if (svgBtn) svgBtn.addEventListener('click', downloadSvg);
+
+  // Пользовательский форк эксперимента: #fork=a_b_x
+  function applyFork() {
+    const match = (location.hash || '').match(/^#fork=([0-9.]+)_([0-9.]+)_([0-9.]+)/);
+    if (!match) return;
+    if (aEl) aEl.value = match[1];
+    if (bEl) bEl.value = match[2];
+    if (xEl) xEl.value = match[3];
+    draw();
+  }
+  const forkBtn = document.getElementById('sandbox-fork');
+  if (forkBtn) forkBtn.addEventListener('click', function () {
+    const A = parseFloat(aEl.value) || 1;
+    const k = parseFloat(bEl.value) || 1;
+    const x = parseFloat(xEl.value) || 0;
+    const hash = '#fork=' + A.toFixed(1) + '_' + k.toFixed(1) + '_' + x.toFixed(1);
+    history.replaceState(null, '', hash);
+    const link = location.href;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(link);
+    }
+    forkBtn.textContent = '🌿 Ссылка скопирована';
+    setTimeout(function () { forkBtn.textContent = '🌿 Скопировать ссылку на мою ветку'; }, 1800);
+  });
+  applyFork();
+})();
+</script></section><details class="flash"><summary>Просветительская задача для самопроверки</summary><p><b>На сколько шагов больше потребуется алгоритму для входа, который в 1024 раз длиннее?</b></p><p><i>Подсказка: Логарифмическая сложность: шаги растут как log₂ размера.</i></p><p>Ответ: на 10 шагов больше. log₂(1024) = 10: во столько шагов укладывается рост входа.</p></details><h2>Код</h2><pre><code>def euclid_gcd(a: int, b: int) -&gt; int:
+    # 300 г. до н.э. — Александрийский канон
+    while b != 0:
+        a, b = b, a % b
+    return a
+
+def extended_gcd(a: int, b: int) -&gt; tuple:
+    if b == 0:
+        return (a, 1, 0)
+    g, x1, y1 = extended_gcd(b, a % b)
+    return (g, y1, x1 - (a // b) * y1)</code></pre><p>III. Вычислительная верификация</p><p>Задача для самопроверки: На сколько шагов больше потребуется алгоритму для входа, который в 1024 раз длиннее?</p><p>Ответ ядра: на 10 шагов больше. log₂(1024) = 10: во столько шагов укладывается рост входа.</p><p>Песочница кода: AST &amp; Run OK (13636 мкс)</p><p>Печать версии (merkle v1): fcf7c5bf053eb5047750333bac4c0163…</p></section><section class="depth" data-depth="4"><h2>z = 4 · Сертификат истины</h2><h2>Вычислительный паспорт</h2><ul><li><b>Код:</b> верно AST &amp; Run OK (13636 мкс)</li><li><b>Печать (merkle v1):</b> <code>fcf7c5bf053eb5047750333bac4c0163…</code></li></ul><p>IV. Связи в дереве фундамента науки</p><p>Родословная первоисточников: первоисточник — Евклид, «Начала», Книга VII, предложения 1–2 (ок. 300 г. до н.э.); академический свод — OEIS Foundation · Rosetta Code · TheAlgorithms; цифровой узел — Фундамент Науки · Евклид («Начала», книга VII). Библиография: https://ru.wikipedia.org/wiki/Алгоритм_Евклида.</p></section>
+    </div>
+    <aside class="side">
+      <div id="branch-panel" class="branch-panel"></div><script id="branch-data" type="application/json">{"current": "daa96f8f158c6deb", "prefix": "../", "posts": [{"id": "ff7d2a589bc8dbb3", "domain": "physics", "section": "", "title": "О вынужденном рассеянии с учетом генерации гармоник в незамагниченной парной плазме при произвольной мощности накачки"}, {"id": "29c72487996a980b", "domain": "physics", "section": "", "title": "Долгоживущие световые биманьонцы с конечным импульсом в NiO"}, {"id": "847cb3feaf0b3b65", "domain": "math", "section": "", "title": "Эталонный алгоритм: Fibonacci sequence"}, {"id": "8483cc678511b8e2", "domain": "math", "section": "", "title": "Эталонный алгоритм: Sieve of Eratosthenes"}, {"id": "2dea81a0b2b792b4", "domain": "physics", "section": "", "title": "Звёздный свет"}, {"id": "d30ff141e8a7676d", "domain": "cs", "section": "", "title": "Квантовая информатика"}, {"id": "af9a41c72da56022", "domain": "math", "section": "3.6", "title": "Комплексные числа: поворот на плоскости"}, {"id": "d91068d543096392", "domain": "math", "section": "3.7", "title": "Производная: мгновенная скорость изменения"}, {"id": "b35696fc179470c1", "domain": "math", "section": "18.1", "title": "§ 18.1 Формула Ньютона — Лейбница"}, {"id": "fed30f7f9fb642db", "domain": "math", "section": "18.2", "title": "§ 18.2 Теорема Гаусса — Остроградского"}, {"id": "dbace79d1bada320", "domain": "math", "section": "", "title": "Математика"}, {"id": "f28ddea97ae5477d", "domain": "math", "section": "3.5", "title": "Матрицы: линейное преобразование как таблица чисел"}, {"id": "35ae62ec3cae0876", "domain": "physics", "section": "3.12", "title": "Фаза волны: почему интерференция складывает и гасит свет"}, {"id": "0757110d9dcd3aee", "domain": "math", "section": "17.2", "title": "§ 17.2 Правило цепочки"}, {"id": "91841afa74a93bb9", "domain": "math", "section": "17.3", "title": "§ 17.3 Теорема Лагранжа о среднем"}, {"id": "50773f8f9504e3e4", "domain": "cs", "section": "", "title": "Коиндукция"}, {"id": "283eb691e59335d6", "domain": "math", "section": "", "title": "Функция следования"}, {"id": "a66f94938b2f9dfb", "domain": "math", "section": "3.3", "title": "Логарифм: как превратить умножение в сложение"}, {"id": "3ccc6a778ce41f9e", "domain": "math", "section": "3.4", "title": "Векторы: направление, длина и скалярное произведение"}, {"id": "fcaa67411fd687e9", "domain": "math", "section": "16.3", "title": "§ 16.3 Ряд Тейлора"}, {"id": "1e840f67a579e367", "domain": "math", "section": "17.1", "title": "§ 17.1 Определение производной"}, {"id": "ae6fa043e2bec346", "domain": "cs", "section": "", "title": "Разделение кодирования мультимодального видения"}, {"id": "7d392c5f172e2327", "domain": "cs", "section": "", "title": "Возвращаемся к пикселям: поднимаем скрытую диффузию видео в пространство пикселей"}, {"id": "0eda6f03dfcb5a4e", "domain": "physics", "section": "", "title": "Высокое давление"}, {"id": "b9a67094c73b8321", "domain": "cs", "section": "", "title": "Куст событий"}, {"id": "34d3ca47fdea4009", "domain": "math", "section": "16.1", "title": "§ 16.1 Определение предела по Коши"}, {"id": "46b92ef2f35fa318", "domain": "math", "section": "16.2", "title": "§ 16.2 Признак сходимости Даламбера"}, {"id": "dd7476b96d0dc7bc", "domain": "math", "section": "15.2", "title": "§ 15.2 Разложение по сингулярным числам (SVD)"}, {"id": "8e9101423356cd7b", "domain": "math", "section": "15.3", "title": "§ 15.3 Теорема Кэли — Гамильтона"}, {"id": "07a400d1fb06b7d3", "domain": "cs", "section": "", "title": "Квантовый параллелизм"}, {"id": "076c20da9e6b1c1d", "domain": "math", "section": "", "title": "Непараметрический статистический критерий"}, {"id": "dcb68a607280174f", "domain": "physics", "section": "", "title": "Физическая величина (физика)"}, {"id": "ed737abc3d7003a8", "domain": "physics", "section": "2.9", "title": "Размерности: как угадать формулу до вывода"}, {"id": "1aa7462d707784ec", "domain": "cs", "section": "2.5", "title": "Булева логика: алгебра истины"}, {"id": "d5145565c4cadd37", "domain": "math", "section": "14.3", "title": "§ 14.3 Кривые второго порядка"}, {"id": "5fe9cee0648dae68", "domain": "math", "section": "15.1", "title": "§ 15.1 Собственные значения и векторы"}, {"id": "ec205545e4a620e9", "domain": "math", "section": "", "title": "OEIS A000040: Простые числа"}, {"id": "a13c0fcf4c34b6da", "domain": "math", "section": "", "title": "OEIS A000079: Степени двойки: a(n) = 2^n"}, {"id": "d335398d53fe2157", "domain": "physics", "section": "", "title": "Исламский вклад в Европейскую цивилизацию"}, {"id": "744ce28bd0fca4d7", "domain": "cs", "section": "", "title": "Буфер (информатика)"}, {"id": "9a760b3f44c896ca", "domain": "math", "section": "", "title": "OEIS A000108: Каталонские числа: C(n) = биномиальное(2n,n)/(n+1) = (2n)!/(n!(n+1)!)"}, {"id": "16258e404cd96a89", "domain": "math", "section": "", "title": "OEIS A000045: Числа Фибоначчи: F(n) = F(n-1) + F(n-2) с F(0) = 0 и F(1) = 1"}, {"id": "706c735a221a13b3", "domain": "math", "section": "", "title": "Компьютерные науки в спорте"}, {"id": "40cfcc7dbd8e2b78", "domain": "cs", "section": "", "title": "Компромисс времени и памяти"}, {"id": "1aca3afb13109baf", "domain": "physics", "section": "", "title": "Пространственные модели выбора транспорта в Нитерое"}, {"id": "446742acec31e400", "domain": "physics", "section": "", "title": "Взаимная линейность в нелинейной демографической динамике"}, {"id": "d08ff1a544f73664", "domain": "math", "section": "", "title": "OEIS A000203: a(n) = sigma(n), сумма делителей n. Также называется сигма_1(n)"}, {"id": "40ae608ca74f2b21", "domain": "math", "section": "", "title": "OEIS A005132: Последовательность Рекамана (или последовательность Рекамана): a(0) = 0; для n > 0, a(n) = a(n-1) - n, если оно неотрицательно и еще не находится в последовательности, в противном случа…"}, {"id": "09c2696cc8ee193d", "domain": "physics", "section": "", "title": "Что делает теорию «квантовой»?"}, {"id": "2294e97f060fe2e2", "domain": "physics", "section": "", "title": "В чем суть гамильтоновой механики?"}, {"id": "06f19b677499012d", "domain": "math", "section": "", "title": "Математическая шутка"}, {"id": "1242c946a92bbaa8", "domain": "cs", "section": "", "title": "К моделям обнаружения фундамента через обоснование на основе примеров в EM-DETR"}, {"id": "c508f6e1cbe59929", "domain": "cs", "section": "", "title": "Сегментация медицинских изображений: адаптация базовой модели в сравнении с обучением для конкретных задач"}, {"id": "6b083ab4d3a7235e", "domain": "math", "section": "", "title": "OEIS A001622: Десятичное разложение золотого сечения фи (или тау) = (1 + sqrt(5))/2"}, {"id": "54c9113b7ac7710e", "domain": "math", "section": "", "title": "OEIS A000129: Числа Пелла: а(0) = 0, а(1) = 1; для n > 1, a(n) = 2*a(n-1) + a(n-2)"}, {"id": "902c2cdbd6693e92", "domain": "physics", "section": "", "title": "Обезразмеривание"}, {"id": "9e4f9f7efa68f250", "domain": "cs", "section": "", "title": "Информатика"}, {"id": "3c66d4b6169baffd", "domain": "math", "section": "", "title": "Раскраска онлайн-графов: конкурентные соотношения, разделяющие рандомизированные и детерминированные алгоритмы"}, {"id": "0872be7c751ad475", "domain": "math", "section": "", "title": "Замыкание невещественных корней многочленов ограниченной высоты связано именно на пронических высотах"}, {"id": "416ed55f62e5d784", "domain": "math", "section": "", "title": "OEIS A001353: а(п) = 4*а(п-1) - а(п-2) с а(0) = 0, а(1) = 1"}, {"id": "7ac0bf8ba34a1b74", "domain": "math", "section": "", "title": "OEIS A000984: Центральные биномиальные коэффициенты: бином(2*n,n) = (2*n)!/(n!)^2"}, {"id": "b3acdce90ccb36c2", "domain": "math", "section": "", "title": "Какова интуитивная связь между SVD и PCA?"}, {"id": "da4e59a4d2f34fed", "domain": "math", "section": "", "title": "Как можно интуитивно подумать об определителе?"}, {"id": "e8f653a7010e9f74", "domain": "cs", "section": "", "title": "Запись-ориентированная файловая система"}, {"id": "9e8060eeb13fa21b", "domain": "math", "section": "", "title": "Модель латентной переменной"}, {"id": "369848dae208c335", "domain": "math", "section": "", "title": "Числовые неравенства"}, {"id": "8ea0b2ec5a2d2e2f", "domain": "math", "section": "", "title": "Элементарная алгебра"}, {"id": "59d51baa4987f52a", "domain": "math", "section": "13.3", "title": "§ 13.3 Основная теорема алгебры"}, {"id": "43ee51d639d7845a", "domain": "math", "section": "14.1", "title": "§ 14.1 Уравнение прямой и плоскости"}, {"id": "52e2144d4b96f0da", "domain": "math", "section": "14.2", "title": "§ 14.2 Векторное и смешанное произведение"}, {"id": "9a3f6b9c9f28a8ab", "domain": "math", "section": "13.1", "title": "§ 13.1 Формулы Виета"}, {"id": "09fee98ae08468ac", "domain": "math", "section": "13.2", "title": "§ 13.2 Бином Ньютона"}, {"id": "82193afa215f9950", "domain": "math", "section": "11.1", "title": "§ 11.1 Основная теорема арифметики"}, {"id": "587d6dbe4017eb75", "domain": "math", "section": "11.2", "title": "§ 11.2 Бесконечность простых чисел"}, {"id": "949ca489bd757039", "domain": "math", "section": "11.3", "title": "§ 11.3 Китайская теорема об остатках"}, {"id": "3a3a5990210e30cd", "domain": "math", "section": "12.1", "title": "§ 12.1 Теорема синусов и косинусов"}, {"id": "481e39bf9e49d820", "domain": "math", "section": "12.2", "title": "§ 12.2 Формула Эйлера для многогранников"}, {"id": "112df565ff8446b0", "domain": "math", "section": "12.3", "title": "§ 12.3 Объём и площадь сферических сегментов"}, {"id": "b063d20371654588", "domain": "math", "section": "1.1", "title": "Пифагор: теорема о метрике евклидова пространства"}, {"id": "daa96f8f158c6deb", "domain": "cs", "section": "1.2", "title": "Евклид: алгоритм НОД — древнейший рабочий алгоритм"}, {"id": "2cc2003206469ece", "domain": "physics", "section": "1.3", "title": "Архимед: закон гидростатики и рождение статики"}, {"id": "0212a505f66fee75", "domain": "physics", "section": "2.3", "title": "Ньютон: закон всемирного тяготения"}, {"id": "f3ba0a10118b66cd", "domain": "math", "section": "2.1", "title": "Аль-Хорезми: алгебра как наука об уравнениях"}, {"id": "eb6fd65239d8bf7b", "domain": "cs", "section": "2.2", "title": "Лейбниц и Буль: двоичный код и логика на кремнии"}, {"id": "c11673db77921fe1", "domain": "physics", "section": "2.4", "title": "Галилей: свободное падение и язык эксперимента"}, {"id": "a0adc2b75d9a159c", "domain": "math", "section": "3.1", "title": "Эйлер: тождество, связывающее пять констант"}, {"id": "bc6e7878c7e58a85", "domain": "math", "section": "3.2", "title": "Ньютон и Лейбниц: производная как скорость изменения"}, {"id": "3b4a815c0a7daf75", "domain": "cs", "section": "3.3", "title": "Ада Лавлейс: первый алгоритм и границы машины"}, {"id": "bc4e1c5adfb21fc2", "domain": "physics", "section": "3.4", "title": "Бернулли: закон сохранения энергии в потоке"}, {"id": "55633bc7d11c3a61", "domain": "math", "section": "4.1", "title": "Фурье: разложение сигнала на гармоники"}, {"id": "1c18580c1b784529", "domain": "physics", "section": "4.5", "title": "Максвелл: уравнения электромагнитного поля"}, {"id": "2c754839b43829ea", "domain": "math", "section": "4.2", "title": "Нётер: симметрия и законы сохранения"}, {"id": "2f07486de10e7b18", "domain": "math", "section": "4.3", "title": "Гаусс: нормальное распределение и метод наименьших квадратов"}, {"id": "93cbd57074766fd6", "domain": "cs", "section": "4.4", "title": "Хоар: быстрая сортировка и разделяй-и-властвуй"}, {"id": "c4233cddc505068c", "domain": "physics", "section": "4.6", "title": "Больцман: энтропия как число состояний"}, {"id": "c78eb87834bbf3e2", "domain": "cs", "section": "5.2", "title": "Тьюринг: машина, определившая границы вычислений"}, {"id": "68da699cbb1069e1", "domain": "cs", "section": "5.3", "title": "Шеннон: энтропия и рождение теории информации"}, {"id": "da50b9ddca2fc4ef", "domain": "physics", "section": "5.5", "title": "Шрёдингер: волновое уравнение и рождение квантовой механики"}, {"id": "5b2547e132b7f8e7", "domain": "physics", "section": "5.6", "title": "Туннелирование и альфа-распад: квантовый выход сквозь стену"}, {"id": "42d36b04286101c5", "domain": "math", "section": "5.1", "title": "Риман: интеграл и геометрия искривлённого пространства"}, {"id": "77475162fe6cf262", "domain": "cs", "section": "5.4", "title": "Дейкстра: кратчайший путь и дисциплина структурного кода"}, {"id": "d9e524f3d70cf56b", "domain": "physics", "section": "5.7", "title": "Планк: квант энергии и рождение квантовой физики"}, {"id": "32873f816d03ddd7", "domain": "physics", "section": "6.4", "title": "Спутниковая интерферометрия: фазовые кольца InSAR и индекс NDVI"}, {"id": "65ab528d3d7fd470", "domain": "physics", "section": "6.5", "title": "Шварцшильд: метрика чёрной дыры и линзирование света"}, {"id": "96e399b46ce3fc69", "domain": "cs", "section": "6.2", "title": "Молекулярная динамика и хаос: потенциал Леннард-Джонса и аттрактор Лоренца"}, {"id": "875447daa026b237", "domain": "math", "section": "6.1", "title": "Гёдель: теоремы о неполноте и границы доказуемого"}, {"id": "d74d8f49c8df25d4", "domain": "cs", "section": "6.3", "title": "RSA: односторонняя функция, охраняющая интернет"}, {"id": "46bb6dd46865ca77", "domain": "physics", "section": "6.6", "title": "Эйнштейн: относительность времени, массы и гравитации"}]}</script>
+      <h2>Вычислительный паспорт</h2><ul><li><b>Код:</b> верно AST &amp; Run OK (13636 мкс)</li><li><b>Печать (merkle v1):</b> <code>fcf7c5bf053eb5047750333bac4c0163…</code></li></ul>
+      <h2>Родословная первоисточников</h2><ul><li><b>Первоисточник:</b> Евклид, «Начала», Книга VII, предложения 1–2 (ок. 300 г. до н.э.)</li><li><b>Академический свод:</b> OEIS Foundation · Rosetta Code · TheAlgorithms</li><li><b>Цифровой узел:</b> <a href="https://ru.wikipedia.org/wiki/Алгоритм_Евклида" rel="noopener">Фундамент Науки · Евклид («Начала», книга VII)</a></li><li><b>Библиография:</b> https://ru.wikipedia.org/wiki/Алгоритм_Евклида</li></ul>
+      <div class="tags"><span>алгоритм</span><span>gcd</span><span>евклид</span><span>log</span><span>min</span><span>mod</span><span>rsa</span><span>tls</span></div>
+      <p>Первоисточник: <a href="https://ru.wikipedia.org/wiki/Алгоритм_Евклида" rel="noopener">https://ru.wikipedia.org/wiki/Алгоритм_Евклида</a></p>
+      <p style="color:var(--ink-2)">Источник: Фундамент Науки · Евклид («Начала», книга VII) · foundation · качество 0.90</p>
+      <h2>Используется в новых темах</h2><ul><li><a href="1aa7462d707784ec.html">Булева логика: алгебра истины</a></li><li><a href="eb6fd65239d8bf7b.html">Лейбниц и Буль: двоичный код и логика на кремнии</a></li></ul>
+      <h2>Связанные разборы</h2><ul><li><a href="f3ba0a10118b66cd.html">Аль-Хорезми: алгебра как наука об уравнениях</a></li><li><a href="77475162fe6cf262.html">Дейкстра: кратчайший путь и дисциплина структурного кода</a></li><li><a href="93cbd57074766fd6.html">Хоар: быстрая сортировка и разделяй-и-властвуй</a></li><li><a href="3b4a815c0a7daf75.html">Ада Лавлейс: первый алгоритм и границы машины</a></li><li><a href="55633bc7d11c3a61.html">Фурье: разложение сигнала на гармоники</a></li></ul>
+    </aside>
+  </div>
+</article>
+<script>
+(function () {
+  const buttons = Array.from(document.querySelectorAll('.depth-btn'));
+  const sections = Array.from(document.querySelectorAll('.depth'));
+  if (!buttons.length || !sections.length) return;
+  function show(depth) {
+    buttons.forEach((b) => b.classList.toggle('active', b.dataset.depth === depth));
+    sections.forEach((s) => s.classList.toggle('visible', depth === 'all' || s.dataset.depth === depth));
+  }
+  buttons.forEach((b) => b.addEventListener('click', () => show(b.dataset.depth)));
+  show('0');
+})();
+</script>
+
+<footer>Science Pulse · источники: Stack Exchange, OEIS, Wikipedia, arXiv, Rosetta Code, GitHub raw, Numbers API, SymPy/CODATA. Без LLM в контенте. · <a href="../privacy.html">Политика конфиденциальности</a> · <a href="../data-deletion.html">Удаление данных</a></footer>
+</div>
+<script>if ('serviceWorker' in navigator) { window.addEventListener('load', () => navigator.serviceWorker.register('../sw.js').catch(() => {})); }</script>
+<script>
+(function () {
+  const dataEl = document.getElementById('branch-data');
+  const panel = document.getElementById('branch-panel');
+  if (!dataEl || !panel) return;
+  const data = JSON.parse(dataEl.textContent || '{}');
+  const posts = data.posts || [];
+  const current = data.current || '';
+  const key = 'scm_branch_v1';
+  function load() { try { return JSON.parse(localStorage.getItem(key) || '{}') || {}; } catch (e) { return {}; } }
+  function save(v) { try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) {} }
+  function render() {
+    const done = load();
+    const domains = {math: 'Математика', cs: 'Информатика', physics: 'Физика'};
+    const labels = {math: '📐', cs: '💻', physics: '⚛️'};
+    let html = '<h2>🌿 Моя ветка освоения науки</h2>';
+    Object.keys(domains).forEach(function (domain) {
+      const all = posts.filter(function (p) { return p.domain === domain; });
+      const got = all.filter(function (p) { return done[p.id]; }).length;
+      const pct = all.length ? Math.round(100 * got / Math.max(1, all.length)) : 0;
+      html += '<div class="branch-row"><span>' + labels[domain] + ' ' + domains[domain] + '</span>' +
+        '<div class="branch-bar ' + domain + '"><span style="width:' + pct + '%"></span></div>' +
+        '<span>' + got + ' / ' + all.length + '</span></div>';
+    });
+    const next = posts.filter(function (p) { return !done[p.id]; }).slice(0, 3);
+    if (next.length) {
+      html += '<div class="branch-next"><b>Следующие шаги:</b> ' + next.map(function (p) {
+        return '<a href="' + (data.prefix || '') + 'post/' + p.id + '.html">§ ' + (p.section || '—') + ' · ' + p.title + '</a>';
+      }).join('') + '</div>';
+    } else {
+      html += '<div class="branch-next">Все доступные параграфы отмечены. Открывайте новые ветки в канале.</div>';
+    }
+    panel.innerHTML = html;
+    const btn = document.getElementById('master-btn');
+    if (btn && current) {
+      const on = !!done[current];
+      btn.classList.toggle('mastered', on);
+      btn.textContent = on ? '✓ Параграф освоен' : '✓ Отметить параграф освоенным';
+    }
+  }
+  const btn = document.getElementById('master-btn');
+  if (btn && current) {
+    btn.addEventListener('click', function () {
+      const done = load();
+      if (done[current]) delete done[current]; else done[current] = true;
+      save(done); render();
+    });
+  }
+  render();
+})();
+</script>
+</body>
+</html>

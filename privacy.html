@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Политика конфиденциальности · Science Pulse</title>
+<meta name="description" content="Детерминированная научная лента: математика, физика, информатика.">
+<meta name="theme-color" content="#FAF8F4">
+
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="alternate" type="application/x-bibtex" href="bibtex.bib" title="BibTeX">
+<link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+  onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\\[', right: '\\]', display: true}, {left: '$', right: '$', display: false}, {left: '\\(', right: '\\)', display: false}]});"></script>
+
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="brand"><h1><a href="index.html" style="color:inherit">Science Pulse</a></h1><span>системный атлас точных наук</span></div>
+  <div class="stats"><span>постов: 22</span><span>3 дисциплины</span><span>4 публикации в сутки</span><span>0 LLM</span></div>
+</header>
+
+<article>
+  <div class="badge">PRIVACY</div>
+  <h1>Политика конфиденциальности</h1>
+  <p class="lead">Science Pulse — статический научный сайт. Мы не создаём аккаунты и не собираем персональные данные на сервере.</p>
+  <h2>Что хранится</h2>
+  <ul>
+    <li>Прогресс чтения («Моя ветка») хранится только в вашем браузере: <code>localStorage["scm_branch_v1"]</code>.</li>
+    <li>Сайт размещён на GitHub Pages; GitHub может вести технические журналы по своей политике.</li>
+    <li>Публикация в Telegram/Threads выполняется через официальные API этих платформ; их политики применяются отдельно.</li>
+  </ul>
+  <h2>Чего мы не делаем</h2>
+  <ul>
+    <li>Не продаём данные.</li>
+    <li>Не используем рекламные трекеры.</li>
+    <li>Не генерируем контент LLM.</li>
+  </ul>
+  <h2>Контакты</h2>
+  <p>Вопросы: <a href="mailto:newmathphys@gmail.com">newmathphys@gmail.com</a> · Telegram: <a href="https://t.me/newmathphys">@newmathphys</a></p>
+</article>
+
+<footer>Science Pulse · источники: Stack Exchange, OEIS, Wikipedia, arXiv, Rosetta Code, GitHub raw, Numbers API, SymPy/CODATA. Без LLM в контенте. · <a href="privacy.html">Политика конфиденциальности</a> · <a href="data-deletion.html">Удаление данных</a></footer>
+</div>
+<script>if ('serviceWorker' in navigator) { window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {})); }</script>
+<script>
+(function () {
+  const dataEl = document.getElementById('branch-data');
+  const panel = document.getElementById('branch-panel');
+  if (!dataEl || !panel) return;
+  const data = JSON.parse(dataEl.textContent || '{}');
+  const posts = data.posts || [];
+  const current = data.current || '';
+  const key = 'scm_branch_v1';
+  function load() { try { return JSON.parse(localStorage.getItem(key) || '{}') || {}; } catch (e) { return {}; } }
+  function save(v) { try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) {} }
+  function render() {
+    const done = load();
+    const domains = {math: 'Математика', cs: 'Информатика', physics: 'Физика'};
+    const labels = {math: '📐', cs: '💻', physics: '⚛️'};
+    let html = '<h2>🌿 Моя ветка освоения науки</h2>';
+    Object.keys(domains).forEach(function (domain) {
+      const all = posts.filter(function (p) { return p.domain === domain; });
+      const got = all.filter(function (p) { return done[p.id]; }).length;
+      const pct = all.length ? Math.round(100 * got / Math.max(1, all.length)) : 0;
+      html += '<div class="branch-row"><span>' + labels[domain] + ' ' + domains[domain] + '</span>' +
+        '<div class="branch-bar ' + domain + '"><span style="width:' + pct + '%"></span></div>' +
+        '<span>' + got + ' / ' + all.length + '</span></div>';
+    });
+    const next = posts.filter(function (p) { return !done[p.id]; }).slice(0, 3);
+    if (next.length) {
+      html += '<div class="branch-next"><b>Следующие шаги:</b> ' + next.map(function (p) {
+        return '<a href="' + (data.prefix || '') + 'post/' + p.id + '.html">§ ' + (p.section || '—') + ' · ' + p.title + '</a>';
+      }).join('') + '</div>';
+    } else {
+      html += '<div class="branch-next">Все доступные параграфы отмечены. Открывайте новые ветки в канале.</div>';
+    }
+    panel.innerHTML = html;
+    const btn = document.getElementById('master-btn');
+    if (btn && current) {
+      const on = !!done[current];
+      btn.classList.toggle('mastered', on);
+      btn.textContent = on ? '✓ Параграф освоен' : '✓ Отметить параграф освоенным';
+    }
+  }
+  const btn = document.getElementById('master-btn');
+  if (btn && current) {
+    btn.addEventListener('click', function () {
+      const done = load();
+      if (done[current]) delete done[current]; else done[current] = true;
+      save(done); render();
+    });
+  }
+  render();
+})();
+</script>
+</body>
+</html>
