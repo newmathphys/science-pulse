@@ -126,6 +126,13 @@ class PublisherManager:
                     post.card_file_id = str(file_id)
                     post.meta["card_file_id"] = str(file_id)
                     self.storage.set_card_file_id(post.id, str(file_id))
+                for key in ("voice_engine", "voice_duration", "voice_mode"):
+                    if (result.meta or {}).get(key) is not None:
+                        post.meta[key] = result.meta[key]
+                        try:
+                            self.storage.set_post_meta(post.id, key, result.meta[key])
+                        except Exception:
+                            pass
                 worker = self.config.cf_worker_url
                 if file_id and worker:
                     context.public_card_url = f"{worker}/tg-cdn/{file_id}.png"

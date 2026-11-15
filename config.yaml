@@ -99,8 +99,8 @@ voice:
   rate: "+0%"
   max_chars: 750                  # ≈55 секунд речи
   publish: "voice"                # voice (OGG/OPUS) | audio (MP3-подкаст)
-  piper_model: "data/piper/ru_RU-dmitri-medium.onnx"  # офлайн-резерв
-  piper_voice: "dmitri"           # dmitri | irina
+  piper_model: "data/piper/ru_RU-irina-medium.onnx"  # офлайн-резерв, женский голос
+  piper_voice: "irina"            # irina | dmitri
   # Автоцепочка: edge → piper → google_tts → espeak → sonification.
   # Если облачный движок упёрся в лимит, он уходит в cooldown и возвращается
   # автоматически после паузы; остальные движки продолжают работу.

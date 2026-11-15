@@ -360,9 +360,9 @@ def _draw_code(draw: ImageDraw.ImageDraw, post: Post, box: Tuple[int, int, int, 
     lines = [line for line in (post.code or "").splitlines() if line.strip()][:10]
     if not lines:
         return
-    font = _serif_font(max(12, int(16 * scale)), mono=True)
-    number_font = _serif_font(max(10, int(13 * scale)), mono=True)
-    line_height = max(18, int(24 * scale))
+    font = _serif_font(max(16, int(23 * scale)), mono=True)
+    number_font = _serif_font(max(12, int(15 * scale)), mono=True)
+    line_height = max(22, int(31 * scale))
     active = min(len(lines) - 1, int(progress * len(lines)))
     draw.rectangle([left - int(8 * scale), top + active * line_height - 2,
                     right, top + (active + 1) * line_height + 2], fill=(232, 226, 214))
@@ -461,7 +461,20 @@ class BookFilmScene:
         self.act_times = _block_times(self.blocks, self.words, self.duration)
         self.sequence = extract_sequence(post)
         formula_text = f"{post.formula_latex or ''} {post.formula_plain or ''}"
-        self.logic = bool(re.search(r"[∧∨¬→↔]|\\land|\\lor|\\neg", formula_text))
+        self.logic = bool(re.search(r"[∧∨¬↔]|\\land|\\lor|\\neg|\\lnot", formula_text))
+        design = (getattr(post, "meta", {}) or {}).get("design_variant") or {}
+        self.archetype = str(
+            (design.get("archetype") if isinstance(design, dict) else "")
+            or (getattr(post, "meta", {}) or {}).get("visual_type")
+            or ""
+        )
+        if not self.archetype:
+            try:
+                from .cards_academic import pick_visual_type
+
+                self.archetype = str(pick_visual_type(post))
+            except Exception:
+                self.archetype = ""
         self.curve = None
         expression = post.meta.get("plot_expr") or post.formula_plain or ""
         if expression and re.search(r"\bx\b", str(expression)):
@@ -566,7 +579,13 @@ class BookFilmScene:
         draw.text((left, top + int(190 * s)), source[:70], fill=MUTED, font=_serif_font(max(12, int(24 * s))))
         prereqs = [str(item) for item in (meta.get("prereq_ids") or [])][:2]
         if prereqs:
-            draw.text((left, top + int(240 * s)), f"Опирается на: {', '.join(prereqs)}", fill=ACCENT,
+            try:
+                from .sources.history_canon import CANON
+                titles = {str(item["id"]): str(item["title"]).split(":")[0] for item in CANON}
+                labels = [titles.get(item, item) for item in prereqs]
+            except Exception:
+                labels = prereqs
+            draw.text((left, top + int(240 * s)), f"Опирается на: {', '.join(labels)}", fill=ACCENT,
                       font=_serif_font(max(12, int(22 * s))))
 
     def _draw_live_chart(self, draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, int], s: float, progress: float) -> None:
@@ -577,6 +596,8 @@ class BookFilmScene:
         canon_id = str((self.post.meta or {}).get("canon_id") or (self.post.meta or {}).get("foundation_id") or "")
         if self.logic:
             self._draw_logic_table(draw, box, s, progress)
+        elif self.archetype == "code_booktabs" and self.post.code:
+            _draw_code(draw, self.post, box, progress, s)
         elif canon_id == "pythagoras" or "a² + b² = c²" in str(self.post.formula_plain or ""):
             self._draw_triangle(draw, box, s)
         elif wave_like:
@@ -714,6 +735,8 @@ class BookFilmScene:
         lower = (left + int(20 * s), top + int(210 * s), right - int(20 * s), bottom - int(10 * s))
         if self.logic:
             self._draw_logic_table(draw, lower, s * 0.8, 1.0)
+        elif self.archetype == "code_booktabs" and self.post.code:
+            _draw_code(draw, self.post, lower, 1.0, s * 0.8)
         elif canon_id == "pythagoras" or "a² + b² = c²" in str(self.post.formula_plain or ""):
             self._draw_triangle(draw, lower, s * 0.8)
         else:
@@ -739,6 +762,8 @@ class BookFilmScene:
         canon_id = str(meta.get("canon_id") or meta.get("foundation_id") or "")
         if self.logic:
             self._draw_logic_table(draw, lower, s * 0.8, 1.0)
+        elif self.archetype == "code_booktabs" and self.post.code:
+            _draw_code(draw, self.post, lower, 1.0, s * 0.8)
         elif canon_id == "pythagoras" or "a² + b² = c²" in str(self.post.formula_plain or ""):
             self._draw_triangle(draw, lower, s * 0.8)
         else:
@@ -762,6 +787,8 @@ class BookFilmScene:
         canon_id = str(meta.get("canon_id") or meta.get("foundation_id") or "")
         if self.logic:
             self._draw_logic_table(draw, lower, s * 0.8, 1.0)
+        elif self.archetype == "code_booktabs" and self.post.code:
+            _draw_code(draw, self.post, lower, 1.0, s * 0.8)
         elif canon_id == "pythagoras" or "a² + b² = c²" in str(self.post.formula_plain or ""):
             self._draw_triangle(draw, lower, s * 0.8)
         else:
@@ -837,7 +864,7 @@ def book_film_for_post(post: Post, config: Any, aspect: Optional[str] = None,
     directory = Path(out_dir) if out_dir else config.data_dir / "book_films"
     target = directory / f"{post.id}_{settings['aspect'].replace(':', 'x')}.mp4"
     key_path = directory / f"{post.id}_{settings['aspect'].replace(':', 'x')}.key"
-    key = f"v3|{post.id}|{post.title}|{post.formula_plain}|{settings['aspect']}|{settings['fps']}"
+    key = f"v4|{post.id}|{post.title}|{post.formula_plain}|{settings['aspect']}|{settings['fps']}"
     if target.is_file() and key_path.is_file() and key_path.read_text(encoding="utf-8") == key:
         return target
     produced = render_book_film(post, target, config, aspect=aspect)

@@ -410,7 +410,7 @@ python -m unittest discover -v
 
 ```text
 $ python -m unittest discover -v
-Ran 679 tests
+Ran 680 tests
 OK
 ```
 
@@ -863,6 +863,7 @@ Discord, Mastodon и VK **не проверялись**: в среде нет и
 - [x] P0.1c: основной Worker и cron перенесены в аккаунт newmathphys; D1 lock задеплоен.
 - [x] P1.2b: staged-буфер N+3 (`staged_buffer`), карточки готовятся заранее.
 - [x] Maturity Score: book_film 100, audiogram fallback 85; гейт временно выключен до аудита старых prereq.
+- [x] book_film: `→` больше не считается логикой; code_booktabs показывает код, prereq-подписи читаемые; Piper fallback — Ирина.
 - [ ] «Радио моей ветки» в `radio.html`.
 - [ ] Команда боту `?start=branch_<id>`.
 - [ ] Полная разбивка трекера `90Days` по неделям/ступеням.

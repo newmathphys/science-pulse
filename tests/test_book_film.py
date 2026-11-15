@@ -67,6 +67,22 @@ class BookFilmTests(unittest.TestCase):
         finally:
             scene.close()
 
+    def test_turing_arrow_is_not_logic(self):
+        post = Post(
+            id="turing1",
+            domain="cs",
+            title="Машина Тьюринга",
+            body="Формальная машина с лентой и состояниями.",
+            formula_latex=r"M=(Q,\Gamma), \delta: Q\times\Gamma\to Q",
+            formula_plain="M=(Q, Γ), δ: Q × Γ → Q",
+            source_name="test",
+        )
+        scene = BookFilmScene(post, 540, 540)
+        try:
+            self.assertFalse(scene.logic)
+        finally:
+            scene.close()
+
     def test_boolean_logic_uses_truth_table_not_curve(self):
         post = Post(
             id="bool1",
