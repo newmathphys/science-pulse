@@ -352,6 +352,7 @@ media_vault:
 podcast:
   mix_url: "https://github.com/newmathphys/science-pulse/releases/download/media-2026-11/radio_mix.mp3"
   mix_length: 16106830
+  resolve_lengths: true
 
 maturity:
   # Аудит причинности пройден: гейт снова обязателен для канона.

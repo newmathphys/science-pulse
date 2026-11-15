@@ -201,6 +201,39 @@ def build_podcast_cover(dist: Path, config: Config) -> Optional[Path]:
     return target
 
 
+_REMOTE_LENGTH_CACHE: Dict[str, int] = {}
+
+
+def _remote_length(url: str) -> int:
+    """Content-Length по прямому URL (для GitHub Release и CDN)."""
+    if url in _REMOTE_LENGTH_CACHE:
+        return _REMOTE_LENGTH_CACHE[url]
+    try:
+        import requests
+
+        response = requests.head(url, allow_redirects=True, timeout=8)
+        length = int(response.headers.get("Content-Length") or 0)
+        if length <= 0:
+            response = requests.get(url, headers={"Range": "bytes=0-0"}, stream=True, timeout=8)
+            length = int(response.headers.get("Content-Length") or 0)
+        _REMOTE_LENGTH_CACHE[url] = length
+        return length
+    except Exception:
+        _REMOTE_LENGTH_CACHE[url] = 0
+        return 0
+
+
+def _enclosure_length(entry: Dict[str, Any], config: Config) -> int:
+    length = int(entry.get("audio_length") or 0)
+    if length > 0:
+        return length
+    podcast_cfg = dict((getattr(config, "raw", {}) or {}).get("podcast") or {})
+    if not podcast_cfg.get("resolve_lengths"):
+        return 0
+    audio = str(entry.get("audio") or "")
+    return _remote_length(audio) if audio.startswith("http") else 0
+
+
 def build_podcast_xml(entries: Sequence[Dict[str, Any]], config: Config, mix_url: str = "", mix_length: int = 0) -> str:
     """RSS 2.0 подкаст-фид с тегами `itunes` и `enclosure` (audio/mpeg)."""
     base = (config.site_base_url or "").rstrip("/") or "https://science-pulse.local"
@@ -218,7 +251,7 @@ def build_podcast_xml(entries: Sequence[Dict[str, Any]], config: Config, mix_url
             f"<itunes:author>{html.escape(str(entry.get('scientist') or RADIO_TITLE))}</itunes:author>"
             f"<itunes:summary>{hook}</itunes:summary>"
             f'<enclosure url="{html.escape(str(entry["audio"]) if str(entry["audio"]).startswith("http") else base + "/" + str(entry["audio"]))}" '
-            f'type="audio/mpeg" length="{int(entry.get("audio_length") or 0)}"/>'
+            f'type="audio/mpeg" length="{_enclosure_length(entry, config)}"/>'
             "</item>"
         )
     if mix_url:
