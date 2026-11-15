@@ -59,3 +59,5 @@
 3. `RUNBOOKS.md`
 4. `KNOWLEDGE_BASE.md`
 5. `SECURITY.md`
+
+- `PLAN.md` §12 — визуальные референсы, Formula Playground, Kalman/A*.
