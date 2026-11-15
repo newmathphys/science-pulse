@@ -351,6 +351,7 @@ media_vault:
 # 85 = fallback audiogram. Включать после стабилизации staged-буфера.
 podcast:
   mix_url: "https://github.com/newmathphys/science-pulse/releases/download/media-2026-11/radio_mix.mp3"
+  mix_length: 16106830
 
 maturity:
   # Аудит причинности пройден: гейт снова обязателен для канона.

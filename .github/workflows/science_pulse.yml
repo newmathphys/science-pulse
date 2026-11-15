@@ -125,6 +125,12 @@ jobs:
         continue-on-error: true
         run: python -m science_pulse.cli recard --dry-run
 
+      - name: Pull D1 state before site build
+        env:
+          CF_WORKER_URL: ${{ secrets.CF_WORKER_URL }}
+          INGEST_SECRET: ${{ secrets.INGEST_SECRET }}
+        run: python -m science_pulse.cli state --sync
+
       - name: Build site
         run: python -m science_pulse.cli site
 
