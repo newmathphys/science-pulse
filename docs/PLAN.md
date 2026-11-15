@@ -990,6 +990,8 @@ Discord, Mastodon и VK **не проверялись**: в среде нет и
 - [x] `test_prereq_titles_do_not_leak_snake_case`: `hoare_sort` → «Хоар».
 - [x] `slot_rubrics`: math=base, cs=engineering, physics=satellite,
   satellite_lab=trend.
+- [x] Тройной cron убран: расписание осталось только у `science-pulse-cron`;
+  `science-pulse-edge` и GitHub Actions больше не дублируют слоты.
 - [x] Kalman (`kalman_filter`) и A* (`a_star`) — узлы 61–62, с проверяемой
   задачей и `prereq_ids`.
 - [ ] P3: Formula Playground и цветное сцепление — следующий этап.
