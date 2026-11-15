@@ -86,15 +86,34 @@ def upload_file(post: Post, config: Config, path: str | Path, kind: str) -> str:
         return ""
     name = f"{kind}-{post.id}{source.suffix}"
     url = f"https://uploads.github.com/repos/{repo}/releases/{release_id}/assets"
-    try:
+
+    def _send() -> Any:
         with source.open("rb") as handle:
-            response = requests.post(
+            return requests.post(
                 url,
                 headers={**_headers(token), "Content-Type": "application/octet-stream"},
                 params={"name": name},
                 data=handle,
                 timeout=180,
             )
+
+    def _delete_existing() -> None:
+        listing = requests.get(
+            f"https://api.github.com/repos/{repo}/releases/{release_id}/assets?per_page=100",
+            headers=_headers(token), timeout=30,
+        )
+        for asset in (listing.json() if listing.status_code == 200 else []):
+            if asset.get("name") == name:
+                requests.delete(
+                    f"https://api.github.com/repos/{repo}/releases/assets/{asset.get('id')}",
+                    headers=_headers(token), timeout=30,
+                )
+
+    try:
+        response = _send()
+        if response.status_code == 422:
+            _delete_existing()
+            response = _send()
     except Exception as exc:
         LOGGER.warning("media upload %s/%s: %s", kind, post.id, exc)
         return ""
@@ -153,9 +172,10 @@ def valid_video(path: str | Path) -> bool:
         rows = [line.strip() for line in result.stdout.splitlines() if line.strip()]
     except Exception:
         return False
-    video = next((row for row in rows if row.startswith("video,")), "")
-    audio = next((row for row in rows if row.startswith("audio,")), "")
-    return "h264" in video and "yuv420p" in video and "aac" in audio
+    streams = [set(row.split(",")) for row in rows]
+    has_video = any({"video", "h264", "yuv420p"} <= stream for stream in streams)
+    has_audio = any({"audio", "aac"} <= stream for stream in streams)
+    return has_video and has_audio
 
 
 def upload_video(post: Post, config: Config) -> str:

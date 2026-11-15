@@ -3,7 +3,10 @@ import unittest
 from science_pulse.cards_academic import ARCHETYPES, SIMULATIONS
 from science_pulse.config import Config
 from science_pulse.constants import CONSTANTS
+from science_pulse.sources.foundation import year_of
 from science_pulse.sources.history_canon import CANON, HistoryCanonSource
+from science_pulse.canon_sync import canonical_meta
+from science_pulse.enricher import _canon_titles
 
 INTERDISCIPLINARY = ("schrodinger", "insar_ndvi", "schwarzschild_light", "quantum_tunneling", "lj_lorenz")
 
@@ -64,6 +67,26 @@ class CanonLinksTests(unittest.TestCase):
     def test_concepts_present_on_interdisciplinary(self):
         for node_id in INTERDISCIPLINARY:
             self.assertTrue(self.by_id[node_id].get("concept"), node_id)
+
+    def test_no_anachronistic_prereqs(self):
+        for item in CANON:
+            node_year = year_of(item.get("era"))
+            for prereq in item.get("prereq_ids", []) or []:
+                parent = self.by_id[prereq]
+                parent_year = year_of(parent.get("era"))
+                if node_year is None or parent_year is None:
+                    continue
+                self.assertLessEqual(parent_year, node_year, f"{item['id']} ← {prereq}")
+
+    def test_turing_does_not_depend_on_hoare(self):
+        self.assertNotIn("hoare_sort", self.by_id["turing_machine"].get("prereq_ids", []))
+
+    def test_every_canon_node_has_explicit_scene_type(self):
+        for node in CANON:
+            self.assertTrue(canonical_meta(node).get("scene_type"), node["id"])
+
+    def test_prereq_titles_do_not_leak_snake_case(self):
+        self.assertEqual(_canon_titles(["hoare_sort"]), ["Хоар"])
 
 
 if __name__ == "__main__":

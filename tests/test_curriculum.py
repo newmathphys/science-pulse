@@ -77,6 +77,35 @@ class PipelineOrderTests(unittest.TestCase):
         chosen = self.pipeline.choose_next()
         self.assertEqual(chosen.id, "s1")
 
+    def test_satellite_rubric_prefers_space_node(self):
+        sat = simple_post("sat", canon_id="insar_ndvi", step=6,
+                          modern_application="Sentinel-1, спутниковая интерферометрия")
+        sat.domain = "physics"
+        sat.title = "Спутниковая интерферометрия InSAR"
+        sat.body = "Спутниковая интерферометрия и орбиты. " * 12
+        other = simple_post("plain")
+        other.domain = "physics"
+        other.title = "Обычная физика без космоса"
+        other.body = "Обычная физика с отдельным текстом. " * 12
+        self.pipeline.storage.add_post(other)
+        self.pipeline.storage.add_post(sat)
+        chosen = self.pipeline.choose_next("physics", rubric="satellite")
+        self.assertEqual(chosen.id, "sat")
+
+    def test_priority_post_beats_domain(self):
+        priority = simple_post("priority", priority=100)
+        priority.domain = "cs"
+        priority.title = "Приоритетный узел: отдельная тема"
+        priority.body = "Приоритетный узел с отдельным текстом. " * 12
+        other = simple_post("physics")
+        other.domain = "physics"
+        other.title = "Физическая тема: отдельный текст"
+        other.body = "Физическая тема с отдельным текстом. " * 12
+        self.pipeline.storage.add_post(other)
+        self.pipeline.storage.add_post(priority)
+        chosen = self.pipeline.choose_next("physics")
+        self.assertEqual(chosen.id, "priority")
+
     def test_choose_next_respects_domain(self):
         self.pipeline.storage.add_post(deep_post("phys1"))
         self.pipeline.storage.add_post(simple_post("math1"))

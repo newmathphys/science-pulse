@@ -82,8 +82,10 @@ def episode_entry(post: Post, base_url: str, audio_dir: Path, status: str = "pub
     meta = post.meta or {}
     section = str(meta.get("section_num") or "").strip()
     audio = f"audio/{post.id}.mp3"
-    has_audio = (Path(audio_dir) / f"{post.id}.mp3").is_file()
+    audio_path = Path(audio_dir) / f"{post.id}.mp3"
+    has_audio = audio_path.is_file()
     audio_url = str(meta.get("audio_url") or (audio if has_audio else ""))
+    audio_length = audio_path.stat().st_size if has_audio else 0
     return {
         "id": post.id,
         "section": section,
@@ -99,6 +101,7 @@ def episode_entry(post: Post, base_url: str, audio_dir: Path, status: str = "pub
         "script": _lecture_script(post),
         "notes": _entry_notes(post),
         "audio": audio_url,
+        "audio_length": audio_length,
         "card": str(meta.get("card_url") or f"cards/{post.id}.png"),
         "page": f"post/{post.id}.html",
         "url": f"{base_url}/post/{post.id}.html" if base_url else f"post/{post.id}.html",
@@ -198,7 +201,7 @@ def build_podcast_cover(dist: Path, config: Config) -> Optional[Path]:
     return target
 
 
-def build_podcast_xml(entries: Sequence[Dict[str, Any]], config: Config) -> str:
+def build_podcast_xml(entries: Sequence[Dict[str, Any]], config: Config, mix_url: str = "", mix_length: int = 0) -> str:
     """RSS 2.0 подкаст-фид с тегами `itunes` и `enclosure` (audio/mpeg)."""
     base = (config.site_base_url or "").rstrip("/") or "https://science-pulse.local"
     items: List[str] = []
@@ -215,7 +218,18 @@ def build_podcast_xml(entries: Sequence[Dict[str, Any]], config: Config) -> str:
             f"<itunes:author>{html.escape(str(entry.get('scientist') or RADIO_TITLE))}</itunes:author>"
             f"<itunes:summary>{hook}</itunes:summary>"
             f'<enclosure url="{html.escape(str(entry["audio"]) if str(entry["audio"]).startswith("http") else base + "/" + str(entry["audio"]))}" '
-            'type="audio/mpeg" length="0"/>'
+            f'type="audio/mpeg" length="{int(entry.get("audio_length") or 0)}"/>'
+            "</item>"
+        )
+    if mix_url:
+        items.append(
+            "<item>"
+            "<title>Воскресный радио-микс: 11 глав</title>"
+            f"<link>{html.escape(base)}/radio.html</link>"
+            '<guid isPermaLink="false">science-pulse:radio-mix</guid>'
+            "<description>Сквозной выпуск: 11 глав, гармонические интерлюдии, 11 минут.</description>"
+            "<itunes:author>Science Pulse</itunes:author>"
+            f'<enclosure url="{html.escape(mix_url)}" type="audio/mpeg" length="{int(mix_length or 0)}"/>'
             "</item>"
         )
     return (
@@ -743,7 +757,14 @@ def write_radio(dist: Path, posts: Sequence[Post], config: Config) -> Dict[str, 
         ),
         encoding="utf-8",
     )
-    (dist / "podcast.xml").write_text(build_podcast_xml(entries, config), encoding="utf-8")
+    mix = dist / "radio_mix.mp3"
+    podcast_cfg = dict((getattr(config, "raw", {}) or {}).get("podcast") or {})
+    mix_url = str(podcast_cfg.get("mix_url") or "")
+    mix_length = mix.stat().st_size if mix.is_file() else 0
+    (dist / "podcast.xml").write_text(
+        build_podcast_xml(entries, config, mix_url=mix_url, mix_length=mix_length),
+        encoding="utf-8",
+    )
     return {
         "radio": str(dist / "radio.html"),
         "podcast": str(dist / "podcast.xml"),

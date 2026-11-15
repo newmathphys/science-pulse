@@ -88,10 +88,15 @@ def is_foundation(post: Any) -> bool:
     return bool(meta.get("step")) or getattr(post, "tier", "") == "foundation"
 
 
-def sort_key(post: Any) -> Tuple[int, int, str]:
-    """Ключ сортировки: фундамент → ступень/tier → время создания."""
+def sort_key(post: Any) -> Tuple[int, int, int, str]:
+    """Ключ сортировки: приоритет → фундамент → ступень/tier → время создания."""
+    meta = getattr(post, "meta", {}) or {}
+    try:
+        priority = max(0, int(meta.get("priority", 0) or 0))
+    except (TypeError, ValueError):
+        priority = 0
     foundation_rank = 0 if is_foundation(post) else 1
-    return (foundation_rank, complexity_tier(post), str(getattr(post, "created_at", "")))
+    return (-priority, foundation_rank, complexity_tier(post), str(getattr(post, "created_at", "")))
 
 
 def order_posts(posts: Iterable[Any]) -> List[Any]:

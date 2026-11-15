@@ -27,6 +27,12 @@ media:
   keep_last: 30
 
 domains: ["math", "physics", "cs"]
+# Квоты слотов: база канона → инженерия → космос → актуальный тренд.
+slot_rubrics:
+  math: base
+  cs: engineering
+  physics: satellite
+  satellite_lab: trend
 max_queue: 80
 # Если готовых постов меньше этого порога — пайплайн сам дозаказывает harvest.
 low_water: 9
@@ -343,10 +349,12 @@ media_vault:
 
 # Порог зрелости выпуска: 100 = book_film + standards + card + verified challenge + prereq.
 # 85 = fallback audiogram. Включать после стабилизации staged-буфера.
+podcast:
+  mix_url: "https://github.com/newmathphys/science-pulse/releases/download/media-2026-11/radio_mix.mp3"
+
 maturity:
-  # Пока очередь содержит старые prereq-мета, гейт выключаем:
-  # score пишется в meta, но слоты не блокируются.
-  enabled: false
+  # Аудит причинности пройден: гейт снова обязателен для канона.
+  enabled: true
   threshold: 100
   # Внешние online-посты с concept-задачей не блокируем: у канона — строго 100.
   enforce_canon_only: true

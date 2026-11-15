@@ -74,8 +74,9 @@ def run_daemon(
             if publishes_post(moment, config):
                 slot = daily_domain(moment, config)
                 domain = SATELLITE_DOMAIN if slot == "satellite_lab" else slot
-                LOGGER.info("Слот суток: %s → дисциплина %s", slot, domain)
-                result = pipeline.run(dry_run=dry_run, domain=domain)
+                rubric = str((config.raw.get("slot_rubrics") or {}).get(slot) or "")
+                LOGGER.info("Слот суток: %s → дисциплина %s · квота %s", slot, domain, rubric or "общая")
+                result = pipeline.run(dry_run=dry_run, domain=domain, rubric=rubric)
                 LOGGER.info("Публикация: %s", result.get("ok"))
             else:
                 # Вечер Пт/Сб/Вс занят ритуалом: второго сообщения в ту же минуту нет.

@@ -246,11 +246,13 @@ def cmd_run(args: argparse.Namespace) -> int:
     pipeline = _pipeline(args)
     slot = daily_domain(datetime.now(ZoneInfo(pipeline.config.timezone)), pipeline.config)
     domain = SATELLITE_DOMAIN if slot == "satellite_lab" else slot
+    rubric = str((pipeline.config.raw.get("slot_rubrics") or {}).get(slot) or "")
     result = pipeline.run(
         dry_run=args.dry_run,
         harvest_if_low=not args.no_harvest,
         build_site=not args.no_site,
         domain=domain,
+        rubric=rubric,
     )
     if result.get("deferred"):
         _checkpoint(pipeline)
@@ -743,19 +745,53 @@ def cmd_retranslate(args: argparse.Namespace) -> int:
 
 
 def cmd_canon_sync(args: argparse.Namespace) -> int:
-    """Синхронизировать CANON в неопубликованные posts (prereq_ids/formula)."""
+    """Синхронизировать CANON в неопубликованные posts + аудит причинности."""
     from .canon_sync import sync_canon
+    from .canon_gate import CanonGate
 
     pipeline = _pipeline(args)
-    result = sync_canon(pipeline.storage, dry_run=args.dry_run)
+    if pipeline.d1_primary_enabled():
+        pipeline.pull_state()
+    if args.audit and not args.dry_run:
+        from .canon_sync import audit_canon
+
+        audit = audit_canon(pipeline.storage)
+        print(json.dumps(audit, ensure_ascii=False, indent=2))
+        return 0
+    result = sync_canon(
+        pipeline.storage,
+        dry_run=args.dry_run,
+        create_missing=args.create_missing,
+    )
+    if args.rebuild_buffer and not args.dry_run:
+        buffer_size = int((pipeline.config.raw.get("staging") or {}).get("buffer_size", 3) or 3)
+        result["staged"] = CanonGate(pipeline.storage, pipeline.config).stage_buffer(
+            pipeline, count=buffer_size, render_card=True
+        )
     if pipeline.d1_primary_enabled() and not args.dry_run:
         pushed = pipeline.push_state()
         result["d1"] = pushed
     _checkpoint(pipeline)
-    print(json.dumps(result, ensure_ascii=False, indent=2) if args.json else (
-        f"Canon sync: changed={result['changed']} published_skipped={result['skipped_published']} "
-        f"missing={result['missing']}" + (" (dry-run)" if args.dry_run else "")
-    ))
+    if args.json:
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+    elif args.audit:
+        audit = result.get("audit") or {}
+        print(json.dumps(audit, ensure_ascii=False, indent=2))
+    else:
+        print(
+            f"Canon sync: changed={result['changed']} created={result['created']} "
+            f"published_skipped={result['skipped_published']} missing={result['missing']}"
+            + (" (dry-run)" if args.dry_run else "")
+        )
+        audit = result.get("audit") or {}
+        print(
+            f"Аудит: inversions={len(audit.get('inversions') or [])} "
+            f"stale={len(audit.get('stale_prereqs') or [])} "
+            f"stuck={len(audit.get('stuck_publishing') or [])} "
+            f"missing={len(audit.get('missing') or [])}"
+        )
+        if result.get("staged"):
+            print(f"Staged: {result['staged'].get('staged')}")
     return 0
 
 
@@ -1453,17 +1489,33 @@ def cmd_clean_start(args: argparse.Namespace) -> int:
 def cmd_staged(args: argparse.Namespace) -> int:
     """Показывает подготовленный N+1 пост (warm staging приёмочной комиссии)."""
     pipeline = _pipeline(args)
+    if pipeline.d1_primary_enabled():
+        pipeline.pull_state()
     storage, config = pipeline.storage, pipeline.config
-    post_id = storage.kv_get("staged_next_post_id", "")
-    post = storage.get_post(post_id) if post_id else None
-    if post is None or args.next:
+    if args.rebuild:
         from .canon_gate import CanonGate
 
-        report = CanonGate(storage, config).stage_next(pipeline)
-        if report.get("error"):
-            print(f"Стейджинг не удался: {report['error']}", file=sys.stderr)
+        buffer_size = int((config.raw.get("staging") or {}).get("buffer_size", 3) or 3)
+        report = CanonGate(storage, config).stage_buffer(pipeline, count=buffer_size, render_card=True)
+        if not report.get("ok"):
+            print(f"Стейджинг буфера не удался: {report.get('error')}", file=sys.stderr)
             return 1
-        post = storage.get_post(str(report.get("post_id") or ""))
+        if pipeline.d1_primary_enabled():
+            pipeline.push_state()
+        print(f"Staged buffer: {report.get('staged')}")
+        post_id = storage.kv_get("staged_next_post_id", "")
+        post = storage.get_post(post_id) if post_id else None
+    else:
+        post_id = storage.kv_get("staged_next_post_id", "")
+        post = storage.get_post(post_id) if post_id else None
+        if post is None or args.next:
+            from .canon_gate import CanonGate
+
+            report = CanonGate(storage, config).stage_next(pipeline)
+            if report.get("error"):
+                print(f"Стейджинг не удался: {report['error']}", file=sys.stderr)
+                return 1
+            post = storage.get_post(str(report.get("post_id") or ""))
     if post is None:
         print("Нет подготовленного поста", file=sys.stderr)
         return 1
@@ -1732,6 +1784,9 @@ def build_parser() -> argparse.ArgumentParser:
     canon_sync = subparsers.add_parser("canon-sync", help="синхронизировать CANON в очередь БД")
     canon_sync.add_argument("--dry-run", action="store_true")
     canon_sync.add_argument("--json", action="store_true")
+    canon_sync.add_argument("--audit", action="store_true", help="только аудит причинности")
+    canon_sync.add_argument("--create-missing", action="store_true", help="добавить отсутствующие узлы канона")
+    canon_sync.add_argument("--rebuild-buffer", action="store_true", help="пересобрать staged_buffer N+3")
     canon_sync.set_defaults(func=cmd_canon_sync)
 
     state = subparsers.add_parser("state", help="снимок состояния: экспорт SQL / реплика в D1")
@@ -1839,6 +1894,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     staged = subparsers.add_parser("staged", help="подготовленный N+1 пост (warm staging)")
     staged.add_argument("--next", action="store_true", help="подготовить заново")
+    staged.add_argument("--rebuild", action="store_true", help="пересобрать staged_buffer N+3")
     staged.set_defaults(func=cmd_staged)
 
     backup = subparsers.add_parser("backup", help="отправить снимок science.db в админ-чат Telegram")

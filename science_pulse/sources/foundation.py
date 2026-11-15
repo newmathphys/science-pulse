@@ -17,6 +17,7 @@
 """
 from __future__ import annotations
 
+import re
 from typing import Any, Dict, List
 
 from ..models import Post, make_id
@@ -74,6 +75,8 @@ STEP_BY_ID: Dict[str, int] = {
     "godel_incompleteness": 6,
     "rsa_crypto": 6,
     "einstein_relativity": 6,
+    "kalman_filter": 6,
+    "a_star": 6,
     "insar_ndvi": 6,
     "schwarzschild_light": 6,
     "lj_lorenz": 6,
@@ -134,12 +137,21 @@ def section_of(canon_id: str) -> str:
     return f"{step}.{same.index(node) + 1}"
 
 
-def default_prereqs(canon_id: str) -> List[str]:
-    """Пререквизиты узла: узлы предыдущей ступени той же дисциплины.
+def year_of(era: Any) -> int | None:
+    """Первый год эпохи; ``до н.э.`` — отрицательный. Нет года — None."""
+    text = str(era or "")
+    match = re.search(r"(\d{3,4})", text)
+    if not match:
+        return None
+    value = int(match.group(1))
+    return -value if "до н.э" in text else value
 
-    Гарантирует причинную связность (INV-8): у любого узла ступени > 1 есть
-    родитель со строго меньшей ступенью, поэтому в графе нет изолированных
-    сирот вне корней Ступени I.
+
+def default_prereqs(canon_id: str) -> List[str]:
+    """Пререквизиты узла: узлы предыдущей ступени, но не из будущего.
+
+    Гарантирует причинную связность (INV-8), но не создаёт анахронизмов:
+    если родитель появился позже узла, он отбрасывается.
     """
     node = next((item for item in CANON if item["id"] == canon_id), None)
     if node is None:
@@ -147,13 +159,22 @@ def default_prereqs(canon_id: str) -> List[str]:
     step = step_of(canon_id)
     if step <= 1:
         return []
+    node_year = year_of(node.get("era"))
+
+    def eligible(item: Dict[str, Any]) -> bool:
+        parent_year = year_of(item.get("era"))
+        return node_year is None or parent_year is None or parent_year <= node_year
+
     same_domain = [
         item["id"] for item in CANON
-        if step_of(item["id"]) == step - 1 and item["domain"] == node["domain"]
+        if step_of(item["id"]) == step - 1 and item["domain"] == node["domain"] and eligible(item)
     ]
     if same_domain:
         return same_domain
-    fallback = [item["id"] for item in CANON if step_of(item["id"]) == step - 1]
+    fallback = [
+        item["id"] for item in CANON
+        if step_of(item["id"]) == step - 1 and eligible(item)
+    ]
     return fallback[:1]
 
 

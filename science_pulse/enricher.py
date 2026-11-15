@@ -24,6 +24,17 @@ from urllib.parse import quote
 from .models import Post
 
 WIKI_API = "https://ru.wikipedia.org/w/api.php"
+
+
+def _canon_titles(ids: List[str]) -> List[str]:
+    """canon_id → читаемое русское название (без snake_case в тексте)."""
+    try:
+        from .sources.history_canon import CANON
+
+        table = {str(item["id"]): str(item.get("title") or item["id"]).split(":")[0] for item in CANON}
+    except Exception:
+        table = {}
+    return [table.get(str(item), str(item).replace("_", " ")) for item in ids]
 CACHE_MIN_CHARS = 1200
 # Википедия — донор структурированного сырья (факты, история, формулы), а НЕ
 # текст главы: в главу попадает короткая справка, а глубину даёт наш
@@ -219,7 +230,7 @@ def _compose_longread(
     variables = str(meta.get("formula_vars") or "").strip()
     proof = meta.get("proof") if isinstance(meta.get("proof"), dict) else {}
     computed = str((proof or {}).get("computed_example") or "").strip()
-    prereqs = [str(item) for item in (meta.get("prereq_ids") or [])]
+    prereqs = _canon_titles([str(item) for item in (meta.get("prereq_ids") or [])])
     unlocks = [str(item) for item in (meta.get("unlocks_concepts") or [])]
     modern = str(meta.get("modern_application") or "").strip()
 

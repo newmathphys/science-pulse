@@ -6,6 +6,7 @@ from science_pulse.config import Config
 from science_pulse.models import Post, PublishResult
 from science_pulse.pipeline import Pipeline
 from science_pulse.storage import Storage
+from science_pulse.models import make_id
 
 
 def post(identifier, domain):
@@ -74,6 +75,15 @@ class PipelineTests(unittest.TestCase):
 
     def tearDown(self):
         self.temp.cleanup()
+
+    def test_prereq_ready_accepts_canon_ids(self):
+        parent = post("parent", "math")
+        parent.id = make_id("history_canon", "euclid_gcd")
+        self.storage.add_post(parent)
+        self.storage.mark_published(parent.id)
+        child = post("child", "cs")
+        child.meta["prereq_ids"] = ["euclid_gcd"]
+        self.assertTrue(self.pipeline._prereq_ready(child))
 
     def test_dry_run_renders_without_publishing(self):
         result = self.pipeline.run(dry_run=True)

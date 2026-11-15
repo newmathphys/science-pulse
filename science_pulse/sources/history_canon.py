@@ -1787,3 +1787,107 @@ CANON.extend([
         "visual_type": "cheatsheet_table",
     },
 ])
+
+# ---------------------------------------------------------------------------
+# Аудит причинности: дата родителя не может быть позже даты узла.
+# Правки собраны здесь, чтобы не менять id/порядок уже опубликованных постов.
+# ---------------------------------------------------------------------------
+PREREQ_FIXES: Dict[str, List[str]] = {
+    "turing_machine": ["leibniz_boolean", "euclid_gcd"],
+    "shannon_entropy": ["turing_machine", "leibniz_boolean"],
+    "insar_ndvi": ["fourier_series", "wave_phase"],
+    "lj_lorenz": ["newton_gravity", "boltzmann_entropy"],
+    "dijkstra_shortest": ["graph_algorithms"],
+    "godel_incompleteness": ["leibniz_boolean", "riemann_integral"],
+    "einstein_relativity": ["maxwell", "newton_gravity"],
+    "harmonic_oscillator": ["galileo_fall", "trigonometry"],
+    "wave_phase": ["harmonic_oscillator"],
+    "complex_numbers": ["trigonometry", "al_khwarizmi"],
+    "number_theory": ["euclid_gcd"],
+    "thermodynamics": ["newton_gravity", "bernoulli_flow"],
+}
+
+for _node in CANON:
+    if _node["id"] in PREREQ_FIXES:
+        _node["prereq_ids"] = list(PREREQ_FIXES[_node["id"]])
+
+# ---------------------------------------------------------------------------
+# P3: два моста к навигации и спутникам (канон 60 → 62).
+# ---------------------------------------------------------------------------
+CANON.extend([
+    {
+        "id": "kalman_filter",
+        "domain": "cs",
+        "era": "1960 • РИАС и NASA",
+        "scientist": "Рудольф Калман",
+        "title": "Калман: фильтр, который ведёт «Аполлон» и GPS",
+        "hook": "Как объединить неточный прогноз и шумный датчик в одну честную оценку?",
+        "body": (
+            "Фильтр Калмана рекурсивно оценивает состояние системы по двум источникам: "
+            "модели движения и измерениям датчика. Прогноз переносит оценку и её ковариацию "
+            "через матрицу переходов, а коррекция взвешивает прогноз и измерение по их "
+            "неопределённостям. Коэффициент Калмана K_k автоматически даёт больше веса тому "
+            "источнику, который сейчас точнее. Метод лежит в основе навигации «Аполлона», "
+            "GPS, инерциальных систем дронов, сопровождения целей и фильтрации телеметрии "
+            "спутников. Это не «магия», а байесовское обновление для линейно-гауссовой модели."
+        ),
+        "formula_latex": r"\hat{x}_k = \hat{x}_k^- + K_k (z_k - H\hat{x}_k^-), \quad K_k = P_k^- H^{T} (H P_k^- H^{T} + R)^{-1}",
+        "formula_plain": "x̂ₖ = x̂ₖ⁻ + Kₖ(zₖ − Hx̂ₖ⁻),   Kₖ = Pₖ⁻Hᵀ(HPₖ⁻Hᵀ + R)⁻¹",
+        "code": (
+            "def kalman_update(x, p, z, h, r):\n"
+            "    # x — прогноз, p — ковариация, z — измерение\n"
+            "    k = p * h / (h * p * h + r)\n"
+            "    x = x + k * (z - h * x)\n"
+            "    p = (1 - k * h) * p\n"
+            "    return x, p"
+        ),
+        "source_url": "https://ru.wikipedia.org/wiki/Фильтр_Калмана",
+        "prereq_ids": ["feedback_control", "bayes", "matrices"],
+        "constants_used": [],
+        "modern_application": "GPS, «Аполлон», дроны, спутниковая телеметрия, автопилоты",
+        "concept": "фильтрация состояния",
+        "visual_type": "standard_plot",
+    },
+    {
+        "id": "a_star",
+        "domain": "cs",
+        "era": "1968 • Стэнфорд",
+        "scientist": "Питер Харт, Нильс Нильссон, Бертран Рафаэль",
+        "title": "A*: кратчайший путь с эвристикой",
+        "hook": "Почему навигатор не перебирает все дороги, а всё равно находит лучший маршрут?",
+        "body": (
+            "A* ищет путь на графе, оценивая вершину как f(n) = g(n) + h(n): "
+            "g — уже пройденная стоимость, h — допустимая эвристика до цели. "
+            "Если h никогда не переоценивает истинное расстояние, алгоритм гарантированно "
+            "находит оптимальный путь и делает это быстрее слепого перебора. "
+            "Отсюда — маршрутизация в навигаторах, планирование движения марсоходов, "
+            "поиск в играх и задачи робототехники. A* соединяет точную стоимость шага "
+            "с приближённым знанием о цели; именно это делает его рабочим мостом "
+            "между дискретной математикой и инженерией."
+        ),
+        "formula_latex": r"f(n) = g(n) + h(n), \quad h(n) \leq h^{*}(n)",
+        "formula_plain": "f(n) = g(n) + h(n),   h(n) ≤ h*(n)",
+        "code": (
+            "import heapq\n\n"
+            "def astar(start, goal, neighbors, h):\n"
+            "    open_set = [(h(start), 0, start)]\n"
+            "    best = {start: 0}\n"
+            "    while open_set:\n"
+            "        _, g, node = heapq.heappop(open_set)\n"
+            "        if node == goal:\n"
+            "            return g\n"
+            "        for nxt, cost in neighbors(node):\n"
+            "            new_g = g + cost\n"
+            "            if new_g < best.get(nxt, float('inf')):\n"
+            "                best[nxt] = new_g\n"
+            "                heapq.heappush(open_set, (new_g + h(nxt), new_g, nxt))\n"
+            "    return None"
+        ),
+        "source_url": "https://ru.wikipedia.org/wiki/Алгоритм_A*",
+        "prereq_ids": ["graph_algorithms", "hash_table"],
+        "constants_used": [],
+        "modern_application": "навигаторы, марсоходы, игры, планирование движения роботов",
+        "concept": "поиск пути",
+        "visual_type": "code_booktabs",
+    },
+])

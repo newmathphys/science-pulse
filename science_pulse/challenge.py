@@ -859,6 +859,18 @@ def _compute_harmonic_oscillator() -> Dict[str, str]:
     }
 
 
+def _compute_kalman() -> Dict[str, str]:
+    x, p, z, h, r = 10.0, 4.0, 12.0, 1.0, 1.0
+    k = p * h / (h * p * h + r)
+    x_new = x + k * (z - h * x)
+    p_new = (1 - k * h) * p
+    return {
+        "question": "Прогноз x=10, P=4, измерение z=12, H=1, R=1. Чему равна оценка после коррекции?",
+        "hint": "K = PHᵀ(HPHᵀ+R)⁻¹; затем x ← x + K(z − Hx).",
+        "answer": f"{x_new:.1f} (K = {k:.1f}, P = {p_new:.1f})",
+    }
+
+
 def _compute_wave_phase() -> Dict[str, str]:
     return {
         "question": "Чему равна разность фаз Δφ = 2π·Δx/λ при Δx = λ/2?",
@@ -1012,6 +1024,7 @@ CANON_COMPUTABLE = {
     "harmonic_oscillator": _compute_harmonic_oscillator,
     "wave_phase": _compute_wave_phase,
     "mcculloch_pitts": _compute_mcculloch_pitts,
+    "kalman_filter": _compute_kalman,
 }
 
 

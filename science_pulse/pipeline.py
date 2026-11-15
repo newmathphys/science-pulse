@@ -233,7 +233,49 @@ class Pipeline:
             return domains[index + 1 :] + domains[: index + 1]
         return domains
 
-    def choose_next(self, domain: str | None = None) -> Optional[Post]:
+    @staticmethod
+    def _rubric_pool(posts: List[Post], rubric: str) -> List[Post]:
+        """Квоты слотов: база канона / инженерия-космос / актуальный тренд."""
+        from .curriculum import is_foundation
+
+        key = str(rubric or "").strip().lower()
+        if key in ("base", "canon", "foundation"):
+            return [post for post in posts if is_foundation(post)]
+        if key in ("trend", "actual", "news"):
+            return [post for post in posts if not is_foundation(post)]
+        if key in ("satellite", "satellites"):
+            canon_ids = {"insar_ndvi", "newton_gravity", "einstein_relativity",
+                         "schwarzschild_light", "gravitational_waves"}
+            markers = ("спутник", "орбит", "insar", "ndvi", "косм", "гравитац",
+                       "телескоп", "планет", "астро", "sentinel", "landsat")
+            return [
+                post for post in posts
+                if str((post.meta or {}).get("canon_id") or "") in canon_ids
+                or any(marker in post.title.lower() for marker in markers)
+            ]
+        if key in ("space", "cosmos"):
+            markers = ("спутник", "орбит", "insar", "ndvi", "косм", "гравитац",
+                       "телескоп", "планет", "астро", "sentinel", "landsat")
+            return [
+                post for post in posts
+                if any(
+                    marker in f"{post.title} {(post.meta or {}).get('modern_application', '')} {(post.meta or {}).get('canon_id', '')}".lower()
+                    for marker in markers
+                )
+            ]
+        if key in ("engineering", "engineer", "applied"):
+            markers = ("инженер", "связ", "код", "алгоритм", "управлен", "робот",
+                       "сенсор", "лазер", "радар", "антенн", "процессор", "спутник")
+            return [
+                post for post in posts
+                if bool(post.code) or any(
+                    marker in f"{post.title} {post.hook} {post.body} {post.meta}".lower()
+                    for marker in markers
+                )
+            ]
+        return []
+
+    def choose_next(self, domain: str | None = None, rubric: str | None = None) -> Optional[Post]:
         """Выбор поста: сначала фундамент по ступеням, затем маятник по сложности.
 
         Закон причинности: пост выходит, только если его родители (`prereq_ids`)
@@ -243,6 +285,12 @@ class Pipeline:
         from .curriculum import is_foundation, order_posts, open_posts, published_ids
 
         ready = self.storage.list_posts(status="ready", limit=300, order="created_at ASC")
+        priority = [
+            post for post in ready
+            if int((post.meta or {}).get("priority", 0) or 0) >= 100
+        ]
+        if priority:
+            return order_posts(priority)[0]
         if domain:
             ready = [post for post in ready if post.domain == domain]
         if not ready:
@@ -260,6 +308,12 @@ class Pipeline:
             else:
                 LOGGER.warning("Все готовые посты ждут родителей — очередь отложена")
                 return None
+        if rubric:
+            pool = self._rubric_pool(ready, rubric)
+            if pool:
+                ready = pool
+            else:
+                LOGGER.info("Квота %s пуста — беру общую очередь", rubric)
         # 1) Узлы фундамента выходят строго по ступеням (Пифагор → Евклид → Архимед …).
         foundation = [post for post in ready if is_foundation(post)]
         if foundation:
@@ -308,12 +362,19 @@ class Pipeline:
         return payload
 
     def _prereq_ready(self, post: Post) -> bool:
-        """Все prereq_ids уже опубликованы (для корней — True)."""
+        """Все prereq_ids уже опубликованы (для корней — True).
+
+        В meta канона лежат canon_id, а не post_id; принимаем оба варианта.
+        """
+        from .sources.foundation import FoundationSource
+
         ids = [str(item) for item in ((post.meta or {}).get("prereq_ids") or []) if str(item).strip()]
         if not ids:
             return True
-        for post_id in ids:
-            parent = self.storage.get_post(post_id)
+        for value in ids:
+            parent = self.storage.get_post(value)
+            if parent is None:
+                parent = self.storage.get_post(FoundationSource.post_id_for(value))
             if parent is None or parent.status != "published":
                 return False
         return True
@@ -323,6 +384,7 @@ class Pipeline:
         self,
         dry_run: bool = False,
         domain: str | None = None,
+        rubric: str | None = None,
         targets: Optional[Iterable[str]] = None,
         force: bool = False,
         build_site: bool = True,
@@ -375,7 +437,7 @@ class Pipeline:
             if post.status != "ready" and not force:
                 return {"ok": False, "error": f"пост {post_id} в статусе {post.status}"}
         else:
-            post = self.choose_next(domain)
+            post = self.choose_next(domain, rubric=rubric)
         if not post:
             self.harvest(domains=[domain] if domain else None, include_offline=False)
             post = self.storage.get_post(post_id) if post_id else self.choose_next(domain)
@@ -685,10 +747,11 @@ class Pipeline:
         harvest_if_low: bool = True,
         build_site: bool = True,
         domain: str | None = None,
+        rubric: str | None = None,
     ) -> Dict[str, Any]:
         if harvest_if_low and self.storage.count("ready") < int(self.config.raw.get("low_water", 9)):
             self.harvest()
-        result = self.publish_next(dry_run=dry_run, domain=domain, build_site=False)
+        result = self.publish_next(dry_run=dry_run, domain=domain, rubric=rubric, build_site=False)
         if build_site:
             try:
                 self.build_site()

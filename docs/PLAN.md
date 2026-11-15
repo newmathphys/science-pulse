@@ -954,3 +954,42 @@ Discord, Mastodon и VK **не проверялись**: в среде нет и
 - JS ≤ 35 КБ; видео и сайт используют один параметр.
 - Kalman/A* имеют `verified`-задачу и `prereq_ids`.
 - `book_film` для кода/логики/таблиц не рисует чужие графики.
+
+## 13. Шаги 1–3: возврат Тьюринга, подкаст, квоты (2026-11-15)
+
+### Шаг 1 — Тьюринг + аудит + Maturity (сделано)
+
+- [x] `turing_machine`: `prereq_ids = [leibniz_boolean, euclid_gcd]`,
+  `hoare_sort` убран; `status=ready`, `published_at=NULL`, `card_file_id=''`,
+  `publications` очищены.
+- [x] Аудит CANON: 62 узла, 0 анахронизмов, 0 stale prereq, 0 missing,
+  0 зависших `publishing`.
+- [x] `canon-sync --create-missing --rebuild-buffer`: добавлены 22 узла,
+  перезаписаны `scene_type`/`prereq_ids`; `staged_buffer` начинается с Тьюринга.
+- [x] Maturity включён: Тьюринг `100/100` (standards 30, card 20, video 20,
+  challenge 15, prereq 15).
+- [x] Тьюринг опубликован повторно: Telegram + Threads
+  (`https://www.threads.net/t/18122296415099320`), видео `video-c78…mp4`
+  пересобрано с крупным кодом.
+- [x] Тесты: **687 OK** (skipped=2); `verify` — 7 инвариантов.
+
+### Шаг 2 — воскресный подкаст (сделано, кроме модерации)
+
+- [x] `dist/radio_mix.mp3` (16 106 830 байт, 192 kbps, 11:11) и
+  `radio_mix.mp4` выгружены в `media-2026-11`.
+- [x] `podcast-cover.png` 3000×3000 выгружен в `media-2026-11`.
+- [x] `podcast.xml`: 20 items, `itunes:image`, enclosure `audio/mpeg`,
+  реальные `length`; mix item — `radio_mix.mp3`, 16 106 830 байт.
+- [x] GitHub отдаёт `Accept-Ranges: bytes` для mp3 и обложки.
+- [ ] Подача в Apple Podcasts Connect и Яндекс Музыку — нужен вход оператора.
+
+### Шаг 3 — стандарт сцен и квоты (сделано)
+
+- [x] `scene_type` явно записан в meta каждого неопубликованного узла.
+- [x] `test_no_anachronistic_prereqs`: `prereq.year <= post.year`.
+- [x] `test_prereq_titles_do_not_leak_snake_case`: `hoare_sort` → «Хоар».
+- [x] `slot_rubrics`: math=base, cs=engineering, physics=satellite,
+  satellite_lab=trend.
+- [x] Kalman (`kalman_filter`) и A* (`a_star`) — узлы 61–62, с проверяемой
+  задачей и `prereq_ids`.
+- [ ] P3: Formula Playground и цветное сцепление — следующий этап.
