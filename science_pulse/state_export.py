@@ -194,8 +194,18 @@ class StateSync:
         return {"ok": True, "merged": merged, "endpoint": self.endpoint()}
 
     def sync(self, batch_size: int = 200) -> Dict[str, Any]:
-        """Pull → Push: забрать свежий стейт из D1, затем отправить локальный."""
+        """Pull → Push: забрать свежий стейт из D1, затем отправить локальный.
+
+        Если pull не удался, push запрещён: пустая локальная БД не должна
+        затереть D1.
+        """
         pull_result = self.pull()
+        if not pull_result.get("ok"):
+            return {
+                "ok": False,
+                "pull": pull_result,
+                "push": {"ok": False, "skipped": "pull failed"},
+            }
         push_result = self.push(batch_size=batch_size)
         return {
             "ok": bool(pull_result.get("ok") and push_result.get("ok")),

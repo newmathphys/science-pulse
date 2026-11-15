@@ -75,6 +75,22 @@ class StateTests(unittest.TestCase):
         self.assertIn("CREATE TABLE", sql)
         self.assertIn("INSERT OR REPLACE INTO posts", sql)
 
+    def test_sync_does_not_push_when_pull_fails(self):
+        calls = []
+
+        def post(url, **kwargs):
+            calls.append(url)
+            return FakeResponse(200)
+
+        def get(url, **kwargs):
+            raise RuntimeError("D1 down")
+
+        with patch.dict("os.environ", ENV, clear=False):
+            result = StateSync(self.config, self.storage, http_post=post, http_get=get).sync()
+        self.assertFalse(result["ok"])
+        self.assertFalse(result["push"]["ok"])
+        self.assertEqual(calls, [])
+
     def test_push(self):
         def post(url, **kwargs):
             self.calls.append((url, kwargs))
