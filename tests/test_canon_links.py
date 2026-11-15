@@ -3,7 +3,7 @@ import unittest
 from science_pulse.cards_academic import ARCHETYPES, SIMULATIONS
 from science_pulse.config import Config
 from science_pulse.constants import CONSTANTS
-from science_pulse.sources.foundation import year_of
+from science_pulse.sources.foundation import section_of, year_of
 from science_pulse.sources.history_canon import CANON, HistoryCanonSource
 from science_pulse.canon_sync import canonical_meta
 from science_pulse.enricher import _canon_titles
@@ -80,6 +80,12 @@ class CanonLinksTests(unittest.TestCase):
 
     def test_turing_does_not_depend_on_hoare(self):
         self.assertNotIn("hoare_sort", self.by_id["turing_machine"].get("prereq_ids", []))
+
+    def test_section_numbers_are_frozen(self):
+        values = [section_of(node["id"]) for node in CANON]
+        self.assertEqual(len(values), len(set(values)))
+        self.assertEqual(section_of("turing_machine"), "5.3")
+        self.assertEqual(section_of("differential_equations"), "5.2")
 
     def test_every_canon_node_has_explicit_scene_type(self):
         for node in CANON:

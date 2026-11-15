@@ -971,7 +971,7 @@ Discord, Mastodon и VK **не проверялись**: в среде нет и
 - [x] Тьюринг опубликован повторно: Telegram + Threads
   (`https://www.threads.net/t/18122296415099320`), видео `video-c78…mp4`
   пересобрано с крупным кодом.
-- [x] Тесты: **688 OK** (skipped=2); `verify` — 7 инвариантов.
+- [x] Тесты: **689 OK** (skipped=2); `verify` — 7 инвариантов.
 
 ### Шаг 2 — воскресный подкаст (сделано, кроме модерации)
 
@@ -986,6 +986,7 @@ Discord, Mastodon и VK **не проверялись**: в среде нет и
 ### Шаг 3 — стандарт сцен и квоты (сделано)
 
 - [x] `scene_type` явно записан в meta каждого неопубликованного узла.
+- [x] `SECTION_BY_ID`: §-номера заморожены; новые узлы не сдвигают 5.2 → 5.3.
 - [x] `test_no_anachronistic_prereqs`: `prereq.year <= post.year`.
 - [x] `test_prereq_titles_do_not_leak_snake_case`: `hoare_sort` → «Хоар».
 - [x] `slot_rubrics`: math=base, cs=engineering, physics=satellite,

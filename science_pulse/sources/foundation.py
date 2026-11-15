@@ -114,6 +114,73 @@ STEP_BY_ID: Dict[str, int] = {
 }
 
 
+
+# Замороженные §-номера: добавление новых узлов не сдвигает уже вышедшие.
+SECTION_BY_ID: Dict[str, str] = {
+    "pythagoras": "1.1",
+    "euclid_gcd": "1.2",
+    "archimedes": "1.3",
+    "newton_gravity": "2.6",
+    "euler_identity": "3.1",
+    "fourier_series": "4.1",
+    "maxwell": "4.12",
+    "turing_machine": "5.3",
+    "shannon_entropy": "5.4",
+    "noether_symmetry": "4.2",
+    "schrodinger": "5.9",
+    "insar_ndvi": "6.7",
+    "schwarzschild_light": "6.8",
+    "quantum_tunneling": "5.10",
+    "lj_lorenz": "6.2",
+    "al_khwarizmi": "2.1",
+    "leibniz_boolean": "2.3",
+    "galileo_fall": "2.7",
+    "newton_calculus": "3.2",
+    "lovelace": "3.8",
+    "bernoulli_flow": "3.11",
+    "gauss_normal": "4.3",
+    "hoare_sort": "4.7",
+    "boltzmann_entropy": "4.13",
+    "riemann_integral": "5.1",
+    "dijkstra_shortest": "5.5",
+    "planck_quantum": "5.11",
+    "godel_incompleteness": "6.1",
+    "rsa_crypto": "6.3",
+    "einstein_relativity": "6.9",
+    "trigonometry": "2.2",
+    "logarithm": "3.3",
+    "vectors": "3.4",
+    "matrices": "3.5",
+    "binary_memory": "2.4",
+    "harmonic_oscillator": "2.8",
+    "wave_phase": "3.12",
+    "mcculloch_pitts": "4.8",
+    "complex_numbers": "3.6",
+    "derivative": "3.7",
+    "number_theory": "4.4",
+    "probability": "4.5",
+    "bayes": "4.6",
+    "differential_equations": "5.2",
+    "dimensional_analysis": "2.9",
+    "conservation_energy": "3.13",
+    "thermodynamics": "4.14",
+    "electromagnetic_wave": "4.15",
+    "quantum_uncertainty": "5.12",
+    "gravitational_waves": "6.10",
+    "boolean_logic": "2.5",
+    "finite_automata": "3.9",
+    "recursion": "3.10",
+    "hash_table": "4.9",
+    "graph_algorithms": "4.10",
+    "information_theory": "5.6",
+    "machine_learning": "6.4",
+    "feedback_control": "4.11",
+    "homeostasis": "5.7",
+    "hadamard_matrices": "5.8",
+    "kalman_filter": "6.5",
+    "a_star": "6.6",
+}
+
 def step_of(canon_id: str) -> int:
     return STEP_BY_ID.get(canon_id, 9)
 
@@ -122,7 +189,10 @@ DOMAIN_ORDER = ("math", "cs", "physics")
 
 
 def section_of(canon_id: str) -> str:
-    """§-номер узла канона: ``<ступень>.<номер внутри ступени>`` (напр. ``1.1``)."""
+    """§-номер узла: заморожен, чтобы новые узлы не сдвигали опубликованные."""
+    frozen = SECTION_BY_ID.get(str(canon_id))
+    if frozen:
+        return frozen
     node = next((item for item in CANON if item["id"] == canon_id), None)
     if node is None:
         return ""
