@@ -995,4 +995,6 @@ Discord, Mastodon и VK **не проверялись**: в среде нет и
   `science-pulse-edge` и GitHub Actions больше не дублируют слоты.
 - [x] Kalman (`kalman_filter`) и A* (`a_star`) — узлы 61–62, с проверяемой
   задачей и `prereq_ids`.
+- [x] `insar_ndvi`: prereq сведён к опубликованному `fourier_series`;
+  спутниковый слот больше не блокируется Maturity-гейтом.
 - [ ] P3: Formula Playground и цветное сцепление — следующий этап.

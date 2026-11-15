@@ -1795,7 +1795,7 @@ CANON.extend([
 PREREQ_FIXES: Dict[str, List[str]] = {
     "turing_machine": ["leibniz_boolean", "euclid_gcd"],
     "shannon_entropy": ["turing_machine", "leibniz_boolean"],
-    "insar_ndvi": ["fourier_series", "wave_phase"],
+    "insar_ndvi": ["fourier_series"],
     "lj_lorenz": ["newton_gravity", "boltzmann_entropy"],
     "dijkstra_shortest": ["graph_algorithms"],
     "godel_incompleteness": ["leibniz_boolean", "riemann_integral"],
