@@ -238,11 +238,19 @@ def cmd_post(args: argparse.Namespace) -> int:
 
 
 def cmd_run(args: argparse.Namespace) -> int:
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from .rituals import SATELLITE_DOMAIN, daily_domain
+
     pipeline = _pipeline(args)
+    slot = daily_domain(datetime.now(ZoneInfo(pipeline.config.timezone)), pipeline.config)
+    domain = SATELLITE_DOMAIN if slot == "satellite_lab" else slot
     result = pipeline.run(
         dry_run=args.dry_run,
         harvest_if_low=not args.no_harvest,
         build_site=not args.no_site,
+        domain=domain,
     )
     if result.get("deferred"):
         _checkpoint(pipeline)

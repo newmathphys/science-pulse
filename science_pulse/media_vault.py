@@ -137,11 +137,36 @@ def video_for_post(post: Post, config: Config) -> str | Path | None:
     return audiogram_for_post(post, config)
 
 
+def valid_video(path: str | Path) -> bool:
+    """Проверяет MP4 перед публикацией: размер, H.264/AAC, yuv420p."""
+    import subprocess
+
+    source = Path(path)
+    if not source.is_file() or source.stat().st_size < 100_000:
+        return False
+    try:
+        result = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries",
+             "stream=codec_type,codec_name,pix_fmt", "-of", "csv=p=0", str(source)],
+            capture_output=True, text=True, timeout=30, check=False,
+        )
+        rows = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    except Exception:
+        return False
+    video = next((row for row in rows if row.startswith("video,")), "")
+    audio = next((row for row in rows if row.startswith("audio,")), "")
+    return "h264" in video and "yuv420p" in video and "aac" in audio
+
+
 def upload_video(post: Post, config: Config) -> str:
     path = video_for_post(post, config)
-    if not path:
-        return ""
-    return upload_file(post, config, path, "video")
+    if path and valid_video(path):
+        return upload_file(post, config, path, "video")
+    LOGGER.warning("video %s не прошёл проверку — fallback audiogram", post.id)
+    fallback = audiogram_for_post(post, config)
+    if fallback and valid_video(fallback):
+        return upload_file(post, config, fallback, "audiogram")
+    return ""
 
 
 def upload_audiogram(post: Post, config: Config) -> str:
