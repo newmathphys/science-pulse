@@ -446,6 +446,111 @@ def _block_times(blocks: Sequence[str], words: Sequence[Tuple[float, float, str]
     return sorted(set(times))[:5]
 
 
+def _draw_insar_scene(draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, int], s: float, progress: float) -> None:
+    """InSAR: фазовые кольца + NDVI-разрез (детерминированно)."""
+    left, top, right, bottom = box
+    mid = (left + right) // 2
+    cx, cy = (left + mid) // 2, (top + bottom) // 2
+    radius = min(mid - left, bottom - top) * 0.44
+    for index in range(7):
+        ring = radius * (0.35 + index * 0.095)
+        color = ACCENT if index % 2 == 0 else INK
+        draw.ellipse((cx - ring, cy - ring * 0.62, cx + ring, cy + ring * 0.62),
+                     outline=color, width=max(1, int((2.2 - index * 0.15) * s)))
+    draw.text((left + int(18 * s), top + int(18 * s)), "InSAR · фаза", fill=MUTED,
+              font=_serif_font(max(11, int(18 * s)), mono=True))
+    draw.text((mid + int(18 * s), top + int(18 * s)), "NDVI", fill=MUTED,
+              font=_serif_font(max(11, int(18 * s)), mono=True))
+    panel = (mid + int(24 * s), top + int(54 * s), right - int(20 * s), bottom - int(28 * s))
+    draw.rectangle(panel, outline=RULE, width=max(1, int(1.5 * s)))
+    cols = 18
+    rows = 8
+    cell_w = (panel[2] - panel[0]) / cols
+    cell_h = (panel[3] - panel[1]) / rows
+    for row in range(rows):
+        for col in range(cols):
+            value = 0.5 + 0.35 * math.sin(col * 0.7 + row * 0.9)
+            if (col + row) / (cols + rows) > max(0.05, min(1.0, progress)):
+                value *= 0.35
+            shade = int(80 + 120 * max(0.0, min(1.0, value)))
+            draw.rectangle((panel[0] + col * cell_w, panel[1] + row * cell_h,
+                            panel[0] + (col + 1) * cell_w, panel[1] + (row + 1) * cell_h),
+                           fill=(20, shade, 55))
+    draw.text((left + int(18 * s), bottom - int(24 * s)), "сдвиг → кольца → деформация", fill=ACCENT,
+              font=_serif_font(max(10, int(16 * s)), mono=True))
+
+
+def _draw_kalman_scene(draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, int], s: float, progress: float) -> None:
+    """Калман: прогноз и датчик сливаются в оценку с сужающейся ковариацией."""
+    left, top, right, bottom = box
+    x0, x1 = left + int(46 * s), right - int(34 * s)
+    y0, y1 = top + int(42 * s), bottom - int(44 * s)
+    draw.line((x0, y1, x1, y1), fill=RULE, width=max(1, int(1.4 * s)))
+    draw.line((x0, y0, x0, y1), fill=RULE, width=max(1, int(1.4 * s)))
+    points_true, points_meas, points_est = [], [], []
+    estimate, variance = 10.0, 4.0
+    for index in range(24):
+        t = index / 23.0
+        true = 10.0 + 3.2 * t + 0.8 * math.sin(t * 5.0)
+        measurement = true + 0.9 * math.sin(index * 2.3)
+        gain = variance / (variance + 1.0)
+        estimate = estimate + gain * (measurement - estimate)
+        variance = (1 - gain) * variance
+        px = x0 + int((x1 - x0) * t)
+        py = y1 - int((estimate - 6.0) / 9.0 * (y1 - y0))
+        points_true.append((px, y1 - int((true - 6.0) / 9.0 * (y1 - y0))))
+        points_meas.append((px, y1 - int((measurement - 6.0) / 9.0 * (y1 - y0))))
+        points_est.append((px, py))
+    for index, (px, py) in enumerate(points_meas):
+        if index / 23.0 > progress:
+            break
+        draw.ellipse((px - int(3 * s), py - int(3 * s), px + int(3 * s), py + int(3 * s)), fill=MUTED)
+    if len(points_true) > 1:
+        draw.line(points_true, fill=RULE, width=max(1, int(2 * s)))
+    visible = max(2, int(len(points_est) * max(0.05, min(1.0, progress))))
+    if visible > 1:
+        draw.line(points_est[:visible], fill=ACCENT, width=max(2, int(3 * s)))
+    for index, factor in ((0, 1.0), (11, 0.62), (23, 0.28)):
+        px, py = points_est[index]
+        rx, ry = int(42 * s * factor), int(18 * s * factor)
+        draw.ellipse((px - rx, py - ry, px + rx, py + ry), outline=ACCENT, width=max(1, int(1.8 * s)))
+    draw.text((left + int(18 * s), top + int(18 * s)), "Kalman: прогноз + датчик → оценка", fill=MUTED,
+              font=_serif_font(max(11, int(18 * s)), mono=True))
+    draw.text((x0 + int(4 * s), bottom - int(26 * s)), "время", fill=MUTED,
+              font=_serif_font(max(10, int(15 * s)), mono=True))
+
+
+def _draw_astar_scene(draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, int], s: float, progress: float) -> None:
+    """A*: волна стоимости по сетке и кратчайший путь."""
+    left, top, right, bottom = box
+    cols, rows = 13, 7
+    cell = min((right - left) // cols, (bottom - top) // rows)
+    ox, oy = left + ((right - left) - cols * cell) // 2, top + ((bottom - top) - rows * cell) // 2
+    walls = {(3, 1), (3, 2), (3, 3), (3, 4), (7, 2), (7, 3), (7, 4), (7, 5), (10, 1), (10, 2)}
+    path = [(0, 3), (1, 3), (2, 3), (3, 3), (4, 3), (5, 3), (6, 3), (7, 3), (8, 3), (9, 3), (10, 3), (11, 3), (12, 3)]
+    for row in range(rows):
+        for col in range(cols):
+            x = ox + col * cell
+            y = oy + row * cell
+            if (col, row) in walls:
+                draw.rectangle((x, y, x + cell, y + cell), fill=(214, 209, 199), outline=RULE)
+                continue
+            distance = abs(col - 12) + abs(row - 3)
+            wave = max(0.0, min(1.0, progress * 18.0 - distance))
+            fill = (243, 240, 234) if wave <= 0 else (255, int(245 - 40 * wave), int(220 - 60 * wave))
+            draw.rectangle((x, y, x + cell, y + cell), fill=fill, outline=RULE)
+    if progress > 0.45:
+        points = [(ox + col * cell + cell // 2, oy + row * cell + cell // 2) for col, row in path]
+        draw.line(points, fill=ACCENT, width=max(2, int(4 * s)))
+        for px, py in (points[0], points[-1]):
+            draw.ellipse((px - int(7 * s), py - int(7 * s), px + int(7 * s), py + int(7 * s)), fill=ACCENT)
+    draw.text((left + int(16 * s), top + int(10 * s)), "A*: f = g + h", fill=MUTED,
+              font=_serif_font(max(11, int(18 * s)), mono=True))
+    draw.text((left + int(16 * s), bottom - int(24 * s)), "волна стоимости → путь", fill=ACCENT,
+              font=_serif_font(max(10, int(16 * s)), mono=True))
+
+
+
 class BookFilmScene:
     """Один пост → кадры книжной страницы с реальной геометрией поста."""
 
@@ -595,7 +700,13 @@ class BookFilmScene:
         wave_like = ("Ψ" in formula_text or "psi" in formula_text.lower()
                      or str((self.post.meta or {}).get("canon_id") or "") in ("schrodinger", "tunneling", "heisenberg"))
         canon_id = str((self.post.meta or {}).get("canon_id") or (self.post.meta or {}).get("foundation_id") or "")
-        if self.logic:
+        if canon_id == "insar_ndvi":
+            _draw_insar_scene(draw, box, s, progress)
+        elif canon_id == "kalman_filter":
+            _draw_kalman_scene(draw, box, s, progress)
+        elif canon_id == "a_star":
+            _draw_astar_scene(draw, box, s, progress)
+        elif self.logic:
             self._draw_logic_table(draw, box, s, progress)
         elif self.archetype == "code_booktabs" and self.post.code:
             _draw_code(draw, self.post, box, progress, s)
@@ -748,8 +859,14 @@ class BookFilmScene:
         _draw_text_block(draw, variables, left + int(20 * s), top + int(70 * s),
                          right - left - int(40 * s), int(26 * s), INK, False, int(8 * s), 3)
         lower = (left + int(20 * s), top + int(210 * s), right - int(20 * s), bottom - int(10 * s))
-        if self.logic:
-            self._draw_logic_table(draw, lower, s * 0.8, 1.0)
+        if canon_id == "insar_ndvi":
+            _draw_insar_scene(draw, lower, s * 0.8, 1.0)
+        elif canon_id == "kalman_filter":
+            _draw_kalman_scene(draw, lower, s * 0.8, 1.0)
+        elif canon_id == "a_star":
+            _draw_astar_scene(draw, lower, s * 0.8, 1.0)
+        elif self.logic:
+            _draw_logic_table(draw, lower, s * 0.8, 1.0)
         elif self.archetype == "code_booktabs" and self.post.code:
             _draw_code(draw, self.post, lower, 1.0, s * 0.8)
         elif canon_id == "pythagoras" or "a² + b² = c²" in str(self.post.formula_plain or ""):
@@ -879,7 +996,7 @@ def book_film_for_post(post: Post, config: Any, aspect: Optional[str] = None,
     directory = Path(out_dir) if out_dir else config.data_dir / "book_films"
     target = directory / f"{post.id}_{settings['aspect'].replace(':', 'x')}.mp4"
     key_path = directory / f"{post.id}_{settings['aspect'].replace(':', 'x')}.key"
-    key = f"v6|{post.id}|{post.title}|{post.formula_plain}|{post.code}|{settings['aspect']}|{settings['fps']}"
+    key = f"v7|{post.id}|{post.title}|{post.formula_plain}|{post.code}|{settings['aspect']}|{settings['fps']}"
     if target.is_file() and key_path.is_file() and key_path.read_text(encoding="utf-8") == key:
         return target
     produced = render_book_film(post, target, config, aspect=aspect)
