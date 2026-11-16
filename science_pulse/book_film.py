@@ -37,6 +37,7 @@ from .cards_academic import (
     render_formula_png,
 )
 from .models import Post
+from .visual_language import symbol_colors
 from .plotting import evaluate_curve
 from .voice import VoiceArtifact, build_film_blocks, build_lecture_script, film_voice_for_post, verified_example, voice_for_post
 
@@ -709,11 +710,25 @@ class BookFilmScene:
         draw.text((left + int(24 * s), top + int(18 * s)), label, fill=INK,
                   font=_serif_font(max(12, int(22 * s)), bold=True, mono=True))
 
+    def _draw_symbol_legend(self, draw: ImageDraw.ImageDraw, left: int, bottom: int, s: float) -> None:
+        """Цветные чипы переменных: тот же цвет, что на сайте и в карточке."""
+        colors = symbol_colors(self.post)
+        if not colors:
+            return
+        font = _serif_font(max(10, int(16 * s)), mono=True)
+        x = left
+        y = bottom - int(26 * s)
+        for symbol, color in list(colors.items())[:5]:
+            draw.ellipse((x, y + int(3 * s), x + int(12 * s), y + int(15 * s)), fill=color)
+            draw.text((x + int(18 * s), y), str(symbol), fill=color, font=font)
+            x += int(18 * s) + int(draw.textlength(str(symbol), font=font)) + int(18 * s)
+
     def _draw_formula_scene(self, image: Image.Image, draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, int],
                             s: float, meta: Dict[str, Any]) -> None:
         left, top, right, bottom = box
         draw.text((left, top + int(18 * s)), "СМЫСЛ ФОРМУЛЫ", fill=MUTED,
                   font=_serif_font(max(12, int(20 * s)), bold=True, mono=True))
+        self._draw_symbol_legend(draw, left + int(20 * s), bottom, s)
         canon_id = str(meta.get("canon_id") or meta.get("foundation_id") or "")
         known = {
             "pythagoras": "a, b — катеты прямоугольного треугольника; c — гипотенуза; xᵢ — координаты вектора.",
@@ -864,7 +879,7 @@ def book_film_for_post(post: Post, config: Any, aspect: Optional[str] = None,
     directory = Path(out_dir) if out_dir else config.data_dir / "book_films"
     target = directory / f"{post.id}_{settings['aspect'].replace(':', 'x')}.mp4"
     key_path = directory / f"{post.id}_{settings['aspect'].replace(':', 'x')}.key"
-    key = f"v5|{post.id}|{post.title}|{post.formula_plain}|{post.code}|{settings['aspect']}|{settings['fps']}"
+    key = f"v6|{post.id}|{post.title}|{post.formula_plain}|{post.code}|{settings['aspect']}|{settings['fps']}"
     if target.is_file() and key_path.is_file() and key_path.read_text(encoding="utf-8") == key:
         return target
     produced = render_book_film(post, target, config, aspect=aspect)

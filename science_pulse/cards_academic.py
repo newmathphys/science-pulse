@@ -30,6 +30,7 @@ from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 
 from .models import CardArtifact, Post, DOMAIN_LABELS
+from .visual_language import symbol_colors
 
 LOGGER = logging.getLogger(__name__)
 
@@ -1288,6 +1289,18 @@ def _draw_right_triangle(draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, in
               font=_serif_font(max(14, int(26 * scale)), mono=True))
 
 
+def _draw_symbol_chips(draw: ImageDraw.ImageDraw, post: Post, left: int, y: int, scale: int) -> None:
+    colors = symbol_colors(post)
+    if not colors:
+        return
+    font = _serif_font(15 * scale, mono=True)
+    x = left
+    for symbol, color in list(colors.items())[:5]:
+        draw.ellipse((x, y + 3 * scale, x + 11 * scale, y + 14 * scale), fill=color)
+        draw.text((x + 16 * scale, y), str(symbol), fill=color, font=font)
+        x += 16 * scale + int(draw.textlength(str(symbol), font=font)) + 18 * scale
+
+
 def render_academic_card(post: Post, out_path: str | Path, size: int = 1080) -> Optional[CardArtifact]:
     """Карточка по правилу «3 чистые зоны»: 1080×1080, бумага, тушь.
 
@@ -1371,13 +1384,16 @@ def render_academic_card(post: Post, out_path: str | Path, size: int = 1080) -> 
             _paste_fitted(image, formula_png, formula_box[1] + 12 * scale,
                           (formula_box[0] + formula_box[2]) // 2,
                           formula_box[2] - formula_box[0] - 48 * scale,
-                          formula_box[3] - formula_box[1] - 24 * scale)
+                          formula_box[3] - formula_box[1] - 58 * scale)
         elif formula:
             from .text import formula_to_unicode
             text = formula_to_unicode(formula, 80)
             font = _serif_font(30 * scale, bold=True)
             tw = draw.textlength(text, font=font)
             draw.text(((canvas - tw) / 2, formula_box[1] + 48 * scale), text, fill=INK, font=font)
+
+        _draw_symbol_chips(draw, post, formula_box[0] + 20 * scale,
+                           formula_box[3] - 30 * scale, scale)
 
         # Подпись — без QR и без технического мусора.
         footer = _serif_font(14 * scale, mono=True)

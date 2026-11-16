@@ -13,6 +13,7 @@ from .graph import build_links, pagerank, poincare_layout, top_by_pagerank
 from .models import DOMAIN_LABELS, Post
 from .storage import Storage
 from .text import keywords, truncate
+from .visual_language import colorized_formula_html, css as visual_css, legend_html
 
 LOGGER = logging.getLogger(__name__)
 
@@ -620,6 +621,52 @@ SANDBOX_JS = """
   applyFork();
 })();
 """
+
+
+PLAYGROUND_JS = """
+(function () {
+  document.querySelectorAll('[data-playground]').forEach(function (root) {
+    var buttons = root.querySelectorAll('[data-pg-mode]');
+    var panels = root.querySelectorAll('[data-pg-panel]');
+    function show(mode) {
+      buttons.forEach(function (btn) { btn.classList.toggle('active', btn.dataset.pgMode === mode); });
+      panels.forEach(function (panel) { panel.hidden = panel.dataset.pgPanel !== mode; });
+    }
+    buttons.forEach(function (btn) { btn.addEventListener('click', function () { show(btn.dataset.pgMode); }); });
+    show(root.dataset.default || 'A');
+
+    var a = root.querySelector('#pg-a');
+    var b = root.querySelector('#pg-b');
+    var out = root.querySelector('#pg-logic-out');
+    function logic() {
+      if (!out || !a || !b) return;
+      var av = a.checked, bv = b.checked;
+      var result = (av && (av || bv)) ? '1' : '0';
+      out.textContent = result;
+      out.dataset.expression = 'A ∧ (A ∨ B)';
+    }
+    if (a) a.addEventListener('change', logic);
+    if (b) b.addEventListener('change', logic);
+    logic();
+
+    var step = root.querySelector('#pg-step');
+    var stepOut = root.querySelector('#pg-step-out');
+    if (step && stepOut) {
+      function paint() {
+        stepOut.textContent = 'N = ' + step.value;
+        root.querySelectorAll('[data-pg-line]').forEach(function (line) {
+          line.classList.toggle('active', Number(line.dataset.pgLine) <= Number(step.value));
+        });
+      }
+      step.addEventListener('input', paint);
+      paint();
+    }
+  });
+})();
+"""
+
+
+CSS += visual_css()
 
 
 class SiteBuilder:
@@ -1365,36 +1412,98 @@ class SiteBuilder:
         )
 
     def _sandbox_html(self, post: Post) -> str:
-        """Интерактивная лаборатория на Canvas: ползунки A/k и расчёт y(x).
+        """Universal Formula Playground: A/B/C/D с честным fail-closed.
 
-        Использует JS-функцию из безопасного SymPy-парсера (`plotting._js_function`);
-        если формула не парсится — безопасный fallback по дисциплине.
+        A — числовая формула; B — логика; C — шаги кода; D — рентген формулы.
+        Если модель не вычислима, ползунки не рисуются: показывается причина.
         """
         from .plotting import _js_function, parse_expression
+        from .visual_language import colorized_formula_html, legend_html
 
+        formula = (post.formula_plain or post.formula_latex or "").strip()
         js_fn = "null"
-        try:
-            expression = (post.formula_plain or post.formula_latex or "").strip()
-            if expression:
-                js_fn = _js_function(parse_expression(expression))
-        except Exception:
-            js_fn = "null"
-        script = SANDBOX_JS.replace("__USER_FN__", js_fn)
+        can_plot = False
+        if formula:
+            try:
+                expression = parse_expression(formula)
+                js_fn = _js_function(expression)
+                can_plot = True
+            except Exception:
+                can_plot = False
+        logic = bool(re.search(r"[∧∨¬↔⊕]|\\land|\\lor|\\neg|\\lnot", formula))
+        has_code = bool(post.code)
+        if logic:
+            mode = "B"
+        elif has_code and not can_plot:
+            mode = "C"
+        elif can_plot:
+            mode = "A"
+        else:
+            mode = "D"
+
+        if can_plot:
+            a_panel = (
+                '<canvas id="sandbox-canvas" width="680" height="280"></canvas>'
+                '<div class="ctl">'
+                '<label>A (масштаб) <input id="param-a" type="range" min="0.2" max="3.0" step="0.1" value="1.0"> <span id="val-a">1.0</span></label>'
+                '<label>k (частота) <input id="param-b" type="range" min="0.5" max="4.0" step="0.1" value="1.0"> <span id="val-b">1.0</span></label>'
+                '<label>x <input id="sandbox-x" type="number" value="1.0" step="0.1"></label>'
+                '<span>y(x) = <output id="sandbox-y">—</output></span>'
+                '<button id="sandbox-audio" class="mini-action" type="button">Услышать частоту формулы</button>'
+                '<button id="sandbox-svg" class="mini-action" type="button">Экспорт графика в SVG</button>'
+                '<button id="sandbox-fork" class="mini-action fork-copy" type="button">🌿 Скопировать ссылку на мою ветку</button>'
+                '</div>'
+                f'<script>{SANDBOX_JS.replace("__USER_FN__", js_fn)}</script>'
+            )
+        else:
+            a_panel = '<p class="pg-note">A · Числовая модель не строится: формула не даёт вычислимой функции y(x). Ползунки не показываем.</p>'
+
+        if logic:
+            b_panel = (
+                '<div class="pg-logic">'
+                '<label><input id="pg-a" type="checkbox"> A</label>'
+                '<label><input id="pg-b" type="checkbox"> B</label>'
+                '<span>A ∧ (A ∨ B) = <output id="pg-logic-out">0</output></span>'
+                '</div>'
+                '<p class="pg-note">Дискретная модель: 0/1, без поддельных непрерывных графиков.</p>'
+            )
+        else:
+            b_panel = '<p class="pg-note">B · Логическая модель не обнаружена: в формуле нет ∧/∨/¬/⊕.</p>'
+
+        if has_code:
+            lines = str(post.code).splitlines()
+            code_html = "".join(
+                f'<span data-pg-line="{index}">{_e(line) or " "}</span>\n'
+                for index, line in enumerate(lines, start=1)
+            )
+            c_panel = (
+                '<div class="pg-code"><pre><code>' + code_html + '</code></pre>'
+                '<label>шаг N <input id="pg-step" type="range" min="1" max="' + str(max(1, len(lines))) + '" value="' + str(max(1, len(lines))) + '"> '
+                '<output id="pg-step-out">N = ' + str(max(1, len(lines))) + '</output></label></div>'
+            )
+        else:
+            c_panel = '<p class="pg-note">C · В этом параграфе нет кода для пошагового исполнения.</p>'
+
+        color_formula = colorized_formula_html(post)
+        d_panel = (
+            (f'<div class="color-formula"><span class="sym-formula">{color_formula}</span>{legend_html(post)}</div>'
+             if color_formula else '<p class="pg-note">D · Формулы нет: рентген нечего подсвечивать.</p>')
+        )
+
+        tabs = "".join(
+            f'<button type="button" data-pg-mode="{key}" class="pg-tab">{key}</button>'
+            for key in ("A", "B", "C", "D")
+        )
         return (
-            f'<section class="sandbox" data-sandbox="{_e(post.domain)}">'
-            "<h2>Интерактивная лаборатория</h2>"
-            '<canvas id="sandbox-canvas" width="680" height="280"></canvas>'
-            '<div class="ctl">'
-            '<label>A (масштаб) <input id="param-a" type="range" min="0.2" max="3.0" step="0.1" value="1.0"> <span id="val-a">1.0</span></label>'
-            '<label>k (частота) <input id="param-b" type="range" min="0.5" max="4.0" step="0.1" value="1.0"> <span id="val-b">1.0</span></label>'
-            '<label>x <input id="sandbox-x" type="number" value="1.0" step="0.1"></label>'
-            '<span>y(x) = <output id="sandbox-y">—</output></span>'
-            '<button id="sandbox-audio" class="mini-action" type="button">Услышать частоту формулы</button>'
-            '<button id="sandbox-svg" class="mini-action" type="button">Экспорт графика в SVG</button>'
-            '<button id="sandbox-fork" class="mini-action fork-copy" type="button">🌿 Скопировать ссылку на мою ветку</button>'
-            "</div>"
-            f"<script>{script}</script>"
-            "</section>"
+            f'<section class="sandbox playground" data-playground data-default="{mode}" data-sandbox="{_e(post.domain)}">'
+            '<h2>Formula Playground</h2>'
+            f'<div class="pg-tabs">{tabs}</div>'
+            f'<div class="pg-panel" data-pg-panel="A">{a_panel}</div>'
+            f'<div class="pg-panel" data-pg-panel="B">{b_panel}</div>'
+            f'<div class="pg-panel" data-pg-panel="C">{c_panel}</div>'
+            f'<div class="pg-panel" data-pg-panel="D">{d_panel}</div>'
+            f'<script>{PLAYGROUND_JS}</script>'
+            '</section>'
         )
 
     def _challenge_html(self, post: Post) -> str:
@@ -1524,7 +1633,7 @@ class SiteBuilder:
         }.get(str(meta.get("visual_type") or ""), "книжный чертёж с подписями")
         rows = [
             ("Суть в одном предложении", _e(first) if first else "Смотрите формулу и численный пример ниже."),
-            ("Что означает каждая буква", f'<span class="legend">{self._formula_legend(post)}</span>'),
+            ("Что означает каждая буква", f'<span class="legend">{self._formula_legend(post)}</span>{legend_html(post)}'),
             ("Зачем это нужно", _e(application) if application else "Применение разобрано в тексте и паспорте."),
             ("Как читать чертёж", _e(visual)),
         ]
@@ -1544,6 +1653,9 @@ class SiteBuilder:
         )
         formula = post.formula_latex or post.formula_plain
         formula_html = f'<div class="formula">\\[ {_e(formula)} \\]</div>' if formula else ""
+        color_formula_html = colorized_formula_html(post)
+        if color_formula_html:
+            formula_html += f'<div class="color-formula"><span class="sym-formula">{color_formula_html}</span>{legend_html(post)}</div>'
         code_html = f"<h2>Код</h2><pre><code>{_e(post.code)}</code></pre>" if post.code else ""
         audio_url = str((post.meta or {}).get("audio_url") or "")
         audio_file = self.config.dist_dir / "audio" / f"{post.id}.mp3"
