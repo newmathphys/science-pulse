@@ -1661,8 +1661,8 @@ CANON.extend([
             "Эти идеи лежат в основе ZIP, MP3, 5G, QR-кодов и криптографии. "
             "Информация стала измеримой величиной, связанной с вероятностью и физикой."
         ),
-        "formula_latex": r"C = B \log_2\left(1+\frac{S}{N}\right), \quad C = \max_{p(x)} I(X;Y)",
-        "formula_plain": "C = B log₂(1 + S/N),   C = max I(X;Y)",
+        "formula_latex": r"C = B \log_2\left(1+\frac{S}{N}\right)",
+        "formula_plain": "C = B log₂(1 + S/N)",
         "code": "",
         "source_url": "https://ru.wikipedia.org/wiki/Информационная_энтропия",
         "prereq_ids": ["shannon_entropy", "logarithm"],

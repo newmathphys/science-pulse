@@ -871,6 +871,16 @@ def _compute_kalman() -> Dict[str, str]:
     }
 
 
+def _compute_shannon() -> Dict[str, str]:
+    p = 0.5
+    entropy = -(p * math.log2(p) + (1 - p) * math.log2(1 - p))
+    return {
+        "question": "Чему равна энтропия честной монеты с p=0.5?",
+        "hint": "H = −∑ pᵢ log₂ pᵢ; для двух равных исходов это 1 бит.",
+        "answer": f"{entropy:.0f} бит",
+    }
+
+
 def _compute_wave_phase() -> Dict[str, str]:
     return {
         "question": "Чему равна разность фаз Δφ = 2π·Δx/λ при Δx = λ/2?",
@@ -1025,6 +1035,7 @@ CANON_COMPUTABLE = {
     "wave_phase": _compute_wave_phase,
     "mcculloch_pitts": _compute_mcculloch_pitts,
     "kalman_filter": _compute_kalman,
+    "shannon_entropy": _compute_shannon,
 }
 
 
