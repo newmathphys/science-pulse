@@ -2,7 +2,9 @@ import unittest
 
 from PIL import Image, ImageDraw
 
+from science_pulse.models import Post
 from science_pulse.book_film import (
+    BookFilmScene,
     _draw_astar_scene, _draw_attention_scene, _draw_diffusion_scene,
     _draw_fourier_scene, _draw_insar_scene, _draw_kalman_scene,
     _draw_markov_scene, _draw_momentum_scene, _draw_reinforce_scene,
@@ -26,6 +28,16 @@ class VisualSceneTests(unittest.TestCase):
 
     def test_astar_scene_draws(self):
         _draw_astar_scene(self.draw, self.box, 1.0, 0.7)
+        self.assertNotEqual(self.image.getbbox(), None)
+
+    def test_generic_scene_does_not_require_fr_curve(self):
+        post = Post(id="generic", domain="physics", title="E = mc²",
+                    body="Энергия и масса. " * 20, formula_plain="E = mc^2")
+        scene = BookFilmScene(post, 640, 640)
+        try:
+            scene._draw_generic_scene(self.draw, self.box, 1.0, 0.7, {})
+        finally:
+            scene.close()
         self.assertNotEqual(self.image.getbbox(), None)
 
     def test_remaining_seven_scenes_draw(self):

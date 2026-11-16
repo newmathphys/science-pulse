@@ -73,6 +73,17 @@ class PlaylistTests(unittest.TestCase):
         self.assertTrue(playlist[0]["audio"])
         self.assertFalse(playlist[1]["audio"])
 
+    def test_branch_filter_and_satellite_branch(self):
+        entries = radio_playlist([
+            make_post("p1", "1.1", domain="math"),
+            make_post("p2", "6.7", domain="physics", canon_id="insar_ndvi"),
+        ], self.config)
+        self.assertEqual(entries[1]["branch"], "satellite_lab")
+        page = radio_page_html(entries, self.config)
+        self.assertIn("data-radio-branch", page)
+        self.assertIn("satellite_lab", page)
+        self.assertIn("setBranch", page)
+
     def test_entry_notes_come_from_formula(self):
         entry = episode_entry(make_post("p1", "1.1"), "", self.config.data_dir / "audio")
         self.assertTrue(entry["notes"])
@@ -115,6 +126,26 @@ class PodcastTests(unittest.TestCase):
         self.assertTrue(enclosure.get("url").endswith("audio/p1.mp3"))
         self.assertEqual(root.find("./channel/link").text, "https://example.org/pulse/radio.html")
 
+    def test_pubdate_mix_first_and_unique_guid(self):
+        entries = [
+            {"id": "p1", "label": "§ 1.1", "url": "https://example.org/post/p1.html",
+             "hook": "H", "scientist": "S", "audio": "audio/p1.mp3",
+             "published_at": "2026-11-15T19:00:00+00:00", "canon": True},
+            {"id": "p2", "label": "raw online", "url": "https://example.org/post/p2.html",
+             "hook": "raw", "scientist": "", "audio": "audio/p2.mp3",
+             "published_at": "2026-11-15T20:00:00+00:00", "canon": False},
+        ]
+        xml = build_podcast_xml(entries, self.config, mix_url="https://example.org/radio_mix.mp3",
+                                mix_length=100, mix_date="2026-11-15")
+        root = ET.fromstring(xml)
+        items = root.findall("./channel/item")
+        self.assertEqual(len(items), 2)
+        self.assertIn("радио-микс", items[0].findtext("title"))
+        self.assertEqual(items[0].findtext("guid"), "science-pulse:radio-mix-2026-11-15")
+        self.assertTrue(items[0].findtext("pubDate"))
+        self.assertTrue(items[1].findtext("pubDate"))
+        self.assertNotIn("raw online", [item.findtext("title") for item in items])
+
 
 class RadioPageTests(unittest.TestCase):
     def setUp(self):
@@ -142,7 +173,7 @@ class RadioPageTests(unittest.TestCase):
         """Фид не должен ссылаться на mp3, которых нет в dist (404 для подписчиков)."""
         import re
 
-        post = make_post("a1", "2.1")
+        post = make_post("a1", "2.1", foundation_id="newton_gravity")
         audio_dir = self.config.data_dir / "audio"
         audio_dir.mkdir(parents=True, exist_ok=True)
         (audio_dir / "a1.mp3").write_bytes(b"ID3" + b"0" * 5000)

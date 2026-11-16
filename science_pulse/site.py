@@ -279,6 +279,10 @@ BRANCH_JS = """
       html += '<div class="branch-next"><b>Следующие шаги:</b> ' + next.map(function (p) {
         return '<a href="' + (data.prefix || '') + 'post/' + p.id + '.html">§ ' + (p.section || '—') + ' · ' + p.title + '</a>';
       }).join('') + '</div>';
+      if (data.bot) {
+        const first = next[0];
+        html += '<div class="branch-next"><a href="https://t.me/' + data.bot + '?start=branch_' + (first.domain || 'math') + '">🌿 Пройти ветку в Telegram</a></div>';
+      }
     } else {
       html += '<div class="branch-next">Все доступные параграфы отмечены. Открывайте новые ветки в канале.</div>';
     }
@@ -724,6 +728,7 @@ class SiteBuilder:
         self._write_constants(posts, dist)
         self._write_topics(posts, dist)
         self._write_syllabus(posts + programme, dist)
+        self._write_90days(posts + programme, dist)
         self._write_flashcards(posts, dist)
         if self.config.miniapp_public:
             self._write_miniapp(dist)
@@ -1132,6 +1137,7 @@ class SiteBuilder:
         payload = {
             "current": current,
             "prefix": prefix,
+            "bot": str((self.config.raw.get("telegram") or {}).get("bot_username") or "socialcontentmanagernmpbot"),
             "posts": [
                 {
                     "id": post.id,
@@ -1244,6 +1250,7 @@ class SiteBuilder:
   <a href="syllabus.html">IV. Программа курса</a>
   <a href="flashcards.html">V. Тренажёр памяти</a>
   <a href="radio.html">Радио 24/7</a>
+  <a href="90days.html">90 дней</a>
   <a href="llms.txt">V. Машиночитаемый слой</a>
 </nav>
 {self._poincare_html()}
@@ -2266,7 +2273,7 @@ renderPlatforms();
 <article>
   <div class="badge">ПРОГРАММА КУРСА</div>
   <h1>Бесконечный поток науки</h1>
-  <p class="lead">30 узлов канона — семя. Дальше — {summary['branches']} ветвей и {summary['topics']} тем:
+  <p class="lead">62 узла канона — семя. Дальше — {summary['branches']} ветвей и {summary['topics']} тем:
   § {summary['first_section']} … § {summary['last_section']}. Очередь пополняется автоматически.</p>
   <div class="passport">
     <span>Ветвей: <b>{summary['branches']}</b></span>
@@ -2278,6 +2285,45 @@ renderPlatforms();
 </article>
 """
         (dist / "syllabus.html").write_text(self._page("Программа курса", content), encoding="utf-8")
+
+    def _write_90days(self, posts: List[Post], dist: Path) -> None:
+        """13-недельная сетка: 62 узла канона от фундамента к прикладным мостам."""
+        from .sources.foundation import CANON, section_of, step_of
+
+        ordered = sorted(CANON, key=lambda node: (step_of(node["id"]), section_of(node["id"])))
+        by_canon = {
+            str((p.meta or {}).get("canon_id") or (p.meta or {}).get("foundation_id") or ""): p
+            for p in posts
+        }
+        weeks = 13
+        size = max(1, (len(ordered) + weeks - 1) // weeks)
+        blocks: List[str] = []
+        for week in range(weeks):
+            chunk = ordered[week * size:(week + 1) * size]
+            if not chunk:
+                break
+            rows = []
+            for node in chunk:
+                post = by_canon.get(node["id"])
+                status = "✓" if post and post.status == "published" else "○"
+                link = f'<a href="post/{_e(post.id)}.html">{_e(node["title"])}</a>' if post else _e(node["title"])
+                rows.append(f'<li><span class="mono">{status} § {_e(section_of(node["id"]))}</span> {link}</li>')
+            blocks.append(
+                f'<section class="step"><div class="step-head"><span class="roman">НЕДЕЛЯ {week + 1}</span>'
+                f'<h2>Маршрут недели</h2></div>'
+                f'<ul>{"".join(rows)}</ul></section>'
+            )
+        content = (
+            '<article><div class="badge">90 ДНЕЙ</div>'
+            "<h1>90 дней: от аксиомы к спутнику</h1>"
+            f'<p class="lead">13 недель · {len(ordered)} узлов канона · маршрут от фундамента '
+            "к Тьюрингу, Калману, A* и InSAR. Отмечайте прогресс в «Моей ветке».</p>"
+            + "".join(blocks)
+            + '<p><a href="index.html">← к дереву фундамента</a> · <a href="radio.html">радио</a> · '
+            + f'<a href="https://t.me/{_e(str((self.config.raw.get("telegram") or {}).get("bot_username") or "socialcontentmanagernmpbot"))}?start=branch_math">'
+            + '🌿 Пройти ветку в Telegram</a></p></article>'
+        )
+        (dist / "90days.html").write_text(self._page("90 дней", content), encoding="utf-8")
 
     def _write_flashcards(self, posts: List[Post], dist: Path) -> None:
         """Страница карточек-повторений (flashcards): вопрос → ответ."""
@@ -2309,7 +2355,7 @@ renderPlatforms();
         base = self.config.site_base_url or "https://science-pulse.local"
         urls = [f"{base}/", f"{base}/index.html", f"{base}/scientists.html",
                 f"{base}/constants.html", f"{base}/topics.html", f"{base}/syllabus.html",
-                f"{base}/radio.html", f"{base}/podcast.xml"]
+                f"{base}/radio.html", f"{base}/90days.html", f"{base}/podcast.xml"]
         for post in posts:
             urls.append(f"{base}/post/{post.id}.html")
         body = "".join(f"<url><loc>{_e(url)}</loc></url>" for url in urls)

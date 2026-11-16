@@ -71,6 +71,14 @@ class SiteTests(unittest.TestCase):
         self.assertTrue((config.cards_dir / f"{post.id}.png").is_file())
         self.assertTrue((dist / "cards" / f"{post.id}.png").is_file())
 
+    def test_90days_grid(self):
+        dist = self.builder.build()
+        page = (dist / "90days.html").read_text(encoding="utf-8")
+        self.assertEqual(page.count("НЕДЕЛЯ"), 13)
+        self.assertIn("90 дней", page)
+        self.assertIn("post/", page)
+        self.assertIn("branch_math", page)
+
     def test_english_edition_pages(self):
         from science_pulse.models import Post
 

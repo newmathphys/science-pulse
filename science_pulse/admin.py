@@ -204,7 +204,12 @@ class TelegramAdmin:
 
     def handle_command(self, command: str, args: List[str]) -> str:
         try:
-            if command in ("/start", "/help"):
+            if command == "/start":
+                payload = args[0] if args else ""
+                if payload.startswith("branch_"):
+                    return self._branch_start(payload[7:])
+                return HELP
+            if command == "/help":
                 return HELP
             if command == "/status":
                 return self._status_text()
@@ -456,6 +461,39 @@ class TelegramAdmin:
         if not payload.get("ok"):
             return f"🧠 Не удалось отправить викторину: {payload.get('description') or payload.get('error')}"
         return "🧠 Викторина отправлена в чат."
+
+    def _branch_start(self, branch: str) -> str:
+        """Deep link ?start=branch_<id>: первый узел выбранной ветки."""
+        from .sources.foundation import CANON, section_of, step_of
+        from .sources.foundation import FoundationSource
+
+        key = str(branch or "").strip().lower()
+        if key in ("satellite", "satellites", "space"):
+            key = "satellite_lab"
+        space_ids = {"insar_ndvi", "newton_gravity", "einstein_relativity",
+                     "schwarzschild_light", "gravitational_waves"}
+        nodes = [
+            node for node in CANON
+            if (node["id"] in space_ids if key == "satellite_lab" else node["domain"] == key)
+        ]
+        if not nodes:
+            return "Неизвестная ветка. Доступно: branch_math, branch_physics, branch_cs, branch_satellite_lab."
+        nodes.sort(key=lambda node: (step_of(node["id"]), section_of(node["id"])))
+        node = nodes[0]
+        post_id = FoundationSource.post_id_for(node["id"])
+        post = self.storage.get_post(post_id)
+        if post is None:
+            return f"Ветка <b>{html.escape(key)}</b>: узел «{html.escape(node['title'])}» ещё не в очереди."
+        self.storage.kv_set(f"branch_{self.chat_id}", key)
+        base = (self.config.site_base_url or "").rstrip("/")
+        link = f"{base}/post/{post.id}.html" if base else f"post/{post.id}.html"
+        radio = f"{base}/radio.html?branch={key}" if base else f"radio.html?branch={key}"
+        return (
+            f"🌿 Ветка <b>{html.escape(key)}</b> закреплена.\n"
+            f"Старт: <b>{html.escape(post.title)}</b> · § {html.escape(section_of(node['id']))}\n"
+            f"{html.escape(post.hook)}\n"
+            f"<a href=\"{link}\">Открыть разбор</a> · <a href=\"{radio}\">Радио ветки</a>"
+        )
 
     def _status_text(self) -> str:
         status = self.pipeline.status()

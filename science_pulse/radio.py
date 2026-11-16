@@ -92,6 +92,11 @@ def episode_entry(post: Post, base_url: str, audio_dir: Path, status: str = "pub
         "title": post.title,
         "label": f"§ {section} • {post.title}" if section else post.title,
         "domain": post.domain,
+        "branch": (
+            "satellite_lab" if str(meta.get("canon_id") or "") in
+            {"insar_ndvi", "schwarzschild_light", "gravitational_waves", "newton_gravity", "einstein_relativity"}
+            or "спутник" in str(post.title).lower() else str(post.domain)
+        ),
         "domain_label": DOMAIN_LABELS.get(post.domain, post.domain),
         "scientist": str(meta.get("scientist") or ""),
         "era": str(meta.get("era") or ""),
@@ -102,6 +107,8 @@ def episode_entry(post: Post, base_url: str, audio_dir: Path, status: str = "pub
         "notes": _entry_notes(post),
         "audio": audio_url,
         "audio_length": audio_length,
+        "published_at": str(getattr(post, "published_at", "") or getattr(post, "created_at", "") or ""),
+        "canon": bool(meta.get("canon_id") or meta.get("foundation_id")),
         "card": str(meta.get("card_url") or f"cards/{post.id}.png"),
         "page": f"post/{post.id}.html",
         "url": f"{base_url}/post/{post.id}.html" if base_url else f"post/{post.id}.html",
@@ -234,35 +241,46 @@ def _enclosure_length(entry: Dict[str, Any], config: Config) -> int:
     return _remote_length(audio) if audio.startswith("http") else 0
 
 
-def build_podcast_xml(entries: Sequence[Dict[str, Any]], config: Config, mix_url: str = "", mix_length: int = 0) -> str:
-    """RSS 2.0 подкаст-фид с тегами `itunes` и `enclosure` (audio/mpeg)."""
+def build_podcast_xml(entries: Sequence[Dict[str, Any]], config: Config, mix_url: str = "",
+                      mix_length: int = 0, mix_date: str = "") -> str:
+    """RSS 2.0 подкаст-фид с тегами `itunes`, `pubDate` и `enclosure`."""
+    from datetime import datetime, timezone
+
     base = (config.site_base_url or "").rstrip("/") or "https://science-pulse.local"
     items: List[str] = []
-    for entry in entries:
-        if not entry.get("audio"):
-            continue
+    # Флагманский микс — первым: плееры ждут обратную хронологию.
+    if mix_url:
+        stamp = mix_date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        items.append(
+            "<item>"
+            "<title>Воскресный радио-микс: 11 глав</title>"
+            f"<link>{html.escape(base)}/radio.html</link>"
+            f'<guid isPermaLink="false">science-pulse:radio-mix-{html.escape(stamp)}</guid>'
+            f"<pubDate>{_rfc822(stamp + 'T19:00:00+00:00')}</pubDate>"
+            "<description>Сквозной выпуск: 11 глав, гармонические интерлюдии, 11 минут.</description>"
+            "<itunes:author>Science Pulse</itunes:author>"
+            f'<enclosure url="{html.escape(mix_url)}" type="audio/mpeg" length="{int(mix_length or 0)}"/>'
+            "</item>"
+        )
+    canon_entries = [
+        entry for entry in entries
+        if entry.get("audio") and entry.get("canon") is not False
+    ]
+    canon_entries.sort(key=lambda entry: str(entry.get("published_at") or ""), reverse=True)
+    for entry in canon_entries:
         hook = html.escape(str(entry.get("hook") or ""))
+        pub_date = _rfc822(str(entry.get("published_at") or ""))
         items.append(
             "<item>"
             f"<title>{html.escape(str(entry['label']))}</title>"
             f"<link>{html.escape(str(entry['url']))}</link>"
             f'<guid isPermaLink="false">science-pulse:{html.escape(str(entry["id"]))}</guid>'
+            f"<pubDate>{pub_date}</pubDate>"
             f"<description>{hook}</description>"
             f"<itunes:author>{html.escape(str(entry.get('scientist') or RADIO_TITLE))}</itunes:author>"
             f"<itunes:summary>{hook}</itunes:summary>"
             f'<enclosure url="{html.escape(str(entry["audio"]) if str(entry["audio"]).startswith("http") else base + "/" + str(entry["audio"]))}" '
             f'type="audio/mpeg" length="{_enclosure_length(entry, config)}"/>'
-            "</item>"
-        )
-    if mix_url:
-        items.append(
-            "<item>"
-            "<title>Воскресный радио-микс: 11 глав</title>"
-            f"<link>{html.escape(base)}/radio.html</link>"
-            '<guid isPermaLink="false">science-pulse:radio-mix</guid>'
-            "<description>Сквозной выпуск: 11 глав, гармонические интерлюдии, 11 минут.</description>"
-            "<itunes:author>Science Pulse</itunes:author>"
-            f'<enclosure url="{html.escape(mix_url)}" type="audio/mpeg" length="{int(mix_length or 0)}"/>'
             "</item>"
         )
     return (
@@ -418,7 +436,8 @@ def rtmp_argv(url: str, source: Path, loop: bool = True) -> List[str]:
 RADIO_JS = r"""
 (function () {
   var SP = window.SP_RADIO || { playlist: [], epoch: 0, slot: 21600, pause: 5 };
-  var PL = SP.playlist || [];
+  var ALL = SP.playlist || [];
+  var PL = ALL.slice();
   var PAUSE = SP.pause || 5;
   var $ = function (id) { return document.getElementById(id); };
   var index = 0, ctx = null, master = null, analyser = null, drone = null;
@@ -497,6 +516,28 @@ RADIO_JS = r"""
       g.stroke();
     }
     raf = requestAnimationFrame(draw);
+  }
+
+  function branchOf(entry) { return entry.branch || entry.domain || ''; }
+  function renderList() {
+    var list = $('radio-list');
+    if (!list) return;
+    list.innerHTML = PL.map(function (entry, i) {
+      var section = entry.section ? '\u00A7 ' + entry.section : '\u2014';
+      return '<li data-radio-index="' + i + '"><span>' + section + '</span> ' + (entry.title || '') + '</li>';
+    }).join('');
+    Array.prototype.forEach.call(list.querySelectorAll('li'), function (row) {
+      row.addEventListener('click', function () { on(); play(Number(row.dataset.radioIndex)); });
+    });
+  }
+  function setBranch(branch) {
+    PL = branch === 'all' ? ALL.slice() : ALL.filter(function (entry) { return branchOf(entry) === branch; });
+    index = 0;
+    renderList();
+    if (PL.length) render(PL[0]);
+    var buttons = document.querySelectorAll('[data-radio-branch]');
+    Array.prototype.forEach.call(buttons, function (btn) { btn.classList.toggle('active', btn.dataset.radioBranch === branch); });
+    try { history.replaceState(null, '', branch === 'all' ? location.pathname : '?branch=' + branch); } catch (e) {}
   }
 
   function render(entry) {
@@ -598,10 +639,12 @@ RADIO_JS = r"""
   if (prev) prev.addEventListener('click', function () { on(); play(index - 1); });
   if (next) next.addEventListener('click', function () { on(); play(index + 1); });
   if (rnd) rnd.addEventListener('click', function () { on(); play(Math.floor(Math.random() * PL.length)); });
-  var rows = document.querySelectorAll('#radio-list li');
-  for (var r = 0; r < rows.length; r++) {
-    (function (i) { rows[i].addEventListener('click', function () { on(); play(i); }); })(r);
-  }
+  renderList();
+  Array.prototype.forEach.call(document.querySelectorAll('[data-radio-branch]'), function (btn) {
+    btn.addEventListener('click', function () { setBranch(btn.dataset.radioBranch); });
+  });
+  var initialBranch = (new URLSearchParams(location.search)).get('branch') || 'all';
+  setBranch(initialBranch);
 
   if (PL.length) {
     var slot = Math.floor((Date.now() / 1000 - SP.epoch) / SP.slot);
@@ -630,6 +673,9 @@ RADIO_CSS = """
 #radio-toggle { background: var(--ink); color: var(--paper); border-color: var(--ink); font-weight: 700; }
 #radio-scope { width: 100%; background: var(--paper-3); border: 1px solid var(--rule); border-radius: 4px; }
 #radio-list { list-style: none; padding: 0; margin: 12px 0 0; max-height: 340px; overflow-y: auto; }
+.branch-filter { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0 4px; }
+.branch-filter button { background: var(--paper-2); border: 1px solid var(--rule); color: var(--ink-2); border-radius: 999px; padding: 6px 12px; cursor: pointer; font-family: var(--mono); font-size: 12px; }
+.branch-filter button.active { background: var(--ink); border-color: var(--ink); color: var(--paper); }
 #radio-list li { padding: 8px 10px; border-bottom: 1px solid var(--rule); cursor: pointer; font-size: 14px; color: var(--ink-2); }
 #radio-list li:hover { color: var(--ink); }
 #radio-list li.playing { background: var(--paper-3); color: var(--ink); font-weight: 700; border-left: 3px solid var(--math); }
@@ -688,6 +734,13 @@ RADIO_PAGE_HEAD = """<!doctype html>
     <p class="meta" id="radio-domain"></p>
     <p class="lead" id="radio-hook"></p>
     <div class="formula" id="radio-formula"></div>
+    <div class="branch-filter" id="branch-filter">
+      <button type="button" data-radio-branch="all" class="active">Все ветки</button>
+      <button type="button" data-radio-branch="math">Математика</button>
+      <button type="button" data-radio-branch="physics">Физика</button>
+      <button type="button" data-radio-branch="cs">Информатика</button>
+      <button type="button" data-radio-branch="satellite_lab">Спутники</button>
+    </div>
     <div class="radio-ctl">
       <button id="radio-toggle" type="button">Включить эфир</button>
       <button id="radio-prev" type="button">Предыдущий</button>
@@ -794,8 +847,9 @@ def write_radio(dist: Path, posts: Sequence[Post], config: Config) -> Dict[str, 
     podcast_cfg = dict((getattr(config, "raw", {}) or {}).get("podcast") or {})
     mix_url = str(podcast_cfg.get("mix_url") or "")
     mix_length = mix.stat().st_size if mix.is_file() else int(podcast_cfg.get("mix_length") or 0)
+    mix_date = str(podcast_cfg.get("mix_date") or "")
     (dist / "podcast.xml").write_text(
-        build_podcast_xml(entries, config, mix_url=mix_url, mix_length=mix_length),
+        build_podcast_xml(entries, config, mix_url=mix_url, mix_length=mix_length, mix_date=mix_date),
         encoding="utf-8",
     )
     return {

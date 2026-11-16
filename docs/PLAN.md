@@ -1030,5 +1030,21 @@ Discord, Mastodon и VK **не проверялись**: в среде нет и
 - [x] `KV_REMOTE_WINS`: `staged_buffer`/`staged_next_post_id` при pull берутся из D1,
   локальный устаревший буфер не перезатирает источник истины.
 - [x] 62 source-native английских названия в `science_pulse/i18n.py`, без MT.
-- [x] 699 тестов OK.
+- [x] 704 теста OK.
 - [ ] Полные английские тела лекций / source-native пары — следующий слой.
+
+## 16. Подкаст, ветки и 90 дней (2026-11-16)
+
+- [x] `podcast.xml`: `<pubDate>` у каждого выпуска; микс первым; `guid`
+  `science-pulse:radio-mix-2026-11-15`; датированный файл
+  `radio_mix_2026_11_15.mp3`; фильтр online-постов — только канон и микс.
+- [x] MX `newmathphys.com` → `mailbe07.hoster.by`; ящик
+  `podcast@newmathphys.com` нужно проверить вручную перед подачей.
+- [x] `radio.html`: фильтр веток `math/physics/cs/satellite_lab` и `?branch=`.
+- [x] Telegram deep link `?start=branch_<id>`: бот закрепляет ветку и отдаёт
+  первый узел.
+- [x] `90days.html`: 13 недель × маршрут из 62 узлов, ссылки на разборы.
+- [x] README синхронизирован: D1-Primary, один cron, 62 узла, video-first,
+  без «Открытых пунктов нет».
+- [x] GitHub About: описание, сайт, topics.
+- [x] 704 теста OK.

@@ -77,6 +77,18 @@ class AdminTests(unittest.TestCase):
         next_post = self.admin.handle_command("/next", [])
         self.assertIn("Следующий", next_post)
 
+    def test_start_branch_deeplink(self):
+        from science_pulse.sources.foundation import FoundationSource
+
+        post = FoundationSource(self.config).fetch(limit=1, cycle=0)[0]
+        self.storage.add_post(post)
+        response = self.admin.handle_command("/start", ["branch_math"])
+        self.assertIn("Ветка", response)
+        self.assertIn("Ветка <b>math</b>", response)
+        self.assertEqual(self.storage.kv_get("branch_123"), "math")
+        unknown = self.admin.handle_command("/start", ["branch_nope"])
+        self.assertIn("Неизвестная ветка", unknown)
+
     def test_pause_resume(self):
         self.assertIn("паузе", self.admin.handle_command("/pause", []))
         self.assertEqual(self.storage.kv_get("paused"), "1")
