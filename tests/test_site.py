@@ -71,6 +71,30 @@ class SiteTests(unittest.TestCase):
         self.assertTrue((config.cards_dir / f"{post.id}.png").is_file())
         self.assertTrue((dist / "cards" / f"{post.id}.png").is_file())
 
+    def test_english_edition_pages(self):
+        from science_pulse.models import Post
+
+        post = Post(
+            id="en_turing", domain="cs", title="Тьюринг: машина",
+            hook="Почему?", body="Машина Тьюринга и лента. " * 20,
+            formula_plain="M = (Q, Γ, δ, q₀, F)",
+            meta={"canon_id": "turing_machine", "foundation_id": "turing_machine",
+                  "section_num": "5.3", "step": 5},
+        )
+        self.storage.add_post(post)
+        self.storage.mark_published(post.id)
+        dist = self.builder.build()
+        index = (dist / "en" / "index.html").read_text(encoding="utf-8")
+        page = (dist / "en" / "post" / f"{post.id}.html").read_text(encoding="utf-8")
+        self.assertIn('<html lang="en">', index)
+        self.assertIn("Turing: the machine", index)
+        self.assertIn("English edition", page)
+        self.assertIn("Read the full lecture in Russian", page)
+        self.assertTrue((dist / "en" / "syllabus.html").exists())
+        self.assertTrue((dist / "en" / "radio.html").exists())
+        ru_index = (dist / "index.html").read_text(encoding="utf-8")
+        self.assertIn("en/index.html", ru_index)
+
     def test_anatomy_block_has_formula_legend(self):
         post = self.storage.list_posts(status="published")[0]
         self.storage.set_post_meta(post.id, "formula_vars", "n — размер входа, T — число операций")

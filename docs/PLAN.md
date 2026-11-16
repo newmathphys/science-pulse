@@ -875,7 +875,7 @@ Discord, Mastodon и VK **не проверялись**: в среде нет и
 
 - [x] Падение планового `Run pipeline` закрыто: GitHub Secrets добавлены, workflow #99 — success, публикация в Telegram+Threads прошла.
 
-- [ ] RU/EN-сайт: `/en/` для index/post/syllabus/radio, переключатель языка, перевод или source-native пары.
+- [x] RU/EN MVP: `/en/` index/post/syllabus/radio, переключатель, source-native названия; полные тела — следующий слой.
 
 ## 12. Визуальные референсы: 10 ресурсов и что берём в SCM
 
@@ -1019,3 +1019,14 @@ Discord, Mastodon и VK **не проверялись**: в среде нет и
 - [x] Остальные 7 сцен: эпициклы Фурье, Markov-частицы, attention-дуги,
   diffusion-шум, векторы, Momentum, REINFORCE-стрелки — с тестами.
 - [x] Все 7 сцен отрендерены в MP4 и проверены.
+
+## 15. RU/EN MVP (2026-11-16)
+
+- [x] `/en/index.html` — English canon index.
+- [x] `/en/post/<id>.html` — English title, formula, code и ссылка на русский оригинал.
+- [x] `/en/syllabus.html` — English steps.
+- [x] `/en/radio.html` — English radio/podcast entry.
+- [x] Переключатель `RU/EN` на русском и английском сайте.
+- [x] 62 source-native английских названия в `science_pulse/i18n.py`, без MT.
+- [x] 698 тестов OK.
+- [ ] Полные английские тела лекций / source-native пары — следующий слой.

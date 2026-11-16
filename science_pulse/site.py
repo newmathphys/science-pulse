@@ -10,6 +10,7 @@ from typing import Any, Dict, List
 
 from .config import Config
 from .graph import build_links, pagerank, poincare_layout, top_by_pagerank
+from .i18n import domain_en, summary_en, step_title_en, title_en
 from .models import DOMAIN_LABELS, Post
 from .storage import Storage
 from .text import keywords, truncate
@@ -44,6 +45,11 @@ header { padding: 30px 0 0; }
 .brand { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
 .brand h1 { margin: 0; font-size: clamp(24px, 3.6vw, 38px); letter-spacing: -0.01em; font-weight: 700; }
 .brand span { color: var(--ink-2); font-family: var(--mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; }
+.lang-switch { margin-left: auto; border: 1px solid var(--rule); border-radius: 999px; padding: 3px 10px; font-family: var(--mono); font-size: 11px; color: var(--ink-2); }
+.lang-switch:hover { color: var(--ink); border-color: var(--ink); }
+.en-list { list-style: none; padding: 0; margin: 18px 0; }
+.en-list li { display: grid; grid-template-columns: 8ch 1fr auto; gap: 12px; padding: 9px 0; border-top: 1px solid var(--rule); align-items: baseline; }
+.en-list a { color: var(--ink); }
 .stats { display: flex; gap: 20px; flex-wrap: wrap; color: var(--ink-2); font-size: 13px; margin-top: 8px; font-family: var(--mono); }
 nav.tabs { display: flex; gap: 24px; flex-wrap: wrap; padding: 16px 0; margin-top: 14px; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); font-size: 15px; }
 nav.tabs a { border: 0; color: var(--ink-2); }
@@ -733,6 +739,7 @@ class SiteBuilder:
         self._write_og_images(posts, dist)
         self._write_legal(dist)
         self._write_radio(posts + programme, dist)
+        self._write_english(posts + programme, dist)
         self._write_pwa(dist)
         (dist / "robots.txt").write_text("User-agent: *\nAllow: /\n", encoding="utf-8")
         # GitHub Pages из ветки gh-pages: отключаем обработку Jekyll, чтобы
@@ -1011,7 +1018,7 @@ class SiteBuilder:
 <body>
 <div class="wrap">
 <header>
-  <div class="brand"><h1><a href="{prefix}index.html" style="color:inherit">{site_title}</a></h1><span>системный атлас точных наук</span></div>
+  <div class="brand"><h1><a href="{prefix}index.html" style="color:inherit">{site_title}</a></h1><span>системный атлас точных наук</span><a class="lang-switch" href="{prefix}en/index.html">EN</a></div>
   <div class="stats">{self._stats_html(posts_count=self.storage.count("published"))}</div>
 </header>
 {content}
@@ -1832,6 +1839,108 @@ class SiteBuilder:
             write_radio(dist, posts, self.config)
         except Exception as exc:  # pragma: no cover - радио не должно ронять сборку
             LOGGER.warning("Радио не собрано: %s", exc)
+
+    def _en_page(self, title: str, content: str, depth: int = 1) -> str:
+        prefix = "../" * depth
+        return f"""<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{_e(title)} · Science Pulse</title>
+<meta name="description" content="Deterministic science canon: mathematics, physics, computer science.">
+<meta name="theme-color" content="#FAF8F4">
+<link rel="stylesheet" href="{prefix}assets/style.css">
+<link rel="alternate" hreflang="ru" href="{prefix}index.html">
+<link rel="alternate" hreflang="en" href="{prefix}en/index.html">
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="brand"><h1><a href="{prefix}en/index.html" style="color:inherit">Science Pulse</a></h1>
+  <span>English edition</span><a class="lang-switch" href="{prefix}index.html">RU</a></div>
+  <nav class="tabs">
+    <a href="{prefix}en/index.html">Canon</a>
+    <a href="{prefix}en/syllabus.html">Syllabus</a>
+    <a href="{prefix}en/radio.html">Radio</a>
+    <a href="{prefix}index.html">Русская версия</a>
+  </nav>
+</header>
+{content}
+<footer>Science Pulse · source-native English edition · no LLM in content. Full lectures in Russian.</footer>
+</div>
+</body>
+</html>"""
+
+    def _write_english(self, posts: List[Post], dist: Path) -> None:
+        """English edition: native UI, canon titles, formulas and links to the source."""
+        en = dist / "en"
+        en_posts = en / "post"
+        en.mkdir(parents=True, exist_ok=True)
+        en_posts.mkdir(parents=True, exist_ok=True)
+        by_id = {str((p.meta or {}).get("canon_id") or (p.meta or {}).get("foundation_id") or ""): p for p in posts}
+        ordered = sorted(
+            [p for p in posts if (p.meta or {}).get("canon_id") or (p.meta or {}).get("foundation_id")],
+            key=lambda p: str((p.meta or {}).get("section_num") or "99"),
+        )
+        rows = []
+        for post in ordered:
+            canon_id = str((post.meta or {}).get("canon_id") or (post.meta or {}).get("foundation_id") or "")
+            rows.append(
+                f'<li><span class="mono">§ {_e(str((post.meta or {}).get("section_num") or "—"))}</span> '
+                f'<a href="post/{_e(post.id)}.html">{_e(title_en(post))}</a> '
+                f'<span class="meta">{_e(domain_en(post))}</span></li>'
+            )
+        index = (
+            '<main><h1>Science Pulse — English edition</h1>'
+            '<p class="lead">A deterministic canon of mathematics, physics and computer science. '
+            'Titles and formulas are source-native; the full lecture is linked to the Russian original.</p>'
+            f'<p class="meta">{len(ordered)} canon nodes · {len([p for p in ordered if p.status == "published"])} published</p>'
+            f'<ul class="en-list">{"".join(rows)}</ul></main>'
+        )
+        (en / "index.html").write_text(self._en_page("Canon", index, depth=1), encoding="utf-8")
+
+        for post in ordered:
+            formula = post.formula_latex or post.formula_plain
+            formula_html = f'<div class="formula">\\[ {_e(formula)} \\]</div>' if formula else ""
+            code_html = f"<h2>Code</h2><pre><code>{_e(post.code)}</code></pre>" if post.code else ""
+            content = (
+                f'<article><a href="../index.html">← canon</a>'
+                f'<p class="meta">§ {_e(str((post.meta or {}).get("section_num") or "—"))} · {_e(domain_en(post))}</p>'
+                f'<h1>{_e(title_en(post))}</h1>'
+                f'<p class="lead">{_e(summary_en(post))}</p>'
+                f'{formula_html}{code_html}'
+                f'<p><a href="../../post/{_e(post.id)}.html">Read the full lecture in Russian →</a></p>'
+                '</article>'
+            )
+            (en_posts / f"{post.id}.html").write_text(self._en_page(title_en(post), content, depth=2), encoding="utf-8")
+
+        steps: Dict[int, List[Post]] = {}
+        for post in ordered:
+            try:
+                step = int((post.meta or {}).get("step") or 9)
+            except (TypeError, ValueError):
+                step = 9
+            steps.setdefault(step, []).append(post)
+        blocks = []
+        for step in sorted(steps):
+            items = "".join(
+                f'<li><a href="post/{_e(post.id)}.html">{_e(title_en(post))}</a></li>' for post in steps[step]
+            )
+            blocks.append(f'<section class="step"><div class="step-head"><span class="roman">STEP {step}</span>'
+                          f'<h2>{_e(step_title_en(step))}</h2></div><ul>{items}</ul></section>')
+        (en / "syllabus.html").write_text(
+            self._en_page("Syllabus", '<main><h1>Syllabus</h1>' + "".join(blocks) + "</main>", depth=1),
+            encoding="utf-8",
+        )
+
+        radio = (
+            '<main><h1>Science Pulse Radio</h1>'
+            '<p class="lead">The Russian-language academic radio is generated from the same canon.</p>'
+            '<p><a href="../radio.html">Open the 24/7 radio →</a> · <a href="../podcast.xml">Podcast RSS →</a></p>'
+            '<p class="meta">Cover 3000×3000 · weekly mix · no LLM in content.</p></main>'
+        )
+        (en / "radio.html").write_text(self._en_page("Radio", radio, depth=1), encoding="utf-8")
 
     def _write_search(self, posts: List[Post], dist: Path) -> None:
         data = [
