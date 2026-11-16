@@ -248,8 +248,8 @@ CANON: List[Dict[str, Any]] = [
             "Эти идеи лежат в основе сжатия данных, помехоустойчивого кодирования, связи 5G и криптографии. "
             "Информация стала измеримой физической величиной, связанной с термодинамикой и вычислениями."
         ),
-        "formula_latex": r"H(X) = -\sum_{i} p_i \log_2 p_i, \quad C = B \log_2\left(1 + \frac{S}{N}\right)",
-        "formula_plain": "H(X) = −∑ pᵢ log₂ pᵢ,   C = B log₂(1 + S/N)",
+        "formula_latex": r"H(X) = -\sum_{i} p_i \log_2 p_i",
+        "formula_plain": "H(X) = −∑ pᵢ log₂ pᵢ",
         "code": "",
         "source_url": "https://ru.wikipedia.org/wiki/Информационная_энтропия",
     },
@@ -1189,7 +1189,7 @@ CANON.extend([
         "domain": "math",
         "era": "1665–1684 • Кембридж и Лейпциг",
         "scientist": "Ньютон и Лейбниц",
-        "title": "Производная: мгновенная скорость изменения",
+        "title": "Производная: касательная и линейное приближение",
         "hook": "Как из среднего изменения получить точную скорость в конкретный момент?",
         "body": (
             "Производная описывает, как быстро меняется функция при бесконечно малом сдвиге аргумента. "
@@ -1199,8 +1199,8 @@ CANON.extend([
             "Вместе с интегралом она образует основной аппарат анализа, дифференциальных уравнений "
             "и численных методов. Без неё не было бы ни динамики Ньютона, ни теории управления."
         ),
-        "formula_latex": r"\frac{d}{dx}x^2=2x, \quad f'(x)=\lim_{h\to 0}\frac{f(x+h)-f(x)}{h}",
-        "formula_plain": "d/dx x² = 2x,   f′(x) = lim (f(x+h) − f(x))/h",
+        "formula_latex": r"y = f(x_0) + f'(x_0)(x - x_0), \quad f'(x_0) = \tan\alpha",
+        "formula_plain": "y = f(x₀) + f′(x₀)(x − x₀),   f′(x₀) = tan α",
         "code": "",
         "source_url": "https://ru.wikipedia.org/wiki/Производная_функции",
         "prereq_ids": ["newton_calculus", "trigonometry"],
@@ -1612,7 +1612,7 @@ CANON.extend([
         "domain": "cs",
         "era": "1956–1959 • Амстердам",
         "scientist": "Эдсгер Дейкстра",
-        "title": "Алгоритмы на графах: кратчайший путь",
+        "title": "Алгоритмы на графах: обход и достижимость",
         "hook": "Как найти самый быстрый маршрут в сети, не перебирая все пути?",
         "body": (
             "Граф состоит из вершин и рёбер; алгоритм Дейкстры находит кратчайшие расстояния "
@@ -1623,8 +1623,8 @@ CANON.extend([
             "Обход в ширину даёт кратчайший путь по числу рёбер, в глубину — топологическую сортировку. "
             "Поиск компонент связности и остовного дерева превращает хаос связей в структуру."
         ),
-        "formula_latex": r"d(v)=\min_{(u,v)\in E}\left(d(u)+w(u,v)\right)",
-        "formula_plain": "d(v) = min(d(u) + w(u,v))",
+        "formula_latex": r"G=(V,E), \quad \mathrm{reachable}(u,v) \Longleftrightarrow \exists\, u \to v",
+        "formula_plain": "G = (V, E),   reachable(u,v) ⇔ ∃ путь u → v",
         "code": (
             "import heapq\n\n"
             "def dijkstra(graph, start):\n"
@@ -1650,7 +1650,7 @@ CANON.extend([
         "domain": "cs",
         "era": "1948 • Bell Labs",
         "scientist": "Клод Шеннон",
-        "title": "Теория информации: сколько стоит неопределённость",
+        "title": "Теория информации: пропускная способность канала",
         "hook": "Почему одна монета даёт ровно один бит информации, а предсказуемое событие — ноль?",
         "body": (
             "Шеннон определил количество информации через энтропию распределения: "
@@ -1661,8 +1661,8 @@ CANON.extend([
             "Эти идеи лежат в основе ZIP, MP3, 5G, QR-кодов и криптографии. "
             "Информация стала измеримой величиной, связанной с вероятностью и физикой."
         ),
-        "formula_latex": r"H(X)=-\sum_i p_i\log_2 p_i, \quad C=B\log_2(1+S/N)",
-        "formula_plain": "H(X) = −Σ pᵢ log₂ pᵢ,   C = B log₂(1 + S/N)",
+        "formula_latex": r"C = B \log_2\left(1+\frac{S}{N}\right), \quad C = \max_{p(x)} I(X;Y)",
+        "formula_plain": "C = B log₂(1 + S/N),   C = max I(X;Y)",
         "code": "",
         "source_url": "https://ru.wikipedia.org/wiki/Информационная_энтропия",
         "prereq_ids": ["shannon_entropy", "logarithm"],

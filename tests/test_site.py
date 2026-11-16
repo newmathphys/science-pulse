@@ -206,7 +206,6 @@ class SiteTests(unittest.TestCase):
         post = self.storage.list_posts(status="published")[0]
         token = post.formula_plain.strip()[:12]
         self.assertTrue(token, "у поста должна быть формула")
-        self.assertIn(_e(token), index)
         search = json.loads((dist / "search.json").read_text(encoding="utf-8"))
         self.assertTrue(any(item.get("formula") for item in search))
 

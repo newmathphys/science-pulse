@@ -73,6 +73,12 @@ button.filter.active { background: var(--ink); border-color: var(--ink); color: 
 .node.staged { border-color: var(--math); border-style: dashed; }
 .node.locked { background: var(--paper-3); border-style: dashed; }
 .node img { width: 100%; aspect-ratio: 1/1; object-fit: cover; border-bottom: 1px solid var(--rule); }
+.node-figure { width: 100%; aspect-ratio: 1/1; display: block; border-bottom: 1px solid var(--rule); background: var(--paper-3); }
+.observatory { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin: 18px 0 24px; }
+.obs-card { border: 1px solid var(--rule); border-left: 4px solid var(--accent); background: var(--paper-2); border-radius: 4px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
+.obs-card .stamp { align-self: flex-start; }
+.obs-card h3 { margin: 0; font-size: 16px; }
+.obs-card p { margin: 0; color: var(--ink-2); font-size: 13px; }
 .node .nbody { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
 .node .sec { font-family: var(--mono); font-size: 12px; color: var(--ink-2); letter-spacing: .06em; }
 .node h3 { margin: 0; font-size: 17px; line-height: 1.35; }
@@ -729,6 +735,7 @@ class SiteBuilder:
         self._write_topics(posts, dist)
         self._write_syllabus(posts + programme, dist)
         self._write_90days(posts + programme, dist)
+        self._write_archive(posts, dist)
         self._write_flashcards(posts, dist)
         if self.config.miniapp_public:
             self._write_miniapp(dist)
@@ -1043,6 +1050,65 @@ class SiteBuilder:
             "<span>0 LLM</span>"
         )
 
+    @staticmethod
+    def _node_figure(item: Dict[str, Any], state: str) -> str:
+        """Детерминированный SVG-чертёж для витрины: у каждого узла своя схема."""
+        cid = str(item.get("id") or "")
+        color = {"math": "#1E3A8A", "physics": "#9F1239", "cs": "#065F46"}.get(
+            str(item.get("domain") or ""), "#374151"
+        )
+        muted = state != "published"
+        stroke = color if not muted else "#9CA3AF"
+        dash = ' stroke-dasharray="5 5"' if muted else ""
+        shapes: List[str] = []
+        # разные семейства чертежей, без текста и без общих заглушек
+        if cid in ("pythagoras", "trigonometry"):
+            shapes = [
+                f'<polygon points="35,140 35,45 140,140" fill="none" stroke="{stroke}" stroke-width="2"{dash}/>',
+                f'<path d="M35 55 A20 20 0 0 1 55 45" fill="none" stroke="{stroke}" stroke-width="1.5"/>',
+            ]
+        elif cid in ("turing_machine", "binary_memory", "mcculloch_pitts"):
+            shapes = [f'<g stroke="{stroke}" stroke-width="1.5"{dash}>' + "".join(
+                f'<rect x="{18+i*24}" y="62" width="20" height="20" fill="none"/>' for i in range(6)
+            ) + f'<path d="M70 108 L95 108 L88 98 M95 108 L88 118" fill="none"/></g>']
+        elif cid in ("fourier_series", "wave_phase", "harmonic_oscillator"):
+            shapes = [f'<path d="M20 95 C45 25 70 165 95 95 S145 25 170 95" fill="none" stroke="{stroke}" stroke-width="2"{dash}/>']
+            shapes += [f'<circle cx="55" cy="95" r="{r}" fill="none" stroke="{stroke}" stroke-width="1" opacity=".55"/>' for r in (18, 30)]
+        elif cid in ("dijkstra_shortest", "graph_algorithms", "a_star", "finite_automata"):
+            nodes = [(30, 45), (70, 25), (105, 55), (65, 95), (125, 105), (150, 55)]
+            shapes = [f'<g stroke="{stroke}" stroke-width="1.5"{dash}>' + "".join(
+                f'<line x1="{nodes[i][0]}" y1="{nodes[i][1]}" x2="{nodes[j][0]}" y2="{nodes[j][1]}"/>'
+                for i, j in ((0,1),(1,2),(0,3),(3,4),(2,4),(2,5))
+            ) + "".join(f'<circle cx="{x}" cy="{y}" r="6" fill="var(--paper-3)"/>' for x,y in nodes) + '</g>']
+        elif cid in ("kalman_filter", "insar_ndvi", "gravitational_waves", "schwarzschild_light"):
+            shapes = [f'<g fill="none" stroke="{stroke}"{dash}>' + "".join(
+                f'<ellipse cx="90" cy="90" rx="{20+i*12}" ry="{10+i*7}" transform="rotate({-20+i*8} 90 90)" stroke-width="1.5"/>'
+                for i in range(5)
+            ) + '</g>']
+        elif cid in ("shannon_entropy", "information_theory", "probability", "bayes"):
+            shapes = [f'<g fill="{stroke}" opacity="{0.25 if muted else 0.8}"{dash}>' + "".join(
+                f'<rect x="{25+i*20}" y="{125-h}" width="12" height="{h}"/>' for i,h in enumerate((35,55,80,48,95,62))
+            ) + '</g>']
+        elif cid in ("newton_calculus", "derivative", "thermodynamics", "momentum"):
+            shapes = [f'<path d="M20 120 Q60 20 100 80 T170 55" fill="none" stroke="{stroke}" stroke-width="2"{dash}/>',
+                      f'<line x1="35" y1="145" x2="155" y2="30" stroke="{stroke}" stroke-width="1" stroke-dasharray="4 4"/>']
+        elif cid in ("newton_gravity", "einstein_relativity", "maxwell", "electromagnetic_wave", "planck_quantum", "quantum_tunneling", "quantum_uncertainty"):
+            shapes = [f'<g fill="none" stroke="{stroke}"{dash}>' + "".join(
+                f'<circle cx="90" cy="90" r="{18+i*16}" stroke-width="1.2"/>' for i in range(5)
+            ) + f'<line x1="20" y1="90" x2="160" y2="90" stroke-width="1.5"/></g>']
+        else:
+            # абстрактная, но уникальная схема по id
+            seed = sum(ord(ch) for ch in cid)
+            shapes = [f'<g fill="none" stroke="{stroke}" stroke-width="1.5"{dash}>' + "".join(
+                f'<path d="M{20+(seed+i*17)%140} {30+(seed*3+i*29)%120} l{10+(seed+i)%30} {5+(seed*2+i)%25}" />'
+                for i in range(5)
+            ) + '</g>']
+        return (
+            f'<svg class="node-figure" viewBox="0 0 180 180" role="img" aria-label="{_e(str(item.get("title") or ""))}">'
+            f'<rect x="1" y="1" width="178" height="178" fill="#F3F0EA" stroke="{"#D6D1C7" if muted else "#111827"}" stroke-width="1"/>'
+            + "".join(shapes) + '</svg>'
+        )
+
     def _node_card(self, item: Dict[str, Any], post: Optional[Post], staged: str, dist: Path) -> str:
         """Карточка узла канона в матрице ступеней: §, учёный, эпоха, формула, статус."""
         from .sources.foundation import section_of
@@ -1056,11 +1122,7 @@ class SiteBuilder:
             state, stamp = "staged", '<span class="stamp next">Следующий выпуск</span>'
         else:
             state, stamp = "locked", '<span class="stamp lock">В программе курса</span>'
-        image = ""
-        if post is not None:
-            rel = str((post.meta or {}).get("card_url") or f"cards/{post.id}.png")
-            if rel.startswith("http") or (dist / rel).exists():
-                image = f'<img src="{_e(rel)}" alt="{_e(item["title"])}" loading="lazy">'
+        image = self._node_figure(item, state)
         formula = item.get("formula_latex") or item.get("formula_plain") or ""
         fx = f'<div class="fx">${_e(formula)}$</div>' if formula else ""
         haystack = " ".join(
@@ -1198,7 +1260,10 @@ class SiteBuilder:
                 by_canon[canon_id] = post
         published = [cid for cid, post in by_canon.items() if post.status == "published"]
         staged = ""
-        for item in sorted(by_canon.values(), key=lambda p: (p.meta or {}).get("section_num", "")):
+        def _sec_key(value: str) -> tuple:
+            return tuple(int(part) for part in str(value).split(".") if part.isdigit())
+
+        for item in sorted(by_canon.values(), key=lambda p: _sec_key(str((p.meta or {}).get("section_num") or ""))):
             if item.status == "ready":
                 staged = (item.meta or {}).get("foundation_id", "")
                 break
@@ -1207,7 +1272,8 @@ class SiteBuilder:
         steps = sorted({step_of(item["id"]) for item in CANON})
         rows: List[str] = []
         for step in steps:
-            nodes = sorted([item for item in CANON if step_of(item["id"]) == step], key=section_of)
+            nodes = sorted([item for item in CANON if step_of(item["id"]) == step],
+                           key=lambda item: _sec_key(section_of(item["id"])))
             cards = "".join(self._node_card(item, by_canon.get(item["id"]), staged, dist) for item in nodes)
             rows.append(
                 '<section class="step">'
@@ -1220,18 +1286,6 @@ class SiteBuilder:
         for domain, label in DOMAIN_LABELS.items():
             filters.append(f'<button class="filter" data-domain="{domain}">{label}</button>')
 
-        extra = [post for post in posts if not (post.meta or {}).get("foundation_id")]
-        extra_html = ""
-        if extra:
-            extra_cards = "".join(
-                f'<a class="card" data-domain="{_e(post.domain)}" data-search="{_e(" ".join([post.title, post.hook, post.body[:400], post.formula_plain, post.formula_latex, post.source_name]))}" '
-                f'href="post/{post.id}.html"><div class="body">'
-                f'<span class="badge {_e(post.domain)}">{_e(DOMAIN_LABELS.get(post.domain, post.domain))}</span>'
-                f"<h2>{_e(post.title)}</h2><span class=\"meta\">{_e(post.source_name)}</span></div></a>"
-                for post in extra[:12]
-            )
-            extra_html = f'<section class="step"><div class="step-head"><span class="roman">ПРОЧЕЕ</span><h2>Дополнительные разборы</h2></div><div class="step-row">{extra_cards}</div></section>'
-
         passport = (
             '<div class="passport">'
             f'<span>Открыто фундаментальных узлов: <b>{len(published)} / {len(CANON)}</b></span>'
@@ -1240,8 +1294,30 @@ class SiteBuilder:
             f'<span>В очереди: <b>{self.storage.count("ready")}</b></span>'
             "</div>"
         )
+        sat = by_canon.get("insar_ndvi") or by_canon.get("schwarzschild_light")
+        sat_href = f'post/{sat.id}.html' if sat and sat.status == "published" else "90days.html"
+        observatory = f"""
+<section class="observatory">
+  <a class="obs-card" href="{sat_href}">
+    <span class="stamp next">ОРБИТА</span>
+    <h3>Спутниковая лаборатория</h3>
+    <p>InSAR, Калман, орбиты и диптих поля: живая ветка космоса.</p>
+  </a>
+  <a class="obs-card" href="radio.html?branch=satellite_lab">
+    <span class="stamp next">ДАТЧИК ПЛАНЕТЫ</span>
+    <h3>Живые сенсоры</h3>
+    <p>USGS, NOAA, МКС и LIGO — телеметрия без ключей.</p>
+  </a>
+  <a class="obs-card" href="archive.html">
+    <span class="stamp next">РАДАР ТРЕНДОВ</span>
+    <h3>Тренды и архив</h3>
+    <p>Свежие сигналы и сырые черновики — отдельно от канона.</p>
+  </a>
+</section>
+"""
         content = f"""
 {passport}
+{observatory}
 {self._branch_html(all_posts)}
 <nav class="tabs">
   <a class="active" href="index.html">I. Дерево Фундамента</a>
@@ -1251,7 +1327,8 @@ class SiteBuilder:
   <a href="flashcards.html">V. Тренажёр памяти</a>
   <a href="radio.html">Радио 24/7</a>
   <a href="90days.html">90 дней</a>
-  <a href="llms.txt">V. Машиночитаемый слой</a>
+  <a href="archive.html">Архив</a>
+  <a href="llms.txt">VI. Машиночитаемый слой</a>
 </nav>
 {self._poincare_html()}
 <div class="toolbar">
@@ -1259,8 +1336,7 @@ class SiteBuilder:
   {''.join(filters)}
 </div>
 {''.join(rows)}
-{extra_html}
-<p class="meta">Канон: {len(CANON)} узлов · {len(steps)} ступеней · обновляется при каждой публикации.
+<p class="meta">Канон: {len(CANON)} узла · {len(steps)} ступеней · обновляется при каждой публикации.
 · <a href="sitemap.xml">sitemap.xml</a> · <a href="search.json">search.json</a> · <a href="bibtex.bib">bibtex.bib</a></p>
 <script>{INDEX_JS}</script>
 """
@@ -2286,6 +2362,23 @@ renderPlatforms();
 """
         (dist / "syllabus.html").write_text(self._page("Программа курса", content), encoding="utf-8")
 
+    def _write_archive(self, posts: List[Post], dist: Path) -> None:
+        """Архив неканонических online-постов: не засоряет главную витрину."""
+        extra = [post for post in posts if not (post.meta or {}).get("foundation_id")]
+        rows = "".join(
+            f'<li><a href="post/{_e(post.id)}.html">{_e(post.title)}</a> '
+            f'<span class="meta">{_e(post.source_name)} · {_e(DOMAIN_LABELS.get(post.domain, post.domain))}</span></li>'
+            for post in extra
+        )
+        content = (
+            '<article><div class="badge">АРХИВ</div><h1>Архив и сырые источники</h1>'
+            '<p class="lead">Неканонические online-разборы вынесены с главной витрины. '
+            'Канон остаётся чистым атласом.</p>'
+            + (f'<ul>{rows}</ul>' if rows else '<p class="empty">Архив пуст.</p>')
+            + '<p><a href="index.html">← к канону</a></p></article>'
+        )
+        (dist / "archive.html").write_text(self._page("Архив", content), encoding="utf-8")
+
     def _write_90days(self, posts: List[Post], dist: Path) -> None:
         """13-недельная сетка: 62 узла канона от фундамента к прикладным мостам."""
         from .sources.foundation import CANON, section_of, step_of
@@ -2358,7 +2451,7 @@ renderPlatforms();
         base = self.config.site_base_url or "https://science-pulse.local"
         urls = [f"{base}/", f"{base}/index.html", f"{base}/scientists.html",
                 f"{base}/constants.html", f"{base}/topics.html", f"{base}/syllabus.html",
-                f"{base}/radio.html", f"{base}/90days.html", f"{base}/podcast.xml"]
+                f"{base}/radio.html", f"{base}/90days.html", f"{base}/archive.html", f"{base}/podcast.xml"]
         for post in posts:
             urls.append(f"{base}/post/{post.id}.html")
         body = "".join(f"<url><loc>{_e(url)}</loc></url>" for url in urls)

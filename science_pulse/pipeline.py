@@ -242,7 +242,14 @@ class Pipeline:
         if key in ("base", "canon", "foundation"):
             return [post for post in posts if is_foundation(post)]
         if key in ("trend", "actual", "news"):
-            return [post for post in posts if not is_foundation(post)]
+            trusted = ("trend", "trending", "hacker", "reddit", "sensor", "usgs", "noaa", "telemetry")
+            return [
+                post for post in posts
+                if not is_foundation(post) and (
+                    str((post.meta or {}).get("rubric") or "").lower() in ("trend", "sensor")
+                    or any(marker in str(post.source_name or "").lower() for marker in trusted)
+                )
+            ]
         if key in ("satellite", "satellites"):
             canon_ids = {"insar_ndvi", "newton_gravity", "einstein_relativity",
                          "schwarzschild_light", "gravitational_waves"}
