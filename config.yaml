@@ -354,6 +354,7 @@ podcast:
   mix_url: "https://github.com/newmathphys/science-pulse/releases/download/media-2026-11/radio_mix_2026_11_15.mp3"
   mix_length: 16106830
   mix_date: "2026-11-15"
+  mix_duration: 671
   resolve_lengths: true
 
 maturity:

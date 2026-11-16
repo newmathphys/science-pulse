@@ -860,7 +860,7 @@ def write_radio(dist: Path, posts: Sequence[Post], config: Config) -> Dict[str, 
     mix_url = str(podcast_cfg.get("mix_url") or "")
     mix_length = mix.stat().st_size if mix.is_file() else int(podcast_cfg.get("mix_length") or 0)
     mix_date = str(podcast_cfg.get("mix_date") or "")
-    mix_duration = _duration_seconds(mix) if mix.is_file() else 0.0
+    mix_duration = _duration_seconds(mix) if mix.is_file() else float(podcast_cfg.get("mix_duration") or 0.0)
     (dist / "podcast.xml").write_text(
         build_podcast_xml(entries, config, mix_url=mix_url, mix_length=mix_length,
                           mix_date=mix_date, mix_duration=mix_duration),
