@@ -1,25 +1,24 @@
 {
   "telegram": {
-    "hash": "872e17f81fdd2c69ddc7548ede852ab747d7ada1f1f771c4da653b97ffc8b331",
-    "latest": "August 24, 2026 · Bot API 10.3",
+    "hash": "666799293a8e5e3564dc66667e76b472e76a2b6545b81c826f17a27a612fbb73",
+    "latest": "November 9, 2026 · Bot API 10.4",
     "items": [
+      "November 9, 2026 · Bot API 10.4",
       "August 24, 2026 · Bot API 10.3",
-      "July 14, 2026 · Bot API 10.2",
-      "June 11, 2026 · Bot API 10.1",
-      "May 8, 2026 · Bot API 10.0"
+      "July 14, 2026 · Bot API 10.2"
     ],
-    "checked_at": "2026-11-09T10:55:09+00:00"
+    "checked_at": "2026-11-16T16:42:58+00:00"
   },
   "threads": {
-    "hash": "6ddad207fe341d9f5d9cad082b20df3b9dfcbd183296a612c7854965da4c64a7",
-    "latest": "Nov 3, 2026 · Теперь вы можете встроить общедоступный профиль Threads, передав его URL в Threads oEmbed API. Подробнее см. в статье Вставка публикации Threads .",
+    "hash": "6781163d29fa3d80e09e48c5bb2f20d72ef832b88c449cecc46333084cde7f4a",
+    "latest": "Nov 12, 2026 · The Threads Trending Topics API is now available to all developers. Use the /trending_topics endpoint to get current trending topics on Threads, and the / /posts endpoint to retrie",
     "items": [
-      "Nov 3, 2026 · Теперь вы можете встроить общедоступный профиль Threads, передав его URL в Threads oEmbed API. Подробнее см. в статье Вставка публикации Threads .",
-      "Oct 30, 2026 · Чтобы помечать публикации с текстом, изображениями, видео и кольцевыми галереями, сгенерированные ИИ, задайте is_made_with_ai=true при создании контейнера медиафайла. Для публикаци",
-      "Aug 18, 2026 · Теперь вы можете вызывать Threads Debug Token API ( /debug_token ) с использованием маркера доступа приложения в качестве альтернативы маркеру доступа пользователя-тестировщика Thr",
-      "Aug 12, 2026 · Ответ с краткосрочным маркером доступа от конечной точки POST /oauth/access_token теперь содержит token_type , что обеспечивает согласованность с конечными точками маркера доступа"
+      "Nov 12, 2026 · The Threads Trending Topics API is now available to all developers. Use the /trending_topics endpoint to get current trending topics on Threads, and the / /posts endpoint to retrie",
+      "Nov 9, 2026 · You can now render a Threads post or profile in light, dark, or auto mode with the optional theme parameter. See oEmbed for more details.",
+      "Nov 3, 2026 · You can now embed a public Threads profile by passing its URL to the Threads oEmbed API. See Embed a Threads post for more details.",
+      "Oct 30, 2026 · You can label AI-generated text, image, video, and carousel posts by setting is_made_with_ai=true when creating a media container. For carousel posts, set the parameter on the pare"
     ],
-    "checked_at": "2026-11-09T10:55:09+00:00"
+    "checked_at": "2026-11-16T16:42:58+00:00"
   },
   "cloudflare": {
     "hash": "02cee3cd97df32285ffa4ffefc11aa8ee323b4526253cc08bde91c374856fd60",
@@ -30,18 +29,18 @@
       "2026-09-14 · Updated v8 to version 15.4.",
       "2026-08-28 · Updated v8 to version 15.3."
     ],
-    "checked_at": "2026-11-09T10:55:09+00:00"
+    "checked_at": "2026-11-16T16:42:58+00:00"
   },
   "github_actions": {
-    "hash": "81b61c4efc920b7324141fd4c59c2561dfd2f8a979aae3ac5d75b9b98d8aa00e",
-    "latest": "Mon, 02 Nov 2026 15:14:46 +0000 · pull_request_target blocked by default December 2",
+    "hash": "215b41d08d95acbb9bdb07667dba46d32382c2c9ff97a2a50b92585909a17c8e",
+    "latest": "Thu, 12 Nov 2026 20:59:36 +0000 · Actions for ARM32 Linux & Windows retirement",
     "items": [
+      "Thu, 12 Nov 2026 20:59:36 +0000 · Actions for ARM32 Linux & Windows retirement",
       "Mon, 02 Nov 2026 15:14:46 +0000 · pull_request_target blocked by default December 2",
       "Wed, 28 Oct 2026 15:30:15 +0000 · GitHub Agentic Workflows generally available",
-      "Wed, 28 Oct 2026 15:30:00 +0000 · GitHub Actions adds multi-cloud compute to improve reliability",
-      "Wed, 28 Oct 2026 15:30:00 +0000 · GitHub Actions workflow lockfiles are generally available"
+      "Wed, 28 Oct 2026 15:30:00 +0000 · GitHub Actions adds multi-cloud compute to improve reliability"
     ],
-    "checked_at": "2026-11-09T10:55:09+00:00"
+    "checked_at": "2026-11-16T16:42:58+00:00"
   },
   "telegram_web": {
     "hash": "0c33e0b1ee6cae89938337b02237cbef518f5919d0db25831514553dddbbd43e",
@@ -52,6 +51,6 @@
       "2023-12-27 · we would like to give a special thanks to 🥇 Fit Whale, who was able to find a great minimalist solution for Task II that will be merged with Web K soon",
       "2023-09-24 · 🎄 WebK поздравляет Вас с наступающим! В это волшебное время мы рады поделиться с Вами новостями о недавних нововведениях и улучшениях, недавно появившихся в приложении. 🎨 Оформлени"
     ],
-    "checked_at": "2026-11-09T10:55:09+00:00"
+    "checked_at": "2026-11-16T16:42:58+00:00"
   }
 }
