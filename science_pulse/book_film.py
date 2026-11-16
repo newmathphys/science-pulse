@@ -551,6 +551,207 @@ def _draw_astar_scene(draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, int],
 
 
 
+def _arrow(draw: ImageDraw.ImageDraw, start: Tuple[int, int], end: Tuple[int, int],
+           color: Any, width: int = 2) -> None:
+    draw.line((start, end), fill=color, width=width)
+    angle = math.atan2(end[1] - start[1], end[0] - start[0])
+    size = max(6, width * 3)
+    left = (end[0] - size * math.cos(angle - 0.5), end[1] - size * math.sin(angle - 0.5))
+    right = (end[0] - size * math.cos(angle + 0.5), end[1] - size * math.sin(angle + 0.5))
+    draw.polygon((end, left, right), fill=color)
+
+
+def _draw_fourier_scene(draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, int], s: float, progress: float) -> None:
+    """Эпициклы Фурье: вращающиеся стрелки вычерчивают волну."""
+    left, top, right, bottom = box
+    cx, cy = left + int(150 * s), (top + bottom) // 2
+    radii = (int(62 * s), int(34 * s), int(17 * s))
+    angle = progress * math.pi * 2.2
+    points = []
+    x, y = cx, cy
+    for index, radius in enumerate(radii):
+        nx = x + radius * math.cos(angle * (index + 1))
+        ny = y + radius * math.sin(angle * (index + 1))
+        draw.ellipse((x - radius, y - radius, x + radius, y + radius), outline=RULE, width=max(1, int(1.2 * s)))
+        draw.line((x, y, nx, ny), fill=ACCENT if index == 0 else INK, width=max(1, int(2 * s)))
+        x, y = nx, ny
+    draw.ellipse((x - int(4 * s), y - int(4 * s), x + int(4 * s), y + int(4 * s)), fill=ACCENT)
+    wave_left, wave_right = left + int(270 * s), right - int(18 * s)
+    mid = (top + bottom) // 2
+    draw.line((wave_left, mid, wave_right, mid), fill=RULE, width=max(1, int(1.2 * s)))
+    for index in range(140):
+        t = index / 139.0
+        value = 0.55 * math.sin(t * 12.0 + angle) + 0.28 * math.sin(t * 26.0 - angle * 1.7)
+        points.append((wave_left + int((wave_right - wave_left) * t), mid - int(value * 74 * s)))
+    if progress > 0.05:
+        draw.line(points, fill=ACCENT, width=max(2, int(2.6 * s)))
+    draw.text((left + int(16 * s), top + int(14 * s)), "Fourier: эпициклы → волна", fill=MUTED,
+              font=_serif_font(max(11, int(18 * s)), mono=True))
+
+
+def _draw_markov_scene(draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, int], s: float, progress: float) -> None:
+    """Цепи Маркова: частицы на графе, толщина стрелки = вероятность."""
+    left, top, right, bottom = box
+    nodes = [(0.18, 0.30), (0.48, 0.18), (0.78, 0.38), (0.48, 0.76), (0.18, 0.78)]
+    pts = [(int(left + x * (right - left)), int(top + y * (bottom - top))) for x, y in nodes]
+    edges = [(0, 1, 0.7), (1, 2, 0.6), (2, 3, 0.8), (3, 4, 0.5), (4, 0, 0.4), (1, 3, 0.3)]
+    for source, target, weight in edges:
+        _arrow(draw, pts[source], pts[target], RULE if weight < 0.55 else ACCENT,
+               max(1, int((1 + weight * 4) * s)))
+        mx = (pts[source][0] + pts[target][0]) // 2
+        my = (pts[source][1] + pts[target][1]) // 2
+        draw.text((mx, my - int(16 * s)), f"{weight:.1f}", fill=MUTED,
+                  font=_serif_font(max(10, int(14 * s)), mono=True))
+    for index, (x, y) in enumerate(pts):
+        draw.ellipse((x - int(22 * s), y - int(22 * s), x + int(22 * s), y + int(22 * s)),
+                     fill=PAPER, outline=INK, width=max(1, int(2 * s)))
+        draw.text((x - int(4 * s), y - int(10 * s)), f"S{index}", fill=INK,
+                  font=_serif_font(max(10, int(15 * s)), mono=True))
+    for index in range(3):
+        pos = (index * 2 + int(progress * 8)) % len(pts)
+        px, py = pts[pos]
+        draw.ellipse((px - int(7 * s), py - int(7 * s), px + int(7 * s), py + int(7 * s)), fill=ACCENT)
+    draw.text((left + int(16 * s), top + int(14 * s)), "Markov: переходы с вероятностями", fill=MUTED,
+              font=_serif_font(max(11, int(18 * s)), mono=True))
+
+
+def _draw_attention_scene(draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, int], s: float, progress: float) -> None:
+    """Attention: дуги между словами, толщина = вес внимания."""
+    left, top, right, bottom = box
+    tokens = ("δ", "Q", "Γ", "→", "Q", "Γ")
+    count = len(tokens)
+    step = (right - left - int(80 * s)) / max(1, count - 1)
+    lower = top + int(180 * s)
+    for index, token in enumerate(tokens):
+        x = left + int(40 * s) + index * step
+        draw.rectangle((x - int(24 * s), lower, x + int(24 * s), lower + int(42 * s)),
+                       fill=PAPER, outline=RULE, width=max(1, int(1.5 * s)))
+        draw.text((x - int(8 * s), lower + int(10 * s)), token, fill=INK,
+                  font=_serif_font(max(12, int(20 * s)), mono=True))
+    pairs = [(0, 1, 0.7), (0, 2, 0.9), (1, 3, 0.4), (2, 4, 0.8), (3, 5, 0.6), (4, 5, 0.5)]
+    for source, target, weight in pairs:
+        if progress < (source + 1) / 8.0:
+            continue
+        x1 = left + int(40 * s) + source * step
+        x2 = left + int(40 * s) + target * step
+        pad = int(18 * s + abs(target - source) * 16 * s)
+        draw.arc((min(x1, x2), top + int(40 * s), max(x1, x2), lower - int(10 * s)),
+                 start=180, end=360, fill=ACCENT if weight > 0.55 else MUTED,
+                 width=max(1, int(1 + weight * 3 * s)))
+        draw.text(((x1 + x2) // 2, top + int(36 * s) + pad // 2), f"{weight:.1f}", fill=MUTED,
+                  font=_serif_font(max(9, int(13 * s)), mono=True))
+    draw.text((left + int(16 * s), top + int(14 * s)), "Attention: Q смотрит на Γ", fill=MUTED,
+              font=_serif_font(max(11, int(18 * s)), mono=True))
+
+
+def _draw_diffusion_scene(draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, int], s: float, progress: float) -> None:
+    """Diffusion: шум постепенно собирается в структуру."""
+    left, top, right, bottom = box
+    cols, rows = 16, 8
+    panel_w = (right - left - int(40 * s)) // 2
+    cell_w, cell_h = panel_w / cols, (bottom - top - int(50 * s)) / rows
+    for panel in (0, 1):
+        ox = left + panel * (panel_w + int(20 * s))
+        for row in range(rows):
+            for col in range(cols):
+                noise = 0.5 + 0.5 * math.sin(col * 12.7 + row * 5.3)
+                structure = 0.5 + 0.5 * math.sin(col * 0.6 + row * 0.4)
+                mix = progress if panel == 1 else 0.0
+                value = noise * (1 - mix) + structure * mix
+                shade = int(50 + 190 * max(0.0, min(1.0, value)))
+                draw.rectangle((ox + col * cell_w, top + int(34 * s) + row * cell_h,
+                                ox + (col + 1) * cell_w, top + int(34 * s) + (row + 1) * cell_h),
+                               fill=(shade, shade, shade), outline=None)
+        draw.rectangle((ox, top + int(34 * s), ox + panel_w, bottom - int(16 * s)),
+                       outline=RULE, width=max(1, int(1.2 * s)))
+    draw.text((left + int(16 * s), top + int(10 * s)), "шум", fill=MUTED,
+              font=_serif_font(max(11, int(16 * s)), mono=True))
+    draw.text((left + panel_w + int(30 * s), top + int(10 * s)), "структура", fill=ACCENT,
+              font=_serif_font(max(11, int(16 * s)), mono=True))
+
+
+def _draw_vectors_scene(draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, int], s: float, progress: float) -> None:
+    """Immersive Linear Algebra: векторы и их сумма."""
+    left, top, right, bottom = box
+    ox, oy = left + int(70 * s), bottom - int(60 * s)
+    scale = min(right - left, bottom - top) * 0.55
+    for index in range(1, 5):
+        x = ox + index * scale / 5
+        y = oy - index * scale / 5
+        draw.line((x, top + int(20 * s), x, bottom - int(20 * s)), fill=RULE)
+        draw.line((left + int(20 * s), y, right - int(20 * s), y), fill=RULE)
+    _arrow(draw, (ox, oy), (int(ox + scale * 0.72), int(oy - scale * 0.18)), (30, 58, 138), max(2, int(3 * s)))
+    _arrow(draw, (ox, oy), (int(ox + scale * 0.28), int(oy - scale * 0.55)), (6, 95, 70), max(2, int(3 * s)))
+    _arrow(draw, (ox, oy), (int(ox + scale * (0.72 + 0.28 * progress)), int(oy - scale * (0.18 + 0.55 * progress))),
+           (159, 18, 57), max(2, int(3 * s)))
+    draw.text((left + int(16 * s), top + int(14 * s)), "векторы: цвет = переменная", fill=MUTED,
+              font=_serif_font(max(11, int(18 * s)), mono=True))
+
+
+def _draw_momentum_scene(draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, int], s: float, progress: float) -> None:
+    """Momentum: шарик в овраге функции потерь."""
+    left, top, right, bottom = box
+    mid = (top + bottom) // 2
+    points = []
+    for index in range(120):
+        t = index / 119.0
+        x = left + int(30 * s) + int((right - left - int(60 * s)) * t)
+        y = mid + int((44 * s) * math.sin(t * math.pi * 1.7) + (18 * s) * math.sin(t * math.pi * 5.0))
+        points.append((x, y))
+    draw.line(points, fill=RULE, width=max(2, int(2.4 * s)))
+    ball_x = left + int(30 * s) + int((right - left - int(60 * s)) * max(0.05, min(0.95, progress)))
+    ball_y = mid + int((44 * s) * math.sin(progress * math.pi * 1.7) + (18 * s) * math.sin(progress * math.pi * 5.0))
+    draw.ellipse((ball_x - int(13 * s), ball_y - int(13 * s), ball_x + int(13 * s), ball_y + int(13 * s)),
+                 fill=ACCENT)
+    _arrow(draw, (ball_x, ball_y - int(24 * s)), (ball_x + int(34 * s), ball_y - int(38 * s)), INK,
+           max(1, int(2 * s)))
+    draw.text((left + int(16 * s), top + int(14 * s)), "Momentum: инерция в овраге потерь", fill=MUTED,
+              font=_serif_font(max(11, int(18 * s)), mono=True))
+
+
+def _draw_reinforce_scene(draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, int], s: float, progress: float) -> None:
+    """REINFORCEjs: стрелки политики в клетках и награда."""
+    left, top, right, bottom = box
+    cols, rows = 8, 5
+    cell = min((right - left) // cols, (bottom - top) // rows)
+    ox = left + ((right - left) - cols * cell) // 2
+    oy = top + ((bottom - top) - rows * cell) // 2
+    reward = (cols - 1, rows // 2)
+    for row in range(rows):
+        for col in range(cols):
+            x, y = ox + col * cell, oy + row * cell
+            draw.rectangle((x, y, x + cell, y + cell), fill=PAPER, outline=RULE)
+            if (col, row) == reward:
+                draw.rectangle((x, y, x + cell, y + cell), fill=(255, 235, 190), outline=ACCENT)
+                draw.text((x + int(6 * s), y + int(6 * s)), "R", fill=ACCENT,
+                          font=_serif_font(max(12, int(18 * s)), bold=True))
+                continue
+            if (col + row) / (cols + rows) > progress:
+                continue
+            dx = 1 if col < reward[0] else -1 if col > reward[0] else 0
+            dy = 1 if row < reward[1] else -1 if row > reward[1] else 0
+            cx, cy = x + cell // 2, y + cell // 2
+            _arrow(draw, (cx, cy), (cx + dx * cell // 3, cy + dy * cell // 3), ACCENT,
+                   max(1, int(1.6 * s)))
+    draw.text((left + int(16 * s), top + int(10 * s)), "REINFORCE: политика тянется к R", fill=MUTED,
+              font=_serif_font(max(11, int(18 * s)), mono=True))
+
+
+SCENE_DRAWERS = {
+    "insar_ndvi": _draw_insar_scene,
+    "kalman_filter": _draw_kalman_scene,
+    "a_star": _draw_astar_scene,
+    "fourier_series": _draw_fourier_scene,
+    "finite_automata": _draw_markov_scene,
+    "machine_learning": _draw_attention_scene,
+    "thermodynamics": _draw_diffusion_scene,
+    "vectors": _draw_vectors_scene,
+    "newton_calculus": _draw_momentum_scene,
+    "feedback_control": _draw_reinforce_scene,
+}
+
+
+
 class BookFilmScene:
     """Один пост → кадры книжной страницы с реальной геометрией поста."""
 
@@ -700,12 +901,9 @@ class BookFilmScene:
         wave_like = ("Ψ" in formula_text or "psi" in formula_text.lower()
                      or str((self.post.meta or {}).get("canon_id") or "") in ("schrodinger", "tunneling", "heisenberg"))
         canon_id = str((self.post.meta or {}).get("canon_id") or (self.post.meta or {}).get("foundation_id") or "")
-        if canon_id == "insar_ndvi":
-            _draw_insar_scene(draw, box, s, progress)
-        elif canon_id == "kalman_filter":
-            _draw_kalman_scene(draw, box, s, progress)
-        elif canon_id == "a_star":
-            _draw_astar_scene(draw, box, s, progress)
+        scene = SCENE_DRAWERS.get(canon_id)
+        if scene is not None:
+            scene(draw, box, s, progress)
         elif self.logic:
             self._draw_logic_table(draw, box, s, progress)
         elif self.archetype == "code_booktabs" and self.post.code:
@@ -859,12 +1057,9 @@ class BookFilmScene:
         _draw_text_block(draw, variables, left + int(20 * s), top + int(70 * s),
                          right - left - int(40 * s), int(26 * s), INK, False, int(8 * s), 3)
         lower = (left + int(20 * s), top + int(210 * s), right - int(20 * s), bottom - int(10 * s))
-        if canon_id == "insar_ndvi":
-            _draw_insar_scene(draw, lower, s * 0.8, 1.0)
-        elif canon_id == "kalman_filter":
-            _draw_kalman_scene(draw, lower, s * 0.8, 1.0)
-        elif canon_id == "a_star":
-            _draw_astar_scene(draw, lower, s * 0.8, 1.0)
+        scene = SCENE_DRAWERS.get(canon_id)
+        if scene is not None:
+            scene(draw, lower, s * 0.8, 1.0)
         elif self.logic:
             _draw_logic_table(draw, lower, s * 0.8, 1.0)
         elif self.archetype == "code_booktabs" and self.post.code:
@@ -996,7 +1191,7 @@ def book_film_for_post(post: Post, config: Any, aspect: Optional[str] = None,
     directory = Path(out_dir) if out_dir else config.data_dir / "book_films"
     target = directory / f"{post.id}_{settings['aspect'].replace(':', 'x')}.mp4"
     key_path = directory / f"{post.id}_{settings['aspect'].replace(':', 'x')}.key"
-    key = f"v7|{post.id}|{post.title}|{post.formula_plain}|{post.code}|{settings['aspect']}|{settings['fps']}"
+    key = f"v8|{post.id}|{post.title}|{post.formula_plain}|{post.code}|{settings['aspect']}|{settings['fps']}"
     if target.is_file() and key_path.is_file() and key_path.read_text(encoding="utf-8") == key:
         return target
     produced = render_book_film(post, target, config, aspect=aspect)

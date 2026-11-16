@@ -1013,8 +1013,9 @@ Discord, Mastodon и VK **не проверялись**: в среде нет и
   - C — шаги кода;
   - D — рентген формулы с цветами.
 - [x] Fail-closed: если A/B/C нет — показывается причина, без фальшивых ползунков.
-- [x] 696 тестов OK; `test_visual_language`, `test_visual_scenes`, site/card/book_film зелёные.
+- [x] 697 тестов OK; `test_visual_language`, `test_visual_scenes`, site/card/book_film зелёные.
 - [x] InSAR-кольца + NDVI, Kalman-пятна и A*-волна стоимости — в `book_film`
-  (кэш `v7`), с тестами и проверкой MP4.
-- [ ] Остальные 7 сцен (эпициклы Фурье, attention-дуги, diffusion-шум и др.)
-  — следующий слой P3, не входит в 4-часовой срез.
+  (кэш `v8`), с тестами и проверкой MP4.
+- [x] Остальные 7 сцен: эпициклы Фурье, Markov-частицы, attention-дуги,
+  diffusion-шум, векторы, Momentum, REINFORCE-стрелки — с тестами.
+- [x] Все 7 сцен отрендерены в MP4 и проверены.
