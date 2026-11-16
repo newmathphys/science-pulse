@@ -805,6 +805,14 @@ def cmd_state(args: argparse.Namespace) -> int:
     pipeline = _pipeline(args)
     sync = StateSync(pipeline.config, pipeline.storage)
 
+    if args.pull:
+        result = sync.pull()
+        _checkpoint(pipeline)
+        print(json.dumps(result, ensure_ascii=False, indent=2) if args.json else (
+            f"Pull: {'ok' if result.get('ok') else 'ошибка'} · merged={result.get('merged')}"
+        ))
+        return 0 if result.get("ok") else 1
+
     if args.sync:
         result = sync.sync(batch_size=args.batch_size)
         _checkpoint(pipeline)

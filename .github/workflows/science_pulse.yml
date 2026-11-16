@@ -127,7 +127,7 @@ jobs:
         env:
           CF_WORKER_URL: ${{ secrets.CF_WORKER_URL }}
           INGEST_SECRET: ${{ secrets.INGEST_SECRET }}
-        run: python -m science_pulse.cli state --sync
+        run: python -m science_pulse.cli state --pull
 
       - name: Build site
         run: python -m science_pulse.cli site
