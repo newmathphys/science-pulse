@@ -350,6 +350,7 @@ media_vault:
 # Порог зрелости выпуска: 100 = book_film + standards + card + verified challenge + prereq.
 # 85 = fallback audiogram. Включать после стабилизации staged-буфера.
 podcast:
+  email: "newmathphys@gmail.com"
   mix_url: "https://github.com/newmathphys/science-pulse/releases/download/media-2026-11/radio_mix_2026_11_15.mp3"
   mix_length: 16106830
   mix_date: "2026-11-15"
