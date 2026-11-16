@@ -1,0 +1,39 @@
+{
+  "generated_at": "2026-11-16T19:30:00+03:00",
+  "canon": 62,
+  "cards": {
+    "count": 62,
+    "missing": [],
+    "safe_32px": 62,
+    "safe_48px": 0,
+    "margin32_violations": [],
+    "margin48_note": "декоративная рамка/подвал на 32–48px; 48px gate требует редизайна"
+  },
+  "text": {
+    "raw_latex": [],
+    "snake_case": []
+  },
+  "videos": {
+    "scenes": 10,
+    "unique_frames": 10,
+    "contact_sheet": "docs/audit/contact_sheet_videos.png"
+  },
+  "site": {
+    "html_links": 2386,
+    "broken": [],
+    "90days_sections": 62,
+    "90days_sorted": true
+  },
+  "podcast": {
+    "items": 18,
+    "pubdates": 18,
+    "durations": 18,
+    "sorted_desc": true,
+    "zero_lengths": 0
+  },
+  "tests": 704,
+  "contact_sheets": [
+    "docs/audit/contact_sheet_cards.png",
+    "docs/audit/contact_sheet_videos.png"
+  ]
+}

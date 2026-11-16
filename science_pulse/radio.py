@@ -107,6 +107,7 @@ def episode_entry(post: Post, base_url: str, audio_dir: Path, status: str = "pub
         "notes": _entry_notes(post),
         "audio": audio_url,
         "audio_length": audio_length,
+        "audio_duration": _duration_seconds(audio_path) if has_audio else 0.0,
         "published_at": str(getattr(post, "published_at", "") or getattr(post, "created_at", "") or ""),
         "canon": bool(meta.get("canon_id") or meta.get("foundation_id")),
         "card": str(meta.get("card_url") or f"cards/{post.id}.png"),
@@ -242,16 +243,16 @@ def _enclosure_length(entry: Dict[str, Any], config: Config) -> int:
 
 
 def build_podcast_xml(entries: Sequence[Dict[str, Any]], config: Config, mix_url: str = "",
-                      mix_length: int = 0, mix_date: str = "") -> str:
+                      mix_length: int = 0, mix_date: str = "", mix_duration: float = 0.0) -> str:
     """RSS 2.0 подкаст-фид с тегами `itunes`, `pubDate` и `enclosure`."""
     from datetime import datetime, timezone
 
     base = (config.site_base_url or "").rstrip("/") or "https://science-pulse.local"
-    items: List[str] = []
-    # Флагманский микс — первым: плееры ждут обратную хронологию.
+    dated_items: List[tuple[str, str]] = []
+    # Флагманский микс участвует в общей обратной хронологии, а не висит всегда сверху.
     if mix_url:
         stamp = mix_date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        items.append(
+        mix_item = (
             "<item>"
             "<title>Воскресный радио-микс: 11 глав</title>"
             f"<link>{html.escape(base)}/radio.html</link>"
@@ -259,9 +260,11 @@ def build_podcast_xml(entries: Sequence[Dict[str, Any]], config: Config, mix_url
             f"<pubDate>{_rfc822(stamp + 'T19:00:00+00:00')}</pubDate>"
             "<description>Сквозной выпуск: 11 глав, гармонические интерлюдии, 11 минут.</description>"
             "<itunes:author>Science Pulse</itunes:author>"
-            f'<enclosure url="{html.escape(mix_url)}" type="audio/mpeg" length="{int(mix_length or 0)}"/>'
+            + (f"<itunes:duration>{int(mix_duration)}</itunes:duration>" if mix_duration else "")
+            + f'<enclosure url="{html.escape(mix_url)}" type="audio/mpeg" length="{int(mix_length or 0)}"/>'
             "</item>"
         )
+        dated_items.append((stamp + "T19:00:00+00:00", mix_item))
     canon_entries = [
         entry for entry in entries
         if entry.get("audio") and entry.get("canon") is not False
@@ -270,7 +273,12 @@ def build_podcast_xml(entries: Sequence[Dict[str, Any]], config: Config, mix_url
     for entry in canon_entries:
         hook = html.escape(str(entry.get("hook") or ""))
         pub_date = _rfc822(str(entry.get("published_at") or ""))
-        items.append(
+        enclosure_length = _enclosure_length(entry, config)
+        duration = float(entry.get("audio_duration") or 0.0)
+        if duration <= 0 and enclosure_length > 0:
+            # Оценка по 128 kbps — только если локального MP3 нет.
+            duration = enclosure_length * 8 / 128000.0
+        item = (
             "<item>"
             f"<title>{html.escape(str(entry['label']))}</title>"
             f"<link>{html.escape(str(entry['url']))}</link>"
@@ -279,10 +287,14 @@ def build_podcast_xml(entries: Sequence[Dict[str, Any]], config: Config, mix_url
             f"<description>{hook}</description>"
             f"<itunes:author>{html.escape(str(entry.get('scientist') or RADIO_TITLE))}</itunes:author>"
             f"<itunes:summary>{hook}</itunes:summary>"
-            f'<enclosure url="{html.escape(str(entry["audio"]) if str(entry["audio"]).startswith("http") else base + "/" + str(entry["audio"]))}" '
-            f'type="audio/mpeg" length="{_enclosure_length(entry, config)}"/>'
+            + (f"<itunes:duration>{int(duration)}</itunes:duration>" if duration else "")
+            + f'<enclosure url="{html.escape(str(entry["audio"]) if str(entry["audio"]).startswith("http") else base + "/" + str(entry["audio"]))}" '
+            f'type="audio/mpeg" length="{enclosure_length}"/>'
             "</item>"
         )
+        dated_items.append((str(entry.get("published_at") or ""), item))
+    dated_items.sort(key=lambda pair: pair[0], reverse=True)
+    items = [item for _, item in dated_items]
     return (
         '<?xml version="1.0" encoding="UTF-8"?>'
         '<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" '
@@ -848,8 +860,10 @@ def write_radio(dist: Path, posts: Sequence[Post], config: Config) -> Dict[str, 
     mix_url = str(podcast_cfg.get("mix_url") or "")
     mix_length = mix.stat().st_size if mix.is_file() else int(podcast_cfg.get("mix_length") or 0)
     mix_date = str(podcast_cfg.get("mix_date") or "")
+    mix_duration = _duration_seconds(mix) if mix.is_file() else 0.0
     (dist / "podcast.xml").write_text(
-        build_podcast_xml(entries, config, mix_url=mix_url, mix_length=mix_length, mix_date=mix_date),
+        build_podcast_xml(entries, config, mix_url=mix_url, mix_length=mix_length,
+                          mix_date=mix_date, mix_duration=mix_duration),
         encoding="utf-8",
     )
     return {

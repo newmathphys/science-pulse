@@ -1048,3 +1048,18 @@ Discord, Mastodon и VK **не проверялись**: в среде нет и
   без «Открытых пунктов нет».
 - [x] GitHub About: описание, сайт, topics.
 - [x] 704 теста OK.
+
+## 17. Сквозной аудит (2026-11-16)
+
+- [x] D1: 31 published, 103 ready, 0 publishing; дубликатов публикаций нет.
+- [x] cron: edge `[]`, cron `0 * * * *`; lease-lock не висит.
+- [x] 62/62 карточек: 0 сырых LaTeX, 0 snake_case, безопасное поле 32px — 62/62.
+  Поле 48px не проходит из-за декоративной рамки/подвала на 32–48px.
+- [x] 10/10 сцен book_film: контактный лист, все кадры уникальны.
+- [x] 2386 внутренних ссылок в dist: 0 битых.
+- [x] 90days: 62 узла, строгий числовой порядок 3.1 → 3.2 → … → 3.10.
+- [x] podcast.xml: 18 items, pubDate 18/18, duration 18/18, обратная
+  хронология, 0 пустых length; микс датирован.
+- [x] Контактные листы: `docs/audit/contact_sheet_cards.png`,
+  `docs/audit/contact_sheet_videos.png`; отчёт `docs/audit/audit_report.json`.
+- [x] 704 теста OK.

@@ -1027,7 +1027,7 @@ class SiteBuilder:
   <div class="stats">{self._stats_html(posts_count=self.storage.count("published"))}</div>
 </header>
 {content}
-<footer>Science Pulse · источники: Stack Exchange, OEIS, Wikipedia, arXiv, Rosetta Code, GitHub raw, Numbers API, SymPy/CODATA. Без LLM в контенте. · <a href="{prefix}privacy.html">Политика конфиденциальности</a> · <a href="{prefix}data-deletion.html">Удаление данных</a></footer>
+<footer>Science Pulse · источники: Stack Exchange, OEIS, Wikipedia, arXiv, Rosetta Code, GitHub raw, SymPy/CODATA. Без LLM в контенте. · <a href="{prefix}privacy.html">Политика конфиденциальности</a> · <a href="{prefix}data-deletion.html">Удаление данных</a></footer>
 </div>
 <script>if ('serviceWorker' in navigator) {{ window.addEventListener('load', () => navigator.serviceWorker.register('{prefix}sw.js').catch(() => {{}})); }}</script>
 <script>{BRANCH_JS}</script>
@@ -2290,7 +2290,10 @@ renderPlatforms();
         """13-недельная сетка: 62 узла канона от фундамента к прикладным мостам."""
         from .sources.foundation import CANON, section_of, step_of
 
-        ordered = sorted(CANON, key=lambda node: (step_of(node["id"]), section_of(node["id"])))
+        def _section_key(value: str) -> tuple:
+            return tuple(int(part) for part in str(value).split(".") if part.isdigit())
+
+        ordered = sorted(CANON, key=lambda node: (step_of(node["id"]), _section_key(section_of(node["id"]))))
         by_canon = {
             str((p.meta or {}).get("canon_id") or (p.meta or {}).get("foundation_id") or ""): p
             for p in posts
@@ -2316,7 +2319,7 @@ renderPlatforms();
         content = (
             '<article><div class="badge">90 ДНЕЙ</div>'
             "<h1>90 дней: от аксиомы к спутнику</h1>"
-            f'<p class="lead">13 недель · {len(ordered)} узлов канона · маршрут от фундамента '
+            f'<p class="lead">13 недель · {len(ordered)} узла канона · маршрут от фундамента '
             "к Тьюрингу, Калману, A* и InSAR. Отмечайте прогресс в «Моей ветке».</p>"
             + "".join(blocks)
             + '<p><a href="index.html">← к дереву фундамента</a> · <a href="radio.html">радио</a> · '
@@ -2370,7 +2373,7 @@ renderPlatforms();
             f"# {self.config.site_title}",
             "",
             "Детерминированная научная лента: математика, физика, информатика.",
-            "Источники: Stack Exchange, OEIS, Wikipedia, arXiv, Rosetta Code, GitHub raw, Numbers API, SymPy/CODATA.",
+            "Источники: Stack Exchange, OEIS, Wikipedia, arXiv, Rosetta Code, GitHub raw, SymPy/CODATA.",
             "",
             "## Posts",
         ]

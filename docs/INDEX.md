@@ -61,3 +61,5 @@
 5. `SECURITY.md`
 
 - `PLAN.md` §12 — визуальные референсы, Formula Playground, Kalman/A*.
+
+- `audit/audit_report.json` — сквозной аудит 62 узлов, контактные листы.
