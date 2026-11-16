@@ -274,6 +274,8 @@ def cmd_run(args: argparse.Namespace) -> int:
 
 def cmd_site(args: argparse.Namespace) -> int:
     pipeline = _pipeline(args)
+    if pipeline.d1_primary_enabled():
+        pipeline.pull_state()
     path = pipeline.build_site()
     _checkpoint(pipeline)
     print(f"Сайт собран: {path}")
@@ -285,6 +287,8 @@ def cmd_radio(args: argparse.Namespace) -> int:
     from .radio import build_radio_mix, mix_plan, radio_status, rtmp_argv, write_chapters, write_radio
 
     pipeline = _pipeline(args)
+    if pipeline.d1_primary_enabled():
+        pipeline.pull_state()
     posts = pipeline.storage.list_posts(limit=2000)
     if args.rtmp:
         source = pipeline.config.dist_dir / "radio_mix.mp4"
@@ -1282,6 +1286,8 @@ def cmd_preflight(args: argparse.Namespace) -> int:
     from .preflight import format_preflight, preflight
 
     pipeline = _pipeline(args)
+    if pipeline.d1_primary_enabled():
+        pipeline.pull_state()
     report = preflight(pipeline, domain=args.domain, with_media=not args.no_media)
     if args.json:
         print(json.dumps({k: v for k, v in report.items() if k != "post"}, ensure_ascii=False, indent=2))
