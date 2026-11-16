@@ -1032,6 +1032,33 @@ class BookFilmScene:
             draw.text((x + int(18 * s), y), str(symbol), fill=color, font=font)
             x += int(18 * s) + int(draw.textlength(str(symbol), font=font)) + int(18 * s)
 
+    def _draw_generic_scene(self, draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, int],
+                            s: float, progress: float, meta: Dict[str, Any]) -> None:
+        """Единый выбор визуала: без дефолтной F(r), если это не физика r."""
+        canon_id = str(meta.get("canon_id") or meta.get("foundation_id") or "")
+        scene = SCENE_DRAWERS.get(canon_id)
+        formula_text = f"{self.post.formula_latex or ''} {self.post.formula_plain or ''}"
+        wave_like = ("Ψ" in formula_text or "psi" in formula_text.lower()
+                     or canon_id in ("schrodinger", "tunneling", "heisenberg"))
+        if scene is not None:
+            scene(draw, box, s, progress)
+        elif self.logic:
+            self._draw_logic_table(draw, box, s, progress)
+        elif self.archetype == "code_booktabs" and self.post.code:
+            _draw_code(draw, self.post, box, progress, s)
+        elif canon_id == "pythagoras" or "a² + b² = c²" in str(self.post.formula_plain or ""):
+            self._draw_triangle(draw, box, s)
+        elif wave_like:
+            _draw_wave_packet(draw, box, progress, s)
+        elif self.sequence:
+            _draw_stem_plot(draw, self.sequence, box, s, progress)
+        elif self.curve is not None:
+            _draw_curve(draw, self.curve, box, s, progress)
+        elif isinstance((meta or {}).get("timeline"), list):
+            _draw_timeline(draw, meta["timeline"], box, progress, s)
+        else:
+            self._draw_concept_cards(draw, box, s, progress)
+
     def _draw_formula_scene(self, image: Image.Image, draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, int],
                             s: float, meta: Dict[str, Any]) -> None:
         left, top, right, bottom = box
@@ -1057,17 +1084,7 @@ class BookFilmScene:
         _draw_text_block(draw, variables, left + int(20 * s), top + int(70 * s),
                          right - left - int(40 * s), int(26 * s), INK, False, int(8 * s), 3)
         lower = (left + int(20 * s), top + int(210 * s), right - int(20 * s), bottom - int(10 * s))
-        scene = SCENE_DRAWERS.get(canon_id)
-        if scene is not None:
-            scene(draw, lower, s * 0.8, 1.0)
-        elif self.logic:
-            _draw_logic_table(draw, lower, s * 0.8, 1.0)
-        elif self.archetype == "code_booktabs" and self.post.code:
-            _draw_code(draw, self.post, lower, 1.0, s * 0.8)
-        elif canon_id == "pythagoras" or "a² + b² = c²" in str(self.post.formula_plain or ""):
-            self._draw_triangle(draw, lower, s * 0.8)
-        else:
-            self._draw_simple_curve(draw, lower, s * 0.8, 1.0)
+        self._draw_generic_scene(draw, lower, s * 0.8, 1.0, meta)
 
     def _draw_computation(self, draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, int],
                           s: float, progress: float, meta: Dict[str, Any]) -> None:
@@ -1086,15 +1103,7 @@ class BookFilmScene:
                              left + int(10 * s), top + int(65 * s),
                              right - left - int(20 * s), int(24 * s), MUTED, False, int(6 * s), 2)
         lower = (left + int(20 * s), top + int(220 * s), right - int(20 * s), bottom - int(10 * s))
-        canon_id = str(meta.get("canon_id") or meta.get("foundation_id") or "")
-        if self.logic:
-            self._draw_logic_table(draw, lower, s * 0.8, 1.0)
-        elif self.archetype == "code_booktabs" and self.post.code:
-            _draw_code(draw, self.post, lower, 1.0, s * 0.8)
-        elif canon_id == "pythagoras" or "a² + b² = c²" in str(self.post.formula_plain or ""):
-            self._draw_triangle(draw, lower, s * 0.8)
-        else:
-            self._draw_simple_curve(draw, lower, s * 0.8, 1.0)
+        self._draw_generic_scene(draw, lower, s * 0.8, 1.0, meta)
 
     def _draw_application(self, draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, int],
                           s: float, meta: Dict[str, Any]) -> None:
@@ -1111,15 +1120,7 @@ class BookFilmScene:
             _draw_text_block(draw, ", ".join(unlocks), left, top + int(220 * s), right - left,
                              int(22 * s), MUTED, False, int(6 * s), 2)
         lower = (left + int(20 * s), top + int(280 * s), right - int(20 * s), bottom - int(10 * s))
-        canon_id = str(meta.get("canon_id") or meta.get("foundation_id") or "")
-        if self.logic:
-            self._draw_logic_table(draw, lower, s * 0.8, 1.0)
-        elif self.archetype == "code_booktabs" and self.post.code:
-            _draw_code(draw, self.post, lower, 1.0, s * 0.8)
-        elif canon_id == "pythagoras" or "a² + b² = c²" in str(self.post.formula_plain or ""):
-            self._draw_triangle(draw, lower, s * 0.8)
-        else:
-            self._draw_simple_curve(draw, lower, s * 0.8, 1.0)
+        self._draw_generic_scene(draw, lower, s * 0.8, 1.0, meta)
 
 def _mux(frames_dir: Path, audio_path: Optional[Path], out_path: Path, fps: float) -> bool:
     if not book_film_available():
@@ -1191,7 +1192,7 @@ def book_film_for_post(post: Post, config: Any, aspect: Optional[str] = None,
     directory = Path(out_dir) if out_dir else config.data_dir / "book_films"
     target = directory / f"{post.id}_{settings['aspect'].replace(':', 'x')}.mp4"
     key_path = directory / f"{post.id}_{settings['aspect'].replace(':', 'x')}.key"
-    key = f"v8|{post.id}|{post.title}|{post.formula_plain}|{post.code}|{settings['aspect']}|{settings['fps']}"
+    key = f"v9|{post.id}|{post.title}|{post.formula_plain}|{post.code}|{settings['aspect']}|{settings['fps']}"
     if target.is_file() and key_path.is_file() and key_path.read_text(encoding="utf-8") == key:
         return target
     produced = render_book_film(post, target, config, aspect=aspect)
