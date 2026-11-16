@@ -34,6 +34,8 @@ KV_LOCAL_ONLY = {"paused", "tg_offset"}
 # Ключи kv: монотонные счётчики — сливаются по максимуму.
 KV_COUNTERS = {"harvest_cursor"}
 KV_COUNTER_PREFIXES = ("cycle:",)
+# Эти ключи принадлежат D1: pull не должен сохранять устаревший локальный буфер.
+KV_REMOTE_WINS = {"staged_buffer", "staged_next_post_id"}
 # Поля поста, сливаемые по правилу «непустое побеждает пустое».
 POST_MERGE_TEXT = (
     "hook",
@@ -871,6 +873,8 @@ class Storage:
                 is_counter = key in KV_COUNTERS or key.startswith(KV_COUNTER_PREFIXES)
                 if is_counter and current.isdigit() and candidate.isdigit():
                     merged_value = str(max(int(current), int(candidate)))
+                elif key in KV_REMOTE_WINS:
+                    merged_value = candidate  # D1 — источник истины для staged buffer
                 else:
                     merged_value = current  # локальное значение сохраняется
                 if merged_value == current:

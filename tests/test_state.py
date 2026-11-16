@@ -75,6 +75,11 @@ class StateTests(unittest.TestCase):
         self.assertIn("CREATE TABLE", sql)
         self.assertIn("INSERT OR REPLACE INTO posts", sql)
 
+    def test_staged_buffer_remote_wins(self):
+        self.storage.kv_set("staged_buffer", '["local"]')
+        self.storage.merge_snapshot({"kv": [{"key": "staged_buffer", "value": '["remote"]'}]})
+        self.assertEqual(self.storage.kv_get("staged_buffer"), '["remote"]')
+
     def test_sync_does_not_push_when_pull_fails(self):
         calls = []
 

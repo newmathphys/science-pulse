@@ -1027,6 +1027,8 @@ Discord, Mastodon и VK **не проверялись**: в среде нет и
 - [x] `/en/syllabus.html` — English steps.
 - [x] `/en/radio.html` — English radio/podcast entry.
 - [x] Переключатель `RU/EN` на русском и английском сайте.
+- [x] `KV_REMOTE_WINS`: `staged_buffer`/`staged_next_post_id` при pull берутся из D1,
+  локальный устаревший буфер не перезатирает источник истины.
 - [x] 62 source-native английских названия в `science_pulse/i18n.py`, без MT.
-- [x] 698 тестов OK.
+- [x] 699 тестов OK.
 - [ ] Полные английские тела лекций / source-native пары — следующий слой.
