@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dijkstra: shortest paths · Science Pulse</title>
+<meta name="description" content="Deterministic science canon: mathematics, physics, computer science.">
+<meta name="theme-color" content="#FAF8F4">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="alternate" hreflang="ru" href="../../index.html">
+<link rel="alternate" hreflang="en" href="../../en/index.html">
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="brand"><h1><a href="../../en/index.html" style="color:inherit">Science Pulse</a></h1>
+  <span>English edition</span><a class="lang-switch" href="../../index.html">RU</a></div>
+  <nav class="tabs">
+    <a href="../../en/index.html">Canon</a>
+    <a href="../../en/syllabus.html">Syllabus</a>
+    <a href="../../en/radio.html">Radio</a>
+    <a href="../../index.html">Русская версия</a>
+  </nav>
+</header>
+<article><a href="../index.html">← canon</a><p class="meta">§ 5.4 · Computer science</p><h1>Dijkstra: shortest paths</h1><p class="lead">A foundational computer science node in the Science Pulse canon. The formula, code and visual model are shown below. The full lecture is available in the Russian original.</p><div class="formula">\[ d(v) = \min_{(u,v) \in E} \left( d(u) + w(u, v) \right) \]</div><h2>Code</h2><pre><code>import heapq
+
+def dijkstra(graph, start):
+    # Кратчайшие пути от start (Дейкстра, 1959)
+    dist = {node: float(&#x27;inf&#x27;) for node in graph}
+    dist[start] = 0
+    queue = [(0, start)]
+    while queue:
+        d, node = heapq.heappop(queue)
+        if d &gt; dist[node]:
+            continue
+        for neighbor, weight in graph[node]:
+            if d + weight &lt; dist[neighbor]:
+                dist[neighbor] = d + weight
+                heapq.heappush(queue, (dist[neighbor], neighbor))
+    return dist</code></pre><p><a href="../../post/77475162fe6cf262.html">Read the full lecture in Russian →</a></p></article>
+<footer>Science Pulse · source-native English edition · no LLM in content. Full lectures in Russian.</footer>
+</div>
+</body>
+</html>

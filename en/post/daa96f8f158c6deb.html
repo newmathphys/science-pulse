@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Euclid: the oldest working algorithm · Science Pulse</title>
+<meta name="description" content="Deterministic science canon: mathematics, physics, computer science.">
+<meta name="theme-color" content="#FAF8F4">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="alternate" hreflang="ru" href="../../index.html">
+<link rel="alternate" hreflang="en" href="../../en/index.html">
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="brand"><h1><a href="../../en/index.html" style="color:inherit">Science Pulse</a></h1>
+  <span>English edition</span><a class="lang-switch" href="../../index.html">RU</a></div>
+  <nav class="tabs">
+    <a href="../../en/index.html">Canon</a>
+    <a href="../../en/syllabus.html">Syllabus</a>
+    <a href="../../en/radio.html">Radio</a>
+    <a href="../../index.html">Русская версия</a>
+  </nav>
+</header>
+<article><a href="../index.html">← canon</a><p class="meta">§ 1.2 · Computer science</p><h1>Euclid: the oldest working algorithm</h1><p class="lead">A foundational computer science node in the Science Pulse canon. The formula, code and visual model are shown below. The full lecture is available in the Russian original.</p><div class="formula">\[ \gcd(a, b) = \gcd(b, a \bmod b), \quad T(n) = \mathcal{O}(\log n) \]</div><h2>Code</h2><pre><code>def euclid_gcd(a: int, b: int) -&gt; int:
+    # 300 г. до н.э. — Александрийский канон
+    while b != 0:
+        a, b = b, a % b
+    return a
+
+def extended_gcd(a: int, b: int) -&gt; tuple:
+    if b == 0:
+        return (a, 1, 0)
+    g, x1, y1 = extended_gcd(b, a % b)
+    return (g, y1, x1 - (a // b) * y1)</code></pre><p><a href="../../post/daa96f8f158c6deb.html">Read the full lecture in Russian →</a></p></article>
+<footer>Science Pulse · source-native English edition · no LLM in content. Full lectures in Russian.</footer>
+</div>
+</body>
+</html>
