@@ -88,6 +88,49 @@ https://science-pulse-cron.newmathphys.workers.dev
 
 Код: `cloudflare/cron/cron_worker.js`, конфиг: `cloudflare/cron/wrangler.toml`.
 
+### Авторизация без просроченного PAT
+
+Cron использует **GitHub App installation token**, а не персональный PAT:
+
+1. GitHub → Settings → Developer settings → GitHub Apps → New GitHub App.
+2. Permissions: `Actions: read/write`, `Contents: read`, `Metadata: read-only`.
+3. Install App на репозитории `newmathphys/science-pulse`; запомнить
+   Installation ID из URL `/settings/installations/<id>`.
+4. Сгенерировать приватный ключ и привести его к PKCS#8:
+
+```bash
+openssl pkcs8 -topk8 -nocrypt -in app.private-key.pem -out app.pkcs8.pem
+```
+
+5. Записать секреты Worker:
+
+```bash
+cd cloudflare/cron
+npx wrangler secret put GH_APP_ID
+npx wrangler secret put GH_APP_INSTALLATION_ID
+cat app.pkcs8.pem | npx wrangler secret put GH_APP_PRIVATE_KEY
+npx wrangler secret put TG_BOT_TOKEN
+npx wrangler secret put TG_ADMIN_CHAT_ID
+npx wrangler secret delete GH_PAT
+npx wrangler deploy
+```
+
+Installation token живёт 1 час и создаётся заново на каждом dispatch;
+персонального токена, который может просрочиться, больше нет.
+
+### Пульс и мониторинг
+
+`GET https://science-pulse-cron.newmathphys.workers.dev/health` возвращает:
+
+- `auth`: `github_app`, `pat_fallback` или `none`;
+- `last_dispatch_at`, `last_dispatch_ok`, `last_status`, `last_error`;
+- `alert_configured`.
+
+Каждый dispatch пишет пульс в D1 KV (`cron_last_*`). При ошибке Worker
+отправляет алерт в Telegram, если заданы `TG_BOT_TOKEN`/`TG_ADMIN_CHAT_ID`.
+GitHub Actions fallback (`schedule: 0 6,10,14,18 * * *`) включается только
+при отказе основного диспетчера.
+
 ## Cron и watchdog
 
 `wrangler.toml` содержит `[triggers] crons = ["0 * * * *"]`. Worker:
