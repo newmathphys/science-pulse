@@ -1,8 +1,11 @@
 name: Science Pulse
 
 on:
-  # Расписание только у science-pulse-cron (внешний будильник).
-  # GitHub Actions не должен дублировать слоты: только dispatch от cron-воркера.
+  # Fallback-расписание на случай сбоя внешнего cron-воркера.
+  # Основной путь — dispatch от science-pulse-cron; дубли гасятся concurrency
+  # и publish_min_interval_hours.
+  schedule:
+    - cron: "0 6,10,14,18 * * *"
   push:
     branches: [main]
   workflow_dispatch:
