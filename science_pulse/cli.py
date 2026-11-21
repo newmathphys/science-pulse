@@ -449,6 +449,8 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     from .admin import TelegramAdmin
 
     pipeline = _pipeline(args)
+    if pipeline.d1_primary_enabled():
+        pipeline.pull_state()
     admin = TelegramAdmin(pipeline.config, pipeline)
     report = admin._doctor_text()
     if args.send:

@@ -35,7 +35,11 @@ KV_LOCAL_ONLY = {"paused", "tg_offset"}
 KV_COUNTERS = {"harvest_cursor"}
 KV_COUNTER_PREFIXES = ("cycle:",)
 # Эти ключи принадлежат D1: pull не должен сохранять устаревший локальный буфер.
-KV_REMOTE_WINS = {"staged_buffer", "staged_next_post_id"}
+KV_REMOTE_WINS = {
+    "staged_buffer", "staged_next_post_id",
+    "cron_last_dispatch_at", "cron_last_dispatch_ok", "cron_last_status",
+    "cron_last_error", "cron_auth_mode",
+}
 # Поля поста, сливаемые по правилу «непустое побеждает пустое».
 POST_MERGE_TEXT = (
     "hook",

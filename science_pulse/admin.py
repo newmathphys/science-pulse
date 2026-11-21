@@ -941,6 +941,23 @@ class TelegramAdmin:
         if english:
             lines.append(f"🟡 <b>Перевод</b>: непереведённых заголовков: {english} → <code>retranslate</code>")
 
+        from datetime import datetime, timezone
+
+        pulse_at = int(self.storage.kv_get("cron_last_dispatch_at", "0") or 0)
+        pulse_ok = self.storage.kv_get("cron_last_dispatch_ok", "0") == "1"
+        pulse_mode = self.storage.kv_get("cron_auth_mode", "none")
+        pulse_status = self.storage.kv_get("cron_last_status", "0")
+        if pulse_at:
+            age_h = (datetime.now(timezone.utc).timestamp() * 1000 - pulse_at) / 3600000
+            pulse_state = "ok" if pulse_ok and age_h < 6 else "bad"
+            pulse_detail = (
+                f"{age_h:.1f} ч назад · {pulse_mode} · HTTP {pulse_status} · "
+                f"{'ok' if pulse_ok else 'ошибка'}"
+            )
+        else:
+            pulse_state, pulse_detail = "warn", "нет отметки dispatch; проверьте /health cron-воркера"
+        lines.append(self._light(pulse_state, "Пульс cron", pulse_detail))
+
         lines.append(
             self._light(
                 "ok" if self.config.translate else "off",

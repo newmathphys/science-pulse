@@ -23,7 +23,7 @@ export default {
       return Response.json(result);
     }
     if (url.pathname === "/health") {
-      const state = await stateRequest(env, "GET");
+      const state = await readState(env);
       const kv = (state?.tables?.kv) || [];
       const get = (key) => (kv.find((row) => row.key === key) || {}).value || "";
       return Response.json({
@@ -56,23 +56,22 @@ async function runSlot(env) {
   await checkSilence(env);
 }
 
-async function stateRequest(env, method, body) {
-  if (!env.CF_WORKER_URL || !env.INGEST_SECRET) return null;
-  const url = `${env.CF_WORKER_URL.replace(/\/$/, "")}/api/state${method === "GET" ? "?full=1" : ""}`;
-  const response = await fetch(url, {
-    method,
-    headers: {
-      Authorization: `Bearer ${env.INGEST_SECRET}`,
-      "Content-Type": "application/json",
+async function readState(env) {
+  if (!env.DB) return null;
+  const kv = await env.DB.prepare("SELECT key, value FROM kv").all();
+  const pub = await env.DB.prepare(
+    "SELECT created_at FROM publications WHERE status = 'ok' ORDER BY created_at DESC LIMIT 1"
+  ).first();
+  return {
+    tables: {
+      kv: kv.results || [],
+      publications: pub ? [{ status: "ok", created_at: pub.created_at }] : [],
     },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  if (!response.ok) return null;
-  return method === "GET" ? response.json() : response.json().catch(() => ({}));
+  };
 }
 
 async function checkSilence(env) {
-  const state = await stateRequest(env, "GET");
+  const state = await readState(env);
   if (!state) return;
   const tables = state.tables || {};
   const pubs = tables.publications || [];
@@ -99,7 +98,12 @@ async function writePulse(env, result, mode) {
     { key: "cron_last_error", value: String(result.body || "").slice(0, 240) },
     { key: "cron_auth_mode", value: mode },
   ];
-  await stateRequest(env, "POST", { tables: { kv } });
+  if (env.DB) {
+    const statement = env.DB.prepare(
+      "INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)"
+    );
+    await env.DB.batch(kv.map((row) => statement.bind(row.key, row.value)));
+  }
   if (!result.ok) await alert(env, `Science Pulse cron dispatch failed (${result.status}): ${String(result.body || "").slice(0, 160)}`);
 }
 

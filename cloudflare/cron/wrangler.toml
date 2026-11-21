@@ -8,3 +8,8 @@ GH_REPO = "newmathphys/science-pulse"
 
 [triggers]
 crons = ["0 * * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "science-pulse"
+database_id = "92cf213b-c866-484b-ac24-a6560d9830de"
