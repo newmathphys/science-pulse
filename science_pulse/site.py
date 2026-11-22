@@ -1376,9 +1376,7 @@ class SiteBuilder:
         return [
             ("0", "z = 0 · Граница / Импульс",
              blocks.get("image", "") + blocks.get("audio", "") + blocks.get("audiogram", "")),
-            ("1", "z = 1 · Интуиция и генезис",
-             self._paragraphs(parts.get("I", "")) + self._paragraphs(post.body)
-             + self._paragraphs(parts.get("V", ""))),
+            ("1", "z = 1 · Интуиция и генезис", self._one_section(post, parts)),
             ("2", "z = 2 · Формализм",
              blocks.get("formula", "") + self._paragraphs(parts.get("II", ""))),
             ("3", "z = 3 · Симуляция",
@@ -1387,6 +1385,20 @@ class SiteBuilder:
             ("4", "z = 4 · Сертификат истины",
              blocks.get("proof", "") + self._paragraphs(parts.get("IV", ""))),
         ]
+
+    def _one_section(self, post: Post, parts: Dict[str, str]) -> str:
+        """Слой z = 1: раздел I + тело поста (без дубля) + раздел V.
+
+        Раздел I лонгрида уже содержит тело поста, поэтому добавляем тело
+        отдельно только если его там нет — иначе абзац печатался дважды.
+        """
+        first = parts.get("I", "")
+        one = self._paragraphs(first)
+        body = (post.body or "").strip()
+        probe = body[:80].lower()
+        if body and probe and probe not in first.lower():
+            one += self._paragraphs(body)
+        return one + self._paragraphs(parts.get("V", ""))
 
     def _sparkline_html(self, post: Post) -> str:
         """Текстовая мини-осциллограмма профиля (Брайль): f(x), иначе сонификация."""

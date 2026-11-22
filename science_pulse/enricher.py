@@ -215,6 +215,13 @@ def _fetch_wiki_extract(slug: str, http_get: Optional[Callable[..., Any]], timeo
     return str(_fetch_wiki(slug, http_get, timeout).get("extract") or "")
 
 
+def _hook_repeats_body(hook: str, body: str) -> bool:
+    """True, если «ключевой вопрос» — это начало тела (дублировать не нужно)."""
+    h = (hook or "").strip().lower()
+    b = (body or "").strip().lower()
+    return bool(h) and (b.startswith(h) or h in b[: len(h) + 40])
+
+
 def _compose_longread(
     post: Post,
     meta: Dict[str, Any],
@@ -245,7 +252,7 @@ def _compose_longread(
     one = ["I. Исторический контекст и постановка задачи"]
     if era or scientist:
         one.append(" · ".join(part for part in (era, scientist) if part) + ".")
-    if post.hook:
+    if post.hook and not _hook_repeats_body(post.hook, post.body):
         one.append(f"Ключевой вопрос: {post.hook}")
     if post.body:
         one.append(post.body.strip())

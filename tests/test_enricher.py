@@ -43,6 +43,19 @@ class EnricherTests(unittest.TestCase):
             self.assertIn(marker, text)
         self.assertGreaterEqual(len(text), 1200)
 
+    def test_hook_not_duplicated_when_prefix_of_body(self):
+        """«Ключевой вопрос», совпадающий с началом тела, в лонгрид не дублируется."""
+        from science_pulse.enricher import _hook_repeats_body
+
+        body = "Буфер — область памяти для временного хранения данных."
+        self.assertTrue(_hook_repeats_body(body, body + " Обмен идёт с устройствами."))
+        self.assertFalse(_hook_repeats_body("Почему небо синее?", "Рассеяние Рэлея объясняет цвет."))
+
+    def test_longread_drops_repeated_hook(self):
+        hook = "Квантовый осциллятор — первая точно решаемая модель квантовой механики."
+        text = enrich_post_longread(make_post(hook=hook))
+        self.assertNotIn("Ключевой вопрос: Квантовый осциллятор — первая", text)
+
     def test_wiki_extract_is_used(self):
         def fake_http(url, timeout=3.0):
             self.assertIn("ru.wikipedia.org", url)
