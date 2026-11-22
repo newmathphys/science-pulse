@@ -129,6 +129,14 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(storage.count("published"), 1)
         self.assertEqual(storage.count("rejected"), 0, "контур качества не должен заворачивать пост")
 
+    def test_priority_post_is_chosen_first(self):
+        """Пост с meta.priority>=100 (trend/pick) выходит вне общего порядка."""
+        self.pipeline.harvest()
+        physics = next(p for p in self.storage.list_posts(status="ready") if p.domain == "physics")
+        self.storage.set_post_meta(physics.id, "priority", 100)
+        chosen = self.pipeline.choose_next()
+        self.assertEqual(chosen.id, physics.id)
+
     def test_pause(self):
         self.storage.kv_set("paused", "1")
         result = self.pipeline.publish_next()

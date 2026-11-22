@@ -1246,7 +1246,10 @@ class TelegramAdmin:
         errors = post.validate()
         if errors:
             return "Хит не прошёл quality gate: " + html.escape("; ".join(errors))
-        post.quality = 100.0  # максимальный приоритет → выйдет первым
+        post.quality = 100.0
+        # `choose_next` читает приоритет из meta, а не из quality — иначе
+        # взятый в очередь хит не выходил первым.
+        post.meta["priority"] = 100
         if not self.storage.add_post(post):
             return "Этот хит уже в очереди."
         if publish_now:
