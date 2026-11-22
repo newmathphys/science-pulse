@@ -80,7 +80,10 @@ class AcademicCardTests(unittest.TestCase):
     def test_pick_visual_type_meta_override(self):
         for archetype in ARCHETYPES:
             post = make_post(meta={"visual_type": archetype})
-            self.assertEqual(pick_visual_type(post), archetype)
+            # «standard_plot» — обещание честного графика; структурная формула
+            # (NDVI) его не выполняет, поэтому уходит в «концепт».
+            expected = "concept" if archetype == "standard_plot" else archetype
+            self.assertEqual(pick_visual_type(post), expected)
 
     def test_non_arithmetic_formula_avoids_random_curve(self):
         """∇/∫/∑/mod-формула не рисуется как случайная кривая f(x).
@@ -96,7 +99,7 @@ class AcademicCardTests(unittest.TestCase):
             formula_plain="∇·E = ρ/ε₀",
             source_name="Фундамент Науки · Максвелл",
         )
-        self.assertEqual(pick_visual_type(post), "cheatsheet_table")
+        self.assertEqual(pick_visual_type(post), "concept")
         with tempfile.TemporaryDirectory() as tmp:
             artifact = render_academic_card(post, Path(tmp) / "maxwell.png")
             self.assertIsNotNone(artifact)
@@ -107,7 +110,12 @@ class AcademicCardTests(unittest.TestCase):
         self.assertEqual(pick_visual_type(post), "diptych_insar")
 
     def test_pick_visual_type_default(self):
-        self.assertEqual(pick_visual_type(make_post()), "standard_plot")
+        # NDVI-формула структурная (не y=f(x)) → «концепт», а не фейковый график.
+        self.assertEqual(pick_visual_type(make_post()), "concept")
+
+    def test_pick_visual_type_plottable_is_plot(self):
+        post = make_post(formula_latex="", formula_plain="y = x² + 1")
+        self.assertEqual(pick_visual_type(post), "standard_plot")
 
     def test_pick_visual_type_code(self):
         post = make_post(formula_latex="", formula_plain="", code="def solve():\n    return 42\n")

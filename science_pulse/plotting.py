@@ -55,6 +55,86 @@ class ExpressionError(ValueError):
     pass
 
 
+# Белый список «осей»: по одной из них строим честный график, остальные
+# свободные буквы считаем параметрами (=1). Иначе функции от r/t/T/ω «умирали».
+AXIS_NAMES = ("x", "t", "r", "T", "n", "f", "omega")
+
+
+def independent_symbol(expr):
+    """Независимая переменная графика из белого списка осей (или None)."""
+    if not _HAS_SYMPY or isinstance(expr, tuple) or expr is None:
+        return None
+    free = set(getattr(expr, "free_symbols", set()))
+    for name in AXIS_NAMES:
+        symbol = SAFE_LOCALS.get(name) or sp.Symbol(name)
+        if symbol in free:
+            return symbol
+    return None
+
+
+# --- Нормализация Unicode-математики перед парсингом ---------------------
+# Википедия/канон пишут формулы юникодом: m₁, ω₀, r², G·m/r², −, √, π.
+# Приводим их к «sympy-читаемой» форме: индексы — часть имени (m_1, omega_0),
+# степени — в `**(...)`, греческие буквы — именами, операторы — ASCII.
+_SUPERSCRIPTS = {"⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4", "⁵": "5",
+                 "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9", "⁻": "-", "⁺": "+"}
+_SUBSCRIPTS = {"₀": "0", "₁": "1", "₂": "2", "₃": "3", "₄": "4", "₅": "5",
+               "₆": "6", "₇": "7", "₈": "8", "₉": "9", "ₖ": "k", "ₙ": "n",
+               "ₘ": "m", "ᵢ": "i", "ⱼ": "j"}
+_GREEK_NAMES = {
+    "α": "alpha", "β": "beta", "γ": "gamma", "δ": "delta", "ε": "epsilon",
+    "ζ": "zeta", "η": "eta", "θ": "theta", "κ": "kappa", "λ": "lambda",
+    "μ": "mu", "ν": "nu", "ξ": "xi", "π": "pi", "ρ": "rho", "σ": "sigma",
+    "τ": "tau", "υ": "upsilon", "φ": "phi", "χ": "chi", "ψ": "psi", "ω": "omega",
+    "Γ": "Gamma", "Δ": "Delta", "Θ": "Theta", "Λ": "Lambda", "Ξ": "Xi",
+    "Π": "Pi", "Σ": "Sigma", "Φ": "Phi", "Ψ": "Psi", "Ω": "Omega", "ℏ": "hbar",
+}
+_FUNC_NAMES = {"sin", "cos", "tan", "exp", "log", "ln", "sqrt", "sinh", "cosh", "tanh", "abs"}
+_FACTOR_TOKEN_RE = re.compile(r"\d+\.?\d*|[A-Za-z_][A-Za-z0-9_]*|\(|\)|[+\-*/^,=<>!]|\S")
+
+
+def _space_factors(text: str) -> str:
+    """Разрежает склеенные факторы пробелом (`m_1m_2` → `m_1 m_2`), чтобы
+    `implicit_multiplication` поставил `*`. Не трогает имена и вызовы функций."""
+    tokens = _FACTOR_TOKEN_RE.findall(text or "")
+    out: list[str] = []
+    prev = ""
+    for tok in tokens:
+        if prev:
+            prev_value = bool(re.search(r"[A-Za-z0-9_]$|\)$", prev))
+            cur_value = bool(re.match(r"[A-Za-z0-9_(]", tok))
+            is_call = prev in _FUNC_NAMES and tok == "("
+            if prev_value and cur_value and not is_call:
+                out.append(" ")
+        out.append(tok)
+        prev = tok
+    return "".join(out)
+
+
+def normalize_math(text: str) -> str:
+    """Юникод-формула → «sympy-читаемая» строка (индексы, степени, греческий)."""
+    s = str(text or "")
+    s = re.sub(
+        r"[⁰¹²³⁴⁵⁶⁷⁸⁹⁻⁺]+",
+        lambda m: "**(" + "".join(_SUPERSCRIPTS[c] for c in m.group(0)) + ")",
+        s,
+    )
+    s = re.sub(
+        r"[₀₁₂₃₄₅₆₇₈₉ₖₙₘᵢⱼ]+",
+        lambda m: "_" + "".join(_SUBSCRIPTS[c] for c in m.group(0)),
+        s,
+    )
+    # `omega_0t` → `omega_0 t`, `m_1m_2` → `m_1 m_2` (неявное умножение после индекса).
+    s = re.sub(r"(?<=_[A-Za-z0-9])(?=[A-Za-z])", " ", s)
+    for glyph, name in _GREEK_NAMES.items():
+        s = s.replace(glyph, name)
+    for src, dst in (("·", "*"), ("⋅", "*"), ("×", "*"), ("−", "-"), ("÷", "/"),
+                     ("√", " sqrt"), ("≤", "<="), ("≥", ">="), ("≠", "!="),
+                     ("½", "(1/2)"), ("¼", "(1/4)"), ("¾", "(3/4)")):
+        s = s.replace(src, dst)
+    return _space_factors(s)
+
+
 def parse_expression(expression: str, extra_locals: Optional[Dict[str, Any]] = None):
     if not _HAS_SYMPY:
         raise ExpressionError("SymPy не установлен")
@@ -66,6 +146,9 @@ def parse_expression(expression: str, extra_locals: Optional[Dict[str, Any]] = N
         clean = clean.replace("\\" + command, command)
     clean = clean.replace("\\pi", "pi").replace("\\cdot", "*").replace("\\times", "*")
     clean = re.sub(r"^\s*[a-zA-Z]\s*\([^)]*\)\s*=", "", clean)
+    clean = normalize_math(clean)
+    # «X = …, Y = …» — берём ПЕРВУЮ формулу (вторая уже перегружает график).
+    clean = re.split(r",\s*(?=[A-Za-z_][A-Za-z0-9_]*\s*(?:\([^)]*\))?\s*=)", clean, maxsplit=1)[0]
     if "=" in clean:
         left, right = clean.split("=", 1)
         left, right = left.strip(), right.strip()
@@ -102,8 +185,18 @@ def evaluate_curve(
 ) -> Dict[str, Any]:
     expr = parse_expression(expression)
     x_symbol = SAFE_LOCALS["x"]
-    substitutions = {symbol: 1.0 for symbol in expr.free_symbols if symbol != x_symbol}
+    free = set(expr.free_symbols)
+    # Независимая переменная — из белого списка осей; остальные параметры = 1.0
+    # (G=m₁=m₂=1 → F(r)=1/r², x(t)=A cos(ω₀t+φ) при A=ω₀=φ=1).
+    indep = independent_symbol(expr)
+    if indep is None:
+        raise ExpressionError(
+            "нет независимой оси (" + ", ".join(AXIS_NAMES) + ") — не график y=f(x)"
+        )
+    substitutions = {symbol: 1.0 for symbol in free if symbol != indep}
     sliced = expr.subs(substitutions)
+    if indep != x_symbol:
+        sliced = sliced.subs({indep: x_symbol})
     try:
         function = sp.lambdify(x_symbol, sliced, modules=["numpy"])
     except Exception as exc:

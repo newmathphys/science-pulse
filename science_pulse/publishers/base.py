@@ -117,8 +117,9 @@ def build_rich_telegram_caption(post: Post, limit: int = 1024, site_url: str = "
     section = str(meta.get("section_num") or "").strip()
     era_short = str(meta.get("era") or "").split("•")[0].strip()
     # Паспортная строка в стиле mokujiro: «§ X.Y · ДИСЦИПЛИНА · ЭПОХА».
+    label = "НОВОСТЬ НАУКИ" if getattr(post, "tier", "") == "trending" else post.label
     passport = " · ".join(
-        part for part in (f"§ {section}" if section else "", post.label, era_short) if part
+        part for part in (f"§ {section}" if section else "", label, era_short) if part
     )
     header_parts = [f"<b>{escape_html(passport)}</b>", f"<b>{escape_html(title)}</b>"]
     if not hook or hook.lower() == title.lower() or raw_body.startswith(hook):
@@ -354,8 +355,9 @@ def build_full_description(post: Post, limit: int = 4096, site_url: str = "") ->
 
     section = str(meta.get("section_num") or "").strip()
     era_short = str(meta.get("era") or "").split("•")[0].strip()
+    label = "НОВОСТЬ НАУКИ" if getattr(post, "tier", "") == "trending" else post.label
     passport = " · ".join(
-        part for part in (f"§ {section}" if section else "", post.label, era_short) if part
+        part for part in (f"§ {section}" if section else "", label, era_short) if part
     )
     blocks: List[str] = [f"<b>{escape_html(passport)}</b>", f"<b>{escape_html(title)}</b>"]
 

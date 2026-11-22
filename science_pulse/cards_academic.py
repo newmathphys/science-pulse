@@ -52,6 +52,7 @@ ARCHETYPES = (
     "number_sequence",
     "matrix_grid",
     "prob_tree",
+    "concept",
 )
 SIMULATIONS = ("insar", "ndvi", "geodesics", "tunneling", "lorenz", "lj",
                "cern_dimuon", "ligo_chirp", "voronoi_laplacian", "sat_tsp", "sparse_cg", "seismic_ps",
@@ -853,14 +854,26 @@ def _table_data(post: Post) -> Tuple[List[str], List[List[str]]]:
     rows = [[str(cell) for cell in row] for row in (table.get("rows") or [])]
     if len(columns) >= 2 and rows:
         return columns[:4], [row[: len(columns)] for row in rows[:5]]
-    return (
-        ["Теория", "Ключевая формула", "Где работает"],
-        [
-            ["Классическая механика", "F = ma", "Механика, астрономия"],
-            ["Относительность", "E = mc²", "GPS, гравитационные волны"],
-            ["Квантовая механика", "iħ·∂Ψ/∂t = ĤΨ", "Лазеры, полупроводники"],
-        ],
-    )
+    # Нет явной таблицы — строим из ДАННЫХ САМОГО поста (никаких чужих формул
+    # вроде F=ma/E=mc², которые раньше были захардкожены и вводили в заблуждение).
+    from .text import formula_to_unicode
+
+    facts: List[List[str]] = []
+    formula = (post.formula_latex or post.formula_plain or "").strip()
+    if formula:
+        facts.append(["Инвариант", formula_to_unicode(formula, 70)])
+    facts.append(["Дисциплина", DOMAIN_LABELS.get(post.domain, post.domain.upper())])
+    if post.source_name:
+        facts.append(["Первоисточник", str(post.source_name).replace("Фундамент Науки · ", "")[:60]])
+    modern = str(meta.get("modern_application") or "").strip()
+    if modern:
+        facts.append(["Применение", modern[:70]])
+    concept = str(meta.get("concept") or "").strip()
+    if concept:
+        facts.append(["Тема", concept[:60]])
+    if len(facts) < 2:
+        facts.append(["Тема", post.plain_title[:60]])
+    return ["Понятие", "Значение"], facts[:5]
 
 
 NON_ARITHMETIC_RE = re.compile(
@@ -869,17 +882,21 @@ NON_ARITHMETIC_RE = re.compile(
 
 
 def _is_plottable(post: Post) -> bool:
-    """Можно ли построить честный график y = f(x) по формуле поста."""
+    """Можно ли построить честный график y = f(x) по формуле поста.
+
+    Формула должна разбираться и иметь независимую переменную `x/t/r/n`;
+    уравнение-тождество (`a²+b²=c²`) или ODE графиком не является.
+    """
     expression = str(getattr(post, "formula_plain", "") or getattr(post, "formula_latex", "") or "")
     if not expression.strip():
         return False
     try:
-        from .plotting import parse_expression
+        from .plotting import independent_symbol, parse_expression
 
-        parse_expression(expression)
-        return True
+        expr = parse_expression(expression)
     except Exception:
         return False
+    return independent_symbol(expr) is not None
 
 
 def pick_visual_type(post: Post) -> str:
@@ -887,6 +904,11 @@ def pick_visual_type(post: Post) -> str:
     meta = getattr(post, "meta", {}) or {}
     declared = str(meta.get("visual_type") or "").strip()
     if declared in ARCHETYPES:
+        # «standard_plot» — обещание честного графика y=f(x). Если формула
+        # структурная (шляпки/индексы/несколько равенств), это обещание ложное
+        # (так Калман получал мусорную кривую) — отправляем в сводную таблицу.
+        if declared == "standard_plot" and not _is_plottable(post):
+            return "concept"
         return declared
     if str(meta.get("simulation") or "") in SIMULATIONS:
         return "diptych_insar"
@@ -924,8 +946,13 @@ def pick_visual_type(post: Post) -> str:
     # Неарифметическая формула (∇, ∫, ∮, ∑, ∏, lim, mod) не строится как честный
     # график y = f(x): вместо «случайной» кривой показываем сводную карточку с
     # самой формулой и её членами (детерминированно, без дефолтной синусоиды).
-    if has_formula and NON_ARITHMETIC_RE.search(formula_text) and not _is_plottable(post):
-        return "cheatsheet_table"
+    # Пост БЕЗ формулы (новость/тренд) — типографский «концепт», а не график.
+    if not has_formula and not code:
+        return "concept"
+    # Формула структурная/неарифметическая и не строится как y=f(x) —
+    # «концепт»: крупная родная формула + расшифровка членов (без фейковой кривой).
+    if has_formula and not _is_plottable(post):
+        return "concept"
     return "standard_plot"
 
 
@@ -1301,6 +1328,122 @@ def _draw_symbol_chips(draw: ImageDraw.ImageDraw, post: Post, left: int, y: int,
         x += 16 * scale + int(draw.textlength(str(symbol), font=font)) + 18 * scale
 
 
+_DOMAIN_ACCENT = {"math": (30, 58, 138), "physics": (159, 18, 57), "cs": (6, 95, 70)}
+
+
+def _concept_terms(post: Post) -> str:
+    """Расшифровка членов формулы: `meta.formula_vars` или «где: …» из тела."""
+    meta = getattr(post, "meta", {}) or {}
+    explicit = str(meta.get("formula_vars") or "").strip()
+    if explicit:
+        return explicit
+    match = re.search(r"где[:\s]+([^.\n]{10,240})", post.body or "", re.IGNORECASE)
+    return match.group(1).strip() if match else ""
+
+
+def _concept_quote(post: Post) -> str:
+    """Ведущий тезис; пусто, если это лишь повтор заголовка (не дублируем)."""
+    from .text import lead_sentence
+
+    body = re.sub(r"^Источник:.*$", "", post.body or "", flags=re.M).strip()
+    quote = (lead_sentence(body, 240) if body else "") or (post.hook or "").strip()
+    if not quote or quote.strip().lower() == post.plain_title.strip().lower():
+        return ""
+    return quote
+
+
+def _concept_facts(post: Post) -> List[str]:
+    """2–3 содержательных предложения из тела (без служебной строки метрик)."""
+    body = re.sub(r"^Источник:.*$", "", post.body or "", flags=re.M).strip()
+    facts: List[str] = []
+    for piece in re.split(r"[\n•·]+|(?<=[.!?])\s+", body):
+        piece = piece.strip()
+        if len(piece) < 14:
+            continue
+        facts.append(piece)
+        if len(facts) >= 3:
+            break
+    return facts
+
+
+def _draw_concept(
+    image: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    post: Post,
+    top: int,
+    left: int,
+    width: int,
+    height: int,
+    scale: int,
+    formula_png: Path,
+) -> int:
+    """Архетип `concept`: без фейковых кривых и без пустых рамок.
+
+    * структурная формула — крупная родная формула + расшифровка членов;
+    * новость/текст — журнальный pull-quote + 2–3 факта.
+    """
+    accent = _DOMAIN_ACCENT.get(post.domain, ACCENT)
+    formula = (post.formula_latex or post.formula_plain or "").strip()
+    bottom = top + height
+    y = top
+    if formula:
+        if render_formula_png(formula, formula_png, color=INK, fontset="cm"):
+            y = _paste_fitted(image, formula_png, y + 6 * scale, left + width // 2,
+                              width - 28 * scale, int(height * 0.44)) + 8 * scale
+        terms = _concept_terms(post)
+        # Расшифровка: явные «где: …», иначе сам разбор поста (не пустой блок).
+        text = ("где: " + terms) if terms else re.sub(r"\s+", " ", post.body or "").strip()
+        if text:
+            draw.line((left, y, left + width, y), fill=RULE, width=scale)
+            y += 12 * scale
+            room = max(2, int((bottom - y) / (18 * scale)))
+            font, lines = _fit(draw, text, width - 24 * scale, 26 * scale, 16 * scale, min(room, 9))
+            for line in lines:
+                draw.text((left + 10 * scale, y), line, fill=INK, font=font)
+                y += int(getattr(font, "size", 20 * scale) * 1.16)
+        return bottom
+    # Новостной режим: крупный журнальный pull-quote (2–3 предложения сути),
+    # по центру листа, без дублирующих буллитов и без пустых рамок.
+    qx = left + 26 * scale
+    body = re.sub(r"^Источник:.*$", "", post.body or "", flags=re.M).strip()
+    sentences = [piece.strip() for piece in re.split(r"(?<=[.!?])\s+", body) if piece.strip()]
+    quote = " ".join(sentences[:3]).strip()
+    if not quote or quote.lower() == post.plain_title.strip().lower():
+        quote = (post.hook or "").strip()
+    if not quote:
+        return bottom
+    qfont, qlines = _fit(draw, quote, width - 38 * scale, 48 * scale, 28 * scale, 9, italic=True)
+    qh = int(getattr(qfont, "size", 28 * scale) * 1.28) * len(qlines)
+    # Прижимаем цитату к верху зоны (нет «дыры» под заголовком); остаток листа
+    # — намеренный воздух перед паспортом, а не провал в середине.
+    y = top + 4 * scale
+    draw.rectangle((left, y, left + 6 * scale, y + max(qh, 52 * scale)), fill=accent)
+    for line in qlines:
+        draw.text((qx, y), line, fill=INK, font=qfont)
+        y += int(getattr(qfont, "size", 28 * scale) * 1.28)
+    return bottom
+
+
+def _draw_passport(draw: ImageDraw.ImageDraw, post: Post, box, scale: int, accent) -> None:
+    """Паспортная плашка вместо пустой формулы: рубрика · источник · дата."""
+    domain = DOMAIN_LABELS.get(post.domain, post.domain.upper())
+    label = "НОВОСТЬ НАУКИ" if str(getattr(post, "tier", "")) == "trending" else domain
+    source = (post.source_name or "Science Pulse").strip()
+    when = str(getattr(post, "published_at", "") or "")[:10]
+    # Метрики радара — скромно, одной строкой в паспорте (не тело карточки).
+    metrics = ""
+    match = re.search(r"лайков:\s*\d+[^.]*?горячести:\s*\d+", post.body or "")
+    if match:
+        metrics = match.group(0).replace(" · ", " · ")
+    start_x = box[0] + 20 * scale
+    row_y = box[1] + 20 * scale
+    draw.text((start_x, row_y), label, fill=accent, font=_serif_font(22 * scale, bold=True, mono=True))
+    draw.text((start_x, row_y + 30 * scale), " · ".join(p for p in (source, when) if p),
+              fill=MUTED, font=_serif_font(18 * scale))
+    if metrics:
+        draw.text((start_x, row_y + 56 * scale), metrics, fill=MUTED, font=_serif_font(15 * scale, mono=True))
+
+
 def render_academic_card(post: Post, out_path: str | Path, size: int = 1080) -> Optional[CardArtifact]:
     """Карточка по правилу «3 чистые зоны»: 1080×1080, бумага, тушь.
 
@@ -1342,8 +1485,10 @@ def render_academic_card(post: Post, out_path: str | Path, size: int = 1080) -> 
 
         # ЗОНА 2 — один крупный чертёж/код, 936×590.
         box = (margin, 235 * scale, margin + width, 825 * scale)
-        draw.rectangle(box, outline=RULE, width=scale)
         visual = pick_visual_type(post)
+        # Для «концепта» БЕЗ формулы рамка-пустышка не нужна — журнальная вёрстка.
+        if not (visual == "concept" and not (post.formula_latex or post.formula_plain)):
+            draw.rectangle(box, outline=RULE, width=scale)
         inner = (box[0] + 12 * scale, box[1] + 12 * scale, box[2] - 12 * scale, box[3] - 12 * scale)
         canon_id = str(meta.get("canon_id") or meta.get("foundation_id") or "")
         if canon_id == "pythagoras" or "a² + b² = c²" in str(post.formula_plain or ""):
@@ -1370,6 +1515,9 @@ def render_academic_card(post: Post, out_path: str | Path, size: int = 1080) -> 
             _draw_matrix_grid(image, draw, post, inner[1], inner[0], inner[2] - inner[0], scale)
         elif visual == "prob_tree":
             _draw_prob_tree(image, draw, post, inner[1], inner[0], inner[2] - inner[0], scale)
+        elif visual == "concept":
+            _draw_concept(image, draw, post, inner[1], inner[0], inner[2] - inner[0],
+                          inner[3] - inner[1], scale, formula_png)
         else:
             _chart_standard(post, chart_png)
             _paste_fitted(image, chart_png, inner[1], (inner[0] + inner[2]) // 2,
@@ -1380,7 +1528,11 @@ def render_academic_card(post: Post, out_path: str | Path, size: int = 1080) -> 
         draw.rectangle(formula_box, fill=(243, 240, 234))
         draw.rectangle((formula_box[0], formula_box[1], formula_box[0] + 6 * scale, formula_box[3]), fill=accent)
         formula = (post.formula_latex or post.formula_plain or "").strip()
-        if formula and render_formula_png(formula, formula_png, color=INK, fontset="cm"):
+        if visual == "concept":
+            # Формула уже крупно в зоне 2 (или её нет) — вместо пустой плашки
+            # даём паспорт источника, чтобы карточка не выглядела незаконченной.
+            _draw_passport(draw, post, formula_box, scale, accent)
+        elif formula and render_formula_png(formula, formula_png, color=INK, fontset="cm"):
             _paste_fitted(image, formula_png, formula_box[1] + 12 * scale,
                           (formula_box[0] + formula_box[2]) // 2,
                           formula_box[2] - formula_box[0] - 48 * scale,
