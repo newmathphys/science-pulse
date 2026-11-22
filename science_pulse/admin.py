@@ -273,10 +273,10 @@ class TelegramAdmin:
             if command == "/sources":
                 return self._sources_text()
             if command == "/pause":
-                self.storage.kv_set("paused", "1")
+                self._set_paused(True)
                 return "⏸ Автопостинг на паузе. /resume — продолжить."
             if command == "/resume":
-                self.storage.kv_set("paused", "0")
+                self._set_paused(False)
                 return "▶️ Автопостинг возобновлён."
             if command == "/stats":
                 return self._stats_text()
@@ -1213,6 +1213,19 @@ class TelegramAdmin:
         items = radar.scan(domain=domain, top=5)
         lang = self.storage.kv_get("admin_lang", "ru")
         return format_trending(items, lang)
+
+    def _set_paused(self, paused: bool) -> None:
+        """Ставит паузу и сразу закрепляет её в D1.
+
+        Рабочий CI эфемерен: без push пауза живёт только до конца прогона,
+        а следующий `cli run` (уже без флага) снова публикует.
+        """
+        self.storage.kv_set("paused", "1" if paused else "0")
+        try:
+            if self.pipeline.d1_primary_enabled():
+                self.pipeline.push_state()
+        except Exception as exc:  # pragma: no cover - пауза не должна падать
+            LOGGER.warning("Не удалось закрепить паузу в D1: %s", exc)
 
     def _pick_trend(self, args: List[str]) -> str:
         if not args:

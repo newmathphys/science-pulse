@@ -41,7 +41,7 @@ Edge-таблицы (`knowledge_nodes`, `saga_transactions`, `bandit_arms`) —
 | `sources` | свежее `last_ok`/`open_until` побеждает; `failures`/`last_error` — от более свежей записи |
 | `seen` | объединение множеств (`INSERT OR IGNORE` по `hash`) |
 | `metrics` | объединение по `(post_id, platform, collected_at)` |
-| `kv` | ключи-флаги (`paused`, `tg_offset`) не реплицируются; счётчики (`harvest_cursor`, `cycle:*`) — максимум; прочие заполняются, если отсутствуют |
+| `kv` | `paused` и буферы `staged_*` берутся из D1 (`KV_REMOTE_WINS`); `tg_offset` — локальный; счётчики (`harvest_cursor`, `cycle:*`) — максимум; прочие заполняются, если отсутствуют |
 
 Гарантия: **старый снимок никогда не откатит `published` в `ready`** и не
 сотрёт `card_file_id`. `rejected` (карантин) стоит **выше** `ready`, поэтому

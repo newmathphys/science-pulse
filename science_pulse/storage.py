@@ -32,7 +32,7 @@ STATUS_RANK = {"ready": 1, "publishing": 2, "failed": 3, "rejected": 4, "publish
 # Порядок статусов публикации: 'ok' всегда побеждает 'failed'/'skipped'/'error'.
 PUBLICATION_RANK = {"error": 1, "skipped": 1, "failed": 2, "ok": 3}
 # Ключи kv: управляющее состояние реплики не реплицируется.
-KV_LOCAL_ONLY = {"paused", "tg_offset"}
+KV_LOCAL_ONLY = {"tg_offset"}
 # Ключи kv: монотонные счётчики — сливаются по максимуму.
 KV_COUNTERS = {"harvest_cursor"}
 KV_COUNTER_PREFIXES = ("cycle:",)
@@ -41,6 +41,9 @@ KV_REMOTE_WINS = {
     "staged_buffer", "staged_next_post_id",
     "cron_last_dispatch_at", "cron_last_dispatch_ok", "cron_last_status",
     "cron_last_error", "cron_auth_mode",
+    # Пауза задаётся в D1 (Worker / Worker-webhook) и обязана останавливать
+    # конвейер: без репликации `cli run` её не видел и публиковал дальше.
+    "paused",
 }
 # Поля поста, сливаемые по правилу «непустое побеждает пустое».
 POST_MERGE_TEXT = (

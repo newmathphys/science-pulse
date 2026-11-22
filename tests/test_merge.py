@@ -164,8 +164,17 @@ class MergeTests(unittest.TestCase):
             }
         )
         self.assertEqual(self.storage.kv_get("harvest_cursor"), "9")
-        self.assertEqual(self.storage.kv_get("paused"), "0")
+        # `paused` принадлежит D1 (Worker/пульт) и обязан реплицироваться,
+        # иначе конвейер не видит паузу и продолжает публиковать.
+        self.assertEqual(self.storage.kv_get("paused"), "1")
         self.assertEqual(self.storage.kv_get("newkey"), "v")
+
+    def test_paused_replicates_both_ways(self):
+        self.storage.kv_set("paused", "0")
+        self.storage.merge_snapshot({"kv": [{"key": "paused", "value": "1"}]})
+        self.assertEqual(self.storage.kv_get("paused"), "1")
+        self.storage.merge_snapshot({"kv": [{"key": "paused", "value": "0"}]})
+        self.assertEqual(self.storage.kv_get("paused"), "0")
 
     def test_idempotent(self):
         self.storage.add_post(make_post("p6"))
