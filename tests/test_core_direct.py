@@ -24,6 +24,23 @@ class ModelsDirectTests(unittest.TestCase):
         )
         self.assertEqual(good.validate(), [])
 
+    def test_online_post_requires_formula(self):
+        bare = Post(
+            id="o1", domain="physics", tier="online", title="Обезразмеривание",
+            body="Энциклопедический текст без формулы. " * 5,
+        )
+        self.assertIn("онлайн-пост без формулы/кода", bare.validate())
+        with_formula = Post(
+            id="o2", domain="physics", tier="online", title="Обезразмеривание",
+            body="Энциклопедический текст. " * 5, formula_plain="x' = x / L",
+        )
+        self.assertEqual(with_formula.validate(), [])
+        offline = Post(
+            id="o3", domain="physics", tier="offline", title="Обезразмеривание",
+            body="Офлайн-текст без формулы, но длиннее ста двадцати символов. " * 3,
+        )
+        self.assertEqual(offline.validate(), [], "офлайн-тир правилом не затрагивается")
+
     def test_quality_score_bounds(self):
         rich = Post(id="q1", domain="cs", title="Быстрая сортировка и её сложность",
                     body="Разбор алгоритма. " * 20, formula_plain="O(n log n)",

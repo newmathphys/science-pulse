@@ -164,6 +164,18 @@ MATH_GREEK = {
     r"\det": "det",
     r"\sim": "∼",
     r"\ddot": "",
+    r"\iint": "∬",
+    r"\iiint": "∭",
+    r"\deg": "deg",
+    r"\top": "⊤",
+    r"\bot": "⊥",
+    r"\bigcup": "⋃",
+    r"\bigcap": "⋂",
+    r"\circ": "∘",
+    r"\prime": "′",
+    r"\ast": "∗",
+    r"\star": "⋆",
+    r"\bullet": "•",
 }
 
 
@@ -709,7 +721,8 @@ def unmapped_latex_commands(text: str) -> List[str]:
     known = {key.lstrip("\\") for key in MATH_GREEK}
     allowed = known | {"frac", "sqrt", "text", "textrm", "mathrm", "mathbf", "mathit",
                        "left", "right", "quad", "qquad", "binom", "pmod", "mathbb",
-                       "mathcal", "hline", "hat", "dot", "ddot", "bar", "vec"}
+                       "mathcal", "hline", "hat", "dot", "ddot", "bar", "vec",
+                       "mathsf", "mathtt", "mathfrak", "mathnormal"}
     return sorted(command for command in commands if command not in allowed)
 
 

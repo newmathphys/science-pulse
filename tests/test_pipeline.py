@@ -187,6 +187,22 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(self.storage.count("published"), 0)
         self.assertEqual(self.publishers.calls, [])
 
+    def test_force_bypasses_maturity_gate(self):
+        """Ручной `/force` публикует канон вопреки гейту зрелости (решение оператора)."""
+        self.config.raw["maturity"] = {"enabled": True, "threshold": 100, "enforce_canon_only": True}
+        canon = post("k1", "cs")
+        canon.meta["canon_id"] = "kalman_filter"
+        self.sources.posts = [canon]
+        self.assertEqual(self.pipeline.harvest(), 1)
+        deferred = self.pipeline.publish_next()
+        self.assertTrue(deferred.get("deferred"))
+        self.assertEqual(deferred.get("reason"), "maturity")
+        self.assertEqual(self.storage.count("published"), 0)
+        forced = self.pipeline.publish_next(force=True)
+        self.assertTrue(forced["ok"], forced.get("error"))
+        self.assertFalse(forced.get("deferred"))
+        self.assertEqual(self.storage.count("published"), 1)
+
     def test_force_bypasses_hawkes_gate(self):
         self._enable_hawkes()
         self.pipeline.sota.record_hawkes_fire()

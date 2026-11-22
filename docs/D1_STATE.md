@@ -36,7 +36,7 @@ Edge-таблицы (`knowledge_nodes`, `saga_transactions`, `bandit_arms`) —
 
 | Таблица | Правило слияния |
 |:--|:--|
-| `posts` | статус: `ready < publishing < failed < published` (побеждает старший); текстовые поля (`card_file_id`, `published_at`, `card_path`, …) — «непустое побеждает пустое»; `quality` — максимум |
+| `posts` | статус: `ready < publishing < failed < rejected < published` (побеждает старший); текстовые поля (`card_file_id`, `published_at`, `card_path`, …) — «непустое побеждает пустое»; `quality` — максимум |
 | `publications` | по `(post_id, platform)`: `ok` побеждает `failed`/`skipped`/`error` |
 | `sources` | свежее `last_ok`/`open_until` побеждает; `failures`/`last_error` — от более свежей записи |
 | `seen` | объединение множеств (`INSERT OR IGNORE` по `hash`) |
@@ -44,9 +44,11 @@ Edge-таблицы (`knowledge_nodes`, `saga_transactions`, `bandit_arms`) —
 | `kv` | ключи-флаги (`paused`, `tg_offset`) не реплицируются; счётчики (`harvest_cursor`, `cycle:*`) — максимум; прочие заполняются, если отсутствуют |
 
 Гарантия: **старый снимок никогда не откатит `published` в `ready`** и не
-сотрёт `card_file_id`. Законы слияния статусов доказаны в Lean 4:
-`mergeStatus_comm`, `mergeStatus_assoc`, `mergeStatus_idempotent`,
-`mergeStatus_preserves_published` (см. `docs/FORMAL.md`).
+сотрёт `card_file_id`. `rejected` (карантин) стоит **выше** `ready`, поэтому
+устаревший снимок не возвращает отбракованный пост в очередь. Законы слияния
+статусов доказаны в Lean 4: `mergeStatus_comm`, `mergeStatus_assoc`,
+`mergeStatus_idempotent`, `mergeStatus_preserves_published`
+(см. `docs/FORMAL.md`).
 
 ## API
 

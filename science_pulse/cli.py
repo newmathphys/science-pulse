@@ -1246,13 +1246,22 @@ def cmd_standards(args: argparse.Namespace) -> int:
         return 0
     posts = pipeline.storage.list_posts(status=args.status, limit=args.limit)
     bad = 0
+    quarantined = 0
     for post in posts:
         caption = build_caption(post, 1020, True, pipeline.config.site_base_url)
-        report = checker.check(post, caption)
+        if args.enforce:
+            report, post, _caption = checker.enforce(post, caption, None, pipeline.storage)
+        else:
+            report = checker.check(post, caption)
         state = "ok" if report.ok else "нарушения: " + "; ".join(item.code for item in report.violations)
         print(f"  {post.id}: {state}")
-        bad += 0 if report.ok else 1
-    print(f"Проверено {len(posts)}, с нарушениями {bad}")
+        if not report.ok:
+            bad += 1
+            quarantined += 1 if args.enforce else 0
+    if args.enforce and pipeline.d1_primary_enabled():
+        pipeline.push_state()
+    tail = f", в карантин {quarantined}" if args.enforce else ""
+    print(f"Проверено {len(posts)}, с нарушениями {bad}{tail}")
     return 0
 
 
@@ -1672,6 +1681,8 @@ def build_parser() -> argparse.ArgumentParser:
     standards.add_argument("--set", nargs=2, metavar=("KEY", "VALUE"), help="изменить порог")
     standards.add_argument("--status", default="ready", help="какие посты проверять")
     standards.add_argument("--limit", type=int, default=20)
+    standards.add_argument("--enforce", action="store_true",
+                           help="почистить очередь: не проходящие стандарты посты → карантин")
     standards.add_argument("--json", action="store_true")
     standards.set_defaults(func=cmd_standards)
 

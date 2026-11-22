@@ -17,6 +17,7 @@ inductive Status where
   | publishing
   | published
   | failed
+  | rejected
   deriving DecidableEq, Repr
 
 /-- Публикация разрешена только из состояния ready. -/
@@ -31,7 +32,7 @@ def publishStep : Status → Status
 
 /-- INV-4: статус всегда принадлежит известному множеству. -/
 theorem status_total (s : Status) :
-    s = .ready ∨ s = .publishing ∨ s = .published ∨ s = .failed := by
+    s = .ready ∨ s = .publishing ∨ s = .published ∨ s = .failed ∨ s = .rejected := by
   cases s <;> decide
 
 /-- INV-1 (терминальность): повторная публикация не меняет статус. -/
@@ -91,12 +92,15 @@ theorem publish_reduces_ready (s : Status) (rest : List Status) :
 
 /-! ## CRDT-слияние статусов (Join-Semilattice) -/
 
-/-- Ранг статуса: старший «сильнее» и не откатывается. -/
+/-- Ранг статуса: старший «сильнее» и не откатывается.
+`rejected` (карантин) выше `ready` — слияние не откатывает карантин в очередь;
+`published` — терминальный максимум. -/
 def rank : Status → Nat
   | .ready => 1
   | .publishing => 2
   | .failed => 3
-  | .published => 4
+  | .rejected => 4
+  | .published => 5
 
 /-- Слияние статусов: побеждает старший (монотонный join). -/
 def mergeStatus (a b : Status) : Status :=

@@ -9,6 +9,11 @@ from typing import Any, Dict, List, Optional
 
 DOMAINS = ("math", "physics", "cs")
 
+# Тиры «сырых» источников, где пост обязан нести проверяемую математику
+# (формулу или код). Канон/фундамент/офлайн-бункер сюда не входят — у них
+# формула есть всегда; история и ручные посты добавляются осознанно.
+VERIFIABLE_MATH_TIERS = ("online", "curriculum")
+
 DOMAIN_LABELS = {
     "math": "МАТЕМАТИКА",
     "physics": "ФИЗИКА",
@@ -101,6 +106,23 @@ class Post:
         return bool(self.formula_latex or self.formula_plain)
 
     @property
+    def has_verifiable_math(self) -> bool:
+        """Есть проверяемая математика: формула (LaTeX/Unicode) или код."""
+        return bool(self.formula_latex or self.formula_plain or (self.code or "").strip())
+
+    @property
+    def needs_verifiable_math(self) -> bool:
+        """Обязан ли пост нести формулу или код.
+
+        «Сырые» источники (Wikipedia, arXiv, рекурсивный обход категорий)
+        регулярно отдают энциклопедический текст без формулы. Такой пост в
+        ленте выглядит кривым: в подписи нет «Инварианта», остаётся generic-
+        шаблон и «Первоисточник: Wikipedia (ru)». Поэтому онлайн-пост без
+        проверяемой математики не публикуется.
+        """
+        return self.tier in VERIFIABLE_MATH_TIERS
+
+    @property
     def plain_title(self) -> str:
         from .text import formula_to_unicode
 
@@ -129,6 +151,8 @@ class Post:
             errors.append("текст короче 60 символов")
         if not self.has_math and not self.code and len(self.body) < 120:
             errors.append("нет формулы/кода и текст короче 120 символов")
+        if self.needs_verifiable_math and not self.has_verifiable_math:
+            errors.append("онлайн-пост без формулы/кода")
         if self.source_url and not self.source_url.startswith(("http://", "https://")):
             errors.append("некорректный source_url")
         return errors

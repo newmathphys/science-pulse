@@ -170,6 +170,21 @@ class CaptionStyleTests(unittest.TestCase):
         self.assertIn("§ 1.0 Пифагор", caption)
         self.assertIn("Полный разбор", caption)
 
+    def test_short_text_does_not_repeat_hook(self):
+        from science_pulse.publishers.base import build_short_text
+
+        post = Post(
+            id="dup1", domain="physics", tier="online",
+            title="Обезразмеривание единиц измерения",
+            hook="Обезразмеривание — полное удаление единиц измерения из уравнения.",
+            body="Обезразмеривание — полное удаление единиц измерения из уравнения. "
+                 "Так упрощают задачи с замеренными величинами.",
+            formula_plain="x' = x / L",
+        )
+        short = build_short_text(post, 500, "")
+        self.assertEqual(short.count("полное удаление единиц"), 1,
+                         "hook, совпадающий с началом тела, не должен дублироваться")
+
     def test_short_text_and_frame_have_no_emojis(self):
         from science_pulse.publishers.base import build_short_text, formula_frame
 
@@ -179,6 +194,33 @@ class CaptionStyleTests(unittest.TestCase):
         for emoji in self.MARKETING:
             self.assertNotIn(emoji, short, f"эмодзи {emoji!r} не должно быть в коротком тексте")
             self.assertNotIn(emoji, frame, f"эмодзи {emoji!r} не должно быть в рамке формулы")
+
+
+class TelegramVideoTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name)
+        self.config = Config(raw={"telegram": {"channel_id": "@chan"}}, root=self.root)
+        self.video = self.root / "clip.mp4"
+        self.video.write_bytes(b"\x00" * 32)
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def test_send_video_returns_message_id(self):
+        """Видео-выпуск получает external_id — иначе метрики/восстановление теряют его."""
+        from science_pulse.publishers import telegram as tg
+
+        class FakeResponse:
+            def json(self):
+                return {"ok": True, "result": {"message_id": 555}}
+
+        with patch.dict("os.environ", {"TG_BOT_TOKEN": "token"}, clear=False):
+            publisher = tg.TelegramPublisher(self.config)
+            self.assertTrue(publisher.available())
+            with patch.object(tg, "requests") as req:
+                req.post.return_value = FakeResponse()
+                self.assertEqual(publisher.send_video(self.video, "подпись"), 555)
 
 
 if __name__ == "__main__":

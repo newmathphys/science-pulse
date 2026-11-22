@@ -70,6 +70,15 @@ class CheckerTests(unittest.TestCase):
         report = StandardsChecker().check(post, caption)
         self.assertIn("code_ast", [v.code for v in report.violations])
 
+    def test_content_rule_requires_formula_for_online(self):
+        post = make_post(formula_latex="", formula_plain="", tier="online")
+        caption = "Текст описания поста без формулы, но достаточно длинный для порога. " * 5
+        report = StandardsChecker().check(post, caption)
+        self.assertIn("content", [v.code for v in report.violations])
+        code_only = make_post(formula_latex="", formula_plain="", code="def f():\n    return 1")
+        report = StandardsChecker().check(code_only, caption)
+        self.assertNotIn("content", [v.code for v in report.violations], "код закрывает правило")
+
     def test_translation_seam_violation(self):
         caption = "Текст описания поста с незакрытой маской __FORMULA_1__ и пробелом , перед знаком. " * 4
         report = StandardsChecker().check(make_post(), caption)

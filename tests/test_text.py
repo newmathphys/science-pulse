@@ -3,6 +3,7 @@ import unittest
 from science_pulse.models import Post
 from science_pulse.post_proof import build_post_proof, format_proof_line
 from science_pulse.text import (
+    check_unmapped_latex,
     clean_latex_for_telegram,
     fingerprint,
     formula_kind,
@@ -70,6 +71,14 @@ class TextTests(unittest.TestCase):
         self.assertIn("10⁻⁶ s", result)
         self.assertNotIn("$", result)
         self.assertNotIn("\\", result)
+
+    def test_common_latex_operators_are_not_lost(self):
+        """Валидные макросы не должны уходить в карантин как «неизвестные»."""
+        for formula in (r"\iint f", r"\iiint f", r"\deg p", r"\top \bot", r"\mathsf{AB}"):
+            self.assertEqual(check_unmapped_latex(formula), [], formula)
+        self.assertIn("∬", clean_latex_for_telegram(r"\iint f"))
+        self.assertIn("⊤", clean_latex_for_telegram(r"\top"))
+        self.assertEqual(clean_latex_for_telegram(r"\mathsf{AB}"), "AB")
 
     def test_smart_truncate_keeps_sentence(self):
         text = "Первое предложение. Второе предложение с формулой $x^2$. Третье предложение."

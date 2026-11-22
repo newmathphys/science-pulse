@@ -294,9 +294,10 @@ seen(hash PK, post_id, created_at)
       шаги сортировки) + `video.py` (30 кадров книжной страницы + ffmpeg →
       MP4 H.264+AAC, fallback GIF), режим `video.every_nth_post`, `sendVideo`,
       `--video` / `/force video` / `/preview video` — см. `docs/VIDEO.md`.
-- [x] Контур качества: `standards.py` (9 рубежей, авто-лечение, карантин
+- [x] Контур качества: `standards.py` (10 рубежей, авто-лечение, карантин
       `rejected`) + `preflight.py` (предполётная проверка), команды
-      `standards`/`quarantine`/`reject`/`preflight` — см. `docs/QUALITY.md`.
+      `standards`/`standards --enforce`/`quarantine`/`reject`/`preflight` —
+      см. `docs/QUALITY.md`.
 - [x] Старт от фундамента: `sources/foundation.py` (ступени 1–6) + `evolve.py`
       (порядок выхода, паспорт 🏛/🔬/🔗, обратные ссылки `used_in`),
       `cli foundation`.
@@ -1075,3 +1076,44 @@ Discord, Mastodon и VK **не проверялись**: в среде нет и
 - [x] Числовой порядок §, VI вместо второго V, «62 узла».
 - [x] Дубли формул разведены: касательная, обход графа, энтропия/канал.
 - [x] 0 битых внутренних ссылок, 90days 62 узла.
+
+## 19. Кривой онлайн-пост: причина и закрытие (2026-11-22)
+
+Оператор удалил из Threads пост «Пространственные модели выбора транспорта в
+Нитерое» (arXiv) как кривой: **без формулы** и с надписью **Wikipedia**.
+
+**Причина (найдена по коду и живой ленте):**
+1. Тир `online` (Wikipedia, arXiv, рекурсивный обход категорий) отдаёт
+   энциклопедический текст без формулы — `WikipediaSource._extract_math` ищет
+   `$…$`, которых в ru-wiki-summary нет. В `build_rich_telegram_caption` для
+   такого поста нет `Инвариант:`, вместо него generic-шаблон `Применение:`, а
+   `Первоисточник:` — ссылка на `Wikipedia (ru)`. Отсюда «википедия» и
+   «без формулы».
+2. `build_short_text`/`build_caption(html=False)` дублировали `hook`, когда он
+   совпадал с началом тела (виден повтор абзаца в Threads).
+
+**Что сделано:**
+- ADR D-011: онлайн-пост обязан нести формулу или код. Новый рубеж `content`
+  в `standards.py` + правило в `Post.validate()` (тиры `online`/`curriculum`).
+- `Post.has_verifiable_math`/`needs_verifiable_math`, `VERIFIABLE_MATH_TIERS`.
+- `_distinct_hook` в `publishers/base.py`: hook не дублирует заголовок и начало
+  тела (`build_short_text`, `build_caption`).
+- `cli standards --enforce`: чистка очереди провалов → карантин.
+- `text.py`: доучены макросы `\iint`, `\iiint`, `\deg`, `\top`, `\bot`,
+  `\bigcup`, `\bigcap`, `\circ`, `\prime`, `\ast`, `\star`, `\bullet`, обёртки
+  `\mathsf`/`\mathtt`/`\mathfrak`/`\mathnormal` — раньше валидные формулы
+  (§ Стокса, SVD) уходили в карантин как «неизвестный LaTeX».
+- ADR D-012: тесты герметичны к `.env` (`tests/__init__.py`): 4 падения
+  (test_metrics ×3, test_recovery ×1) закрыты.
+
+**Проверено:**
+- Очередь онлайн-заглушек без формулы (25) переведена в карантин и закреплена
+  в D1 (`state --push`): ready 56, rejected 25.
+- `python -m unittest discover` — **708 OK** (было 704 + 4 падения).
+- Новые тесты: `test_online_post_requires_formula`, `content`-рубеж,
+  `test_short_text_does_not_repeat_hook`,
+  `test_common_latex_operators_are_not_lost`.
+
+**Осталось (не в этом срезе):** 4 поста с `translation_seam` и 1 с `code_ast`
+(швы перевода и Python-2 код в Rosetta) — уйдут в карантин штатно при
+публикации; GitHub App для cron (ждёт создания App оператором).

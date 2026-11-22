@@ -637,10 +637,17 @@ class Pipeline:
         is_canon = bool((post.meta or {}).get("foundation_id") or (post.meta or {}).get("canon_id"))
         enforce_canon_only = bool(maturity_cfg.get("enforce_canon_only", True))
         if maturity_cfg.get("enabled", False) and (is_canon or not enforce_canon_only) and not maturity["ok"]:
-            return self._deferred(
-                "maturity",
-                f"Maturity {maturity['score']}/{maturity['threshold']} · video={video_engine}",
-                maturity=maturity,
+            if not force:
+                return self._deferred(
+                    "maturity",
+                    f"Maturity {maturity['score']}/{maturity['threshold']} · video={video_engine}",
+                    maturity=maturity,
+                )
+            # Ручная публикация (`--force` / `/force`) — решение оператора: гейт
+            # зрелости обходится, как и остальные гейты (пауза, интервал, Hawkes).
+            LOGGER.warning(
+                "Maturity %s/%s обойдён по --force (video=%s)",
+                maturity["score"], maturity["threshold"], video_engine,
             )
 
         results = self.publishers.publish(

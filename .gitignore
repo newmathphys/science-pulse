@@ -44,3 +44,6 @@ data/*.sqlite.gz
 data/piper/
 
 data/explainer_films/
+
+# Локальная конфигурация Command Code (taste/agents) — не часть продукта
+.commandcode/

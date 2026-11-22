@@ -71,6 +71,17 @@ class MergeTests(unittest.TestCase):
         self.assertEqual(post.status, "published")
         self.assertEqual(post.card_file_id, "F2")
 
+    def test_rejected_not_rolled_back_to_ready(self):
+        """Карантин (`rejected`) не откатывается в `ready` при слиянии снимков."""
+        self.storage.add_post(make_post("p8"))
+        self.storage.update_post_fields("p8", {"status": "rejected"})
+        self.storage.merge_snapshot({"posts": [post_row("p8", "ready")]})
+        self.assertEqual(self.storage.get_post("p8").status, "rejected")
+        # Обратное направление: rejected из снимка перекрывает локальный ready.
+        self.storage.update_post_fields("p8", {"status": "ready"})
+        self.storage.merge_snapshot({"posts": [post_row("p8", "rejected")]})
+        self.assertEqual(self.storage.get_post("p8").status, "rejected")
+
     def test_publication_ok_beats_error(self):
         self.storage.add_post(make_post("p3"))
         self.storage.record_publication("p3", PublishResult(platform="vk", ok=False, error="boom"))

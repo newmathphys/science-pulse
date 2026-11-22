@@ -1,4 +1,4 @@
-"""Контур качества: 9-рубежный `StandardsChecker` с авто-лечением и карантином.
+"""Контур качества: 10-рубежный `StandardsChecker` с авто-лечением и карантином.
 
 Рубежи (гейты) проверки подписи и карточки перед публикацией:
 
@@ -7,10 +7,11 @@
 3. `raw_latex`  — в подписи нет сырых `\\frac`, `\\sqrt`, `$$`, `$`;
 4. `brackets`   — сбалансированы скобки и математические доллары;
 5. `code_ast`   — код поста разбирается `ast.parse`;
-6. `card`       — карточка ровно 1080×1080 и тяжелее `min_card_bytes`;
-7. `html`       — сбалансированы HTML-теги Telegram (`b`, `i`, `a`, `code`, `pre`, `u`, `s`);
-8. `translation_seam` — нет технических следов машинного перевода (маски, пробелы перед знаками, пустые скобки);
-9. `cross_modal` — нет неизвестных LaTeX-команд и потери оператора между переменными.
+6. `content`    — «сырой» онлайн-пост несёт формулу или код (иначе кривой пост без «Инварианта»);
+7. `card`       — карточка ровно 1080×1080 и тяжелее `min_card_bytes`;
+8. `html`       — сбалансированы HTML-теги Telegram (`b`, `i`, `a`, `code`, `pre`, `u`, `s`);
+9. `translation_seam` — нет технических следов машинного перевода (маски, пробелы перед знаками, пустые скобки);
+10. `cross_modal` — нет неизвестных LaTeX-команд и потери оператора между переменными.
 
 При нарушении: `heal()` пытается починить (Unicode-формулы, обрезка по
 предложению, перевод), иначе пост уходит в карантин (`status='rejected'`).
@@ -158,7 +159,7 @@ def html_balanced(text: str) -> Tuple[bool, str]:
 
 
 class StandardsChecker:
-    """Проверяет и лечит посты перед публикацией (9 рубежей)."""
+    """Проверяет и лечит посты перед публикацией (10 рубежей)."""
 
     def __init__(self, standards: Optional[Standards] = None):
         self.standards = standards or Standards()
@@ -223,6 +224,10 @@ class StandardsChecker:
                 ast.parse(post.code)
             except SyntaxError as exc:
                 violations.append(Violation("code_ast", f"код не парсится: {exc.msg}"))
+
+        checked += 1
+        if getattr(post, "needs_verifiable_math", False) and not post.has_verifiable_math:
+            violations.append(Violation("content", "онлайн-пост без формулы/кода"))
 
         if card is not None:
             checked += 1

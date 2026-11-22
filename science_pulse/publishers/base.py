@@ -71,6 +71,25 @@ DOMAIN_CONTEXT = {
 }
 
 
+def _distinct_hook(title: str, hook: str, body: str) -> str:
+    """Возвращает hook, только если он не дублирует заголовок и начало тела.
+
+    У онлайн-источников (arXiv/Wikipedia) hook часто является первым
+    предложением тела — без этой проверки короткий пост (Threads/Bluesky/VK)
+    повторял абзац дважды.
+    """
+    hook = (hook or "").strip()
+    if not hook:
+        return ""
+    lowered = hook.lower()
+    if lowered == (title or "").strip().lower():
+        return ""
+    head = (body or "").strip().lower()
+    if head.startswith(lowered) or lowered in head[: len(hook) + 40]:
+        return ""
+    return hook
+
+
 def build_rich_telegram_caption(post: Post, limit: int = 1024, site_url: str = "") -> str:
     """Полный Telegram-пост в строгом стиле mokujiro.com (без смайликов).
 
@@ -229,7 +248,7 @@ def build_caption(post: Post, limit: int = 1024, html: bool = True, site_url: st
     if html:
         return build_rich_telegram_caption(post, limit=limit, site_url=site_url)
     title = clean_latex_for_telegram(post.title)
-    hook = clean_latex_for_telegram(post.hook or "")
+    hook = _distinct_hook(title, clean_latex_for_telegram(post.hook or ""), post.body or "")
     body = smart_sentence_truncate(post.body or "", 300, max(300, limit - 200))
     formula = formula_to_unicode(clean_latex_for_telegram(post.formula_plain or post.formula_latex or ""), 140)
     parts = [post.label, title]
@@ -293,8 +312,9 @@ def challenge_answer_line(post: Post) -> str:
 
 def build_short_text(post: Post, limit: int = 500, site_url: str = "", include_link: bool = True) -> str:
     formula = clean_latex_for_telegram(post.formula_latex or post.formula_plain)
-    parts = [clean_latex_for_telegram(post.title)]
-    hook = clean_latex_for_telegram(post.hook or "")
+    title = clean_latex_for_telegram(post.title)
+    parts = [title]
+    hook = _distinct_hook(title, clean_latex_for_telegram(post.hook or ""), post.body or "")
     if hook:
         parts.append(hook)
     if post.body:

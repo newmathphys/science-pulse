@@ -102,12 +102,13 @@ class TelegramPublisher(Publisher):
 
                 if book_film_available():
                     path = book_film_for_post(post, self.config)
-                    if path and self.send_video(path, caption):
+                    mid = self.send_video(path, caption) if path else None
+                    if mid:
                         return PublishResult(
                             platform=self.name,
                             ok=True,
-                            external_id=None,
-                            meta={"video": str(path), "book_film": True},
+                            external_id=str(mid),
+                            meta={"video": str(path), "book_film": True, "message_id": mid},
                         )
             except Exception as exc:  # pragma: no cover
                 LOGGER.warning("Book film: %s", exc)
@@ -117,12 +118,13 @@ class TelegramPublisher(Publisher):
 
                 if explainer_film_available():
                     path = explainer_film_for_post(post, self.config)
-                    if path and self.send_video(path, caption):
+                    mid = self.send_video(path, caption) if path else None
+                    if mid:
                         return PublishResult(
                             platform=self.name,
                             ok=True,
-                            external_id=None,
-                            meta={"video": str(path), "explainer_film": True},
+                            external_id=str(mid),
+                            meta={"video": str(path), "explainer_film": True, "message_id": mid},
                         )
             except Exception as exc:  # pragma: no cover
                 LOGGER.warning("Explainer film: %s", exc)
@@ -140,20 +142,27 @@ class TelegramPublisher(Publisher):
             path = video_for_post(post, self.config)
         if path is None:
             return None  # мягкий fallback на статичную карточку
-        if not self.send_video(path, caption):
+        mid = self.send_video(path, caption)
+        if not mid:
             return None
         full_text = build_telegram_text(post, limit=3900, site_url=context.site_url)
         if len(full_text) > len(caption) + 80:
             self.send_message(full_text)
         return PublishResult(
-            platform=self.name, ok=True, url=f"https://t.me/{str(self.channel).lstrip('@')}",
-            meta={"video": str(path), "card_file_id": card and None},
+            platform=self.name, ok=True, external_id=str(mid),
+            url=f"https://t.me/{str(self.channel).lstrip('@')}",
+            meta={"video": str(path), "message_id": mid, "card_file_id": card and None},
         )
 
-    def send_video(self, path: str | Path, caption: str = "", reply_to: Optional[int] = None) -> bool:
-        """Отправляет микро-видео (MP4/GIF) со звуком в канал."""
+    def send_video(self, path: str | Path, caption: str = "", reply_to: Optional[int] = None) -> Optional[int]:
+        """Отправляет микро-видео (MP4/GIF) со звуком в канал.
+
+        Возвращает `message_id` отправленного видео (или `None`), чтобы у поста
+        был `external_id` — иначе метрики и восстановление из ленты теряли
+        видео-выпуски.
+        """
         if not self.available():
-            return False
+            return None
         path = Path(path)
         data: Dict[str, Any] = {
             "chat_id": self.channel,
@@ -174,10 +183,10 @@ class TelegramPublisher(Publisher):
             payload = response.json()
             if not payload.get("ok"):
                 LOGGER.warning("Telegram sendVideo: %s", str(payload)[:200])
-            return bool(payload.get("ok"))
+            return (payload.get("result") or {}).get("message_id")
         except Exception as exc:
             LOGGER.warning("Telegram sendVideo: %s", exc)
-            return False
+            return None
 
     def _maybe_send_voice(self, post: Post, reply_to: Optional[int], rules: Any = None) -> Dict[str, Any]:
         """Звук по режиму площадки: auto | voice | audio | mp4 | link | off."""

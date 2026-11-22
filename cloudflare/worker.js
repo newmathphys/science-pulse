@@ -26,7 +26,7 @@ const CORS = {
 const STATE_TABLES = ["posts", "publications", "metrics", "sources", "kv", "seen"];
 
 // Монотонные правила слияния (CRDT Join-Semilattice) на стороне D1.
-const STATUS_RANK = { ready: 1, publishing: 2, failed: 3, published: 4 };
+const STATUS_RANK = { ready: 1, publishing: 2, failed: 3, rejected: 4, published: 5 };
 const PUBLICATION_RANK = { error: 1, skipped: 1, failed: 2, ok: 3 };
 
 export default {
