@@ -40,6 +40,9 @@ CACHE_MIN_CHARS = 1200
 # текст главы: в главу попадает короткая справка, а глубину даёт наш
 # вычислительный контур (задача, расчёт, песочница, родословная).
 WIKI_CHARS = 600
+# Для онлайн-статей БЕЗ формулы вычислительного контура нет, поэтому справка
+# из источника — единственное содержание главы: даём её полнее, но очищенной.
+WIKI_CHARS_ONLINE = 3200
 
 # 🏛 Академический свод / верификатор по дисциплине (второй уровень родословной).
 CANONICAL_ARCHIVES: Dict[str, str] = {
@@ -215,6 +218,32 @@ def _fetch_wiki_extract(slug: str, http_get: Optional[Callable[..., Any]], timeo
     return str(_fetch_wiki(slug, http_get, timeout).get("extract") or "")
 
 
+def _wiki_digest(extract: str, limit: int) -> str:
+    """Чистая выжимка статьи: `== Раздел ==` → строка, знаки ударения убраны.
+
+    Сохраняет разбиение на абзацы (пустые строки), чтобы глава версталась
+    как текст, а не сплошная простыня.
+    """
+    from .text import strip_stress_marks
+
+    text = strip_stress_marks(extract or "")
+    if not text:
+        return ""
+    lines: List[str] = []
+    for raw in text.splitlines():
+        line = re.sub(r"[ \t\u00a0]+", " ", raw).rstrip()
+        heading = re.match(r"^={2,}\s*(.*?)\s*={2,}$", line.strip())
+        if heading:
+            lines.append("")
+            lines.append(heading.group(1))
+        else:
+            lines.append(line)
+    digest = re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
+    if len(digest) > limit:
+        digest = digest[:limit].rsplit("\n", 1)[0].rstrip() + "…"
+    return digest
+
+
 def _hook_repeats_body(hook: str, body: str) -> bool:
     """True, если «ключевой вопрос» — это начало тела (дублировать не нужно)."""
     h = (hook or "").strip().lower()
@@ -256,8 +285,17 @@ def _compose_longread(
         one.append(f"Ключевой вопрос: {post.hook}")
     if post.body:
         one.append(post.body.strip())
-    if wiki:
-        one.append(f"Из энциклопедии (справочное сырьё): {wiki[:WIKI_CHARS]}")
+    wiki_limit = WIKI_CHARS if formula else WIKI_CHARS_ONLINE
+    digest = _wiki_digest(wiki, wiki_limit)
+    body_text = (post.body or "").strip()
+    if digest and body_text and digest.lower().startswith(body_text[:60].lower()):
+        # Тело — это начало того же источника: не повторяем его в справке.
+        tail = body_text.rstrip("…").strip()[-40:].lower()
+        cut = digest.lower().find(tail) if tail else -1
+        if cut >= 0:
+            digest = digest[cut + len(tail):].lstrip(" \n…")
+    if digest:
+        one.append(f"Из энциклопедии (справочное сырьё): {digest}")
 
     two = ["II. Аналитическая модель и экспликация величин"]
     if formula:
