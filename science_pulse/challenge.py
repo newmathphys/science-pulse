@@ -1060,6 +1060,35 @@ def _canon_computable_challenge(post: Post, seed: int) -> Optional[Dict[str, Any
     }
 
 
+_COURSE_BOILERPLATE_RE = re.compile(
+    r"^(?:Ветвь университетского курса[^.]*\.|Университетский курс[^.]*\.|"
+    r"Параграф «[^»]*»[^.]*\.)\s*"
+)
+
+
+def _concept_answer(body: str, question: str) -> str:
+    """Содержательный ответ для концепт-задачи; пусто — если шаблон/сам вопрос."""
+    from .text import lead_sentence
+
+    text = (body or "").strip()
+    for _ in range(4):
+        stripped = _COURSE_BOILERPLATE_RE.sub("", text, count=1).strip()
+        if stripped == text:
+            break
+        text = stripped
+    answer = lead_sentence(text, 220).strip()
+    if not answer:
+        return ""
+
+    def norm(value: str) -> str:
+        return re.sub(r"\s+", " ", (value or "").strip().lower()).strip(" ?.!…")
+
+    a, q = norm(answer), norm(question)
+    if not a or a == q or a.startswith(q[:40]) or q.startswith(a[:40]):
+        return ""
+    return answer
+
+
 def _challenge_for(post: Post) -> Dict[str, Any]:
     """Собственно генерация (без кэша): перебор стратегий по порядку."""
     seed = _seed(post)
@@ -1087,19 +1116,18 @@ def _challenge_for(post: Post) -> Dict[str, Any]:
         # даёт тавтологию (вопрос повторяет ответ). Честнее не выдумывать
         # задачу — блок задачи просто не показывается.
         return {}
-    try:
-        from .text import lead_sentence
-
-        answer = lead_sentence(str(getattr(post, "body", "") or ""), 220)
-    except Exception:  # pragma: no cover - защитный контур
-        answer = ""
+    answer = _concept_answer(str(getattr(post, "body", "") or ""), hook)
+    if not answer:
+        # Нет содержательного ответа (шаблонная шапка курса / сам вопрос) —
+        # задачу не выдумываем, блок не показывается.
+        return {}
     return {
         "kind": "concept",
         "post_id": getattr(post, "id", ""),
         "section": str(meta.get("section_num") or ""),
         "question": hook,
         "hint": "Опирайтесь на формулу с карточки и на расшифровку «где: …».",
-        "answer": answer or str(getattr(post, "formula_plain", "") or getattr(post, "title", "")),
+        "answer": answer,
         "explanation": "Полное объяснение — в главе на сайте и в лонгриде выпуска.",
         "verified": False,
     }

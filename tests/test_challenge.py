@@ -125,6 +125,17 @@ class GeneratorTests(unittest.TestCase):
         self.assertTrue(challenge["question"].endswith("?"))
         self.assertTrue(challenge["answer"])
 
+    def test_concept_answer_drops_course_boilerplate(self):
+        from science_pulse.challenge import _concept_answer
+
+        body = "Ветвь университетского курса «Арифметика». Параграф «Простые» вводит аппарат."
+        self.assertEqual(_concept_answer(body, "Как доказать бесконечность простых?"), "")
+        good = _concept_answer(
+            "Теорема Евклида: простых чисел бесконечно много.",
+            "Как доказать бесконечность простых?",
+        )
+        self.assertIn("Евклида", good)
+
     def test_statement_hook_has_no_tautological_task(self):
         """Без вопроса «объясните своими словами: <определение>» — тавтология."""
         post = Post(
