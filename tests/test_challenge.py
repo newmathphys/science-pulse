@@ -125,6 +125,16 @@ class GeneratorTests(unittest.TestCase):
         self.assertTrue(challenge["question"].endswith("?"))
         self.assertTrue(challenge["answer"])
 
+    def test_statement_hook_has_no_tautological_task(self):
+        """Без вопроса «объясните своими словами: <определение>» — тавтология."""
+        post = Post(
+            id="stub1", domain="physics", tier="online", title="Обезразмеривание",
+            hook="Обезразмеривание — удаление единиц измерения.",
+            body="Обезразмеривание — полное или частичное удаление единиц измерения "
+                 "из уравнения, содержащего физические величины.",
+        )
+        self.assertEqual(build_challenge(post), {})
+
     def test_no_canon_challenge_answers_nan(self):
         """Регрессия: ответ «x(0) = nan» не может считаться проверяемой задачей."""
         from science_pulse.sources.foundation import FoundationSource, ordered_nodes

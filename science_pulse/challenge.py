@@ -1082,10 +1082,11 @@ def _challenge_for(post: Post) -> Dict[str, Any]:
             challenge["section"] = str(meta.get("section_num") or "")
             return challenge
     hook = str(getattr(post, "hook", "") or "").strip()
-    question = (
-        hook if hook.endswith("?")
-        else f"Как бы вы объяснили это своими словами: {hook or post.title}?"
-    )
+    if not hook.endswith("?"):
+        # Нет настоящего вопроса: «объясните своими словами: <определение>»
+        # даёт тавтологию (вопрос повторяет ответ). Честнее не выдумывать
+        # задачу — блок задачи просто не показывается.
+        return {}
     try:
         from .text import lead_sentence
 
@@ -1096,7 +1097,7 @@ def _challenge_for(post: Post) -> Dict[str, Any]:
         "kind": "concept",
         "post_id": getattr(post, "id", ""),
         "section": str(meta.get("section_num") or ""),
-        "question": question,
+        "question": hook,
         "hint": "Опирайтесь на формулу с карточки и на расшифровку «где: …».",
         "answer": answer or str(getattr(post, "formula_plain", "") or getattr(post, "title", "")),
         "explanation": "Полное объяснение — в главе на сайте и в лонгриде выпуска.",

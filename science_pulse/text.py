@@ -198,8 +198,18 @@ def normalize_whitespace(value: str) -> str:
     return "\n".join(line.strip() for line in text.splitlines()).strip()
 
 
+# Знаки ударения/диакритика: Википедия размечает ими произношение
+# («бу́фер, мн. ч. буфера́, бу́феры»). В научном выпуске они лишние.
+_STRESS_MARKS = {0x0300: None, 0x0301: None, 0x0341: None, 0x00B4: None}
+
+
+def strip_stress_marks(text: str) -> str:
+    """Убирает знаки ударения (комбинирующую акутику/гравис) из текста."""
+    return (text or "").translate(_STRESS_MARKS)
+
+
 def clean_text(value: str, max_len: int | None = None) -> str:
-    text = normalize_whitespace(strip_html(value or ""))
+    text = normalize_whitespace(strip_stress_marks(strip_html(value or "")))
     if max_len and len(text) > max_len:
         cut = text[:max_len]
         for sep in (". ", "! ", "? ", "; ", " "):

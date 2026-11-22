@@ -5,6 +5,8 @@ from science_pulse.post_proof import build_post_proof, format_proof_line
 from science_pulse.text import (
     check_unmapped_latex,
     clean_latex_for_telegram,
+    clean_text,
+    strip_stress_marks,
     fingerprint,
     formula_kind,
     formula_to_unicode,
@@ -71,6 +73,11 @@ class TextTests(unittest.TestCase):
         self.assertIn("10⁻⁶ s", result)
         self.assertNotIn("$", result)
         self.assertNotIn("\\", result)
+
+    def test_stress_marks_are_stripped(self):
+        """Знаки ударения из Википедии не должны попадать читателю."""
+        self.assertEqual(strip_stress_marks("бу́фер, мн. ч. буфера́"), "буфер, мн. ч. буфера")
+        self.assertEqual(clean_text("Физи́ческая величина́"), "Физическая величина")
 
     def test_common_latex_operators_are_not_lost(self):
         """Валидные макросы не должны уходить в карантин как «неизвестные»."""
