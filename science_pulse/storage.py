@@ -86,6 +86,53 @@ def _join_num(a: Any, b: Any) -> Any:
         return _join_text(a, b)
 
 
+def _join_meta(a: Any, b: Any) -> Any:
+    """Рекурсивное объединение метаданных без потерь (join-semilattice).
+
+    Словари сливаются по ключам, списки — объединением, числа — максимумом,
+    прочее — «непустое побеждает пустое». Идемпотентно, коммутативно,
+    ассоциативно и детерминированно.
+    """
+    if isinstance(a, dict) and isinstance(b, dict):
+        merged = dict(a)
+        for key, value in b.items():
+            merged[key] = _join_meta(a[key], value) if key in a else value
+        return merged
+    if isinstance(a, list) and isinstance(b, list):
+        out: List[Any] = []
+        for item in list(a) + list(b):
+            if item not in out:
+                out.append(item)
+        return out
+    if (isinstance(a, (int, float)) and isinstance(b, (int, float))
+            and not isinstance(a, bool) and not isinstance(b, bool)):
+        return max(a, b)
+    if _is_empty(a):
+        return b
+    if _is_empty(b):
+        return a
+    return a if str(a) >= str(b) else b
+
+
+def _join_meta_json(a: Any, b: Any) -> str:
+    """Каноничное слияние `meta_json`: объединение словарей, а не «большая строка».
+
+    Старое правило `_join_text` сравнивало весь JSON лексикографически, поэтому
+    свежая мета могла проиграть устаревшей и ключ (напр. `threads_video_reply_id`)
+    терялся. Здесь ключи объединяются, а каноничный `sort_keys` делает слияние
+    идемпотентным.
+    """
+    def parse(value: Any) -> Dict[str, Any]:
+        try:
+            data = json.loads(value) if value else {}
+        except (TypeError, ValueError):
+            data = {}
+        return data if isinstance(data, dict) else {}
+
+    merged = _join_meta(parse(a), parse(b))
+    return json.dumps(merged, ensure_ascii=False, sort_keys=True)
+
+
 def _upsert(connection: sqlite3.Connection, table: str, row: Dict[str, Any]) -> None:
     columns = list(row.keys())
     placeholders = ",".join("?" for _ in columns)
@@ -102,7 +149,10 @@ def _join_post(local: Dict[str, Any] | None, remote: Dict[str, Any]) -> Dict[str
     if STATUS_RANK.get(str(remote.get("status")), 0) > STATUS_RANK.get(str(local.get("status")), 0):
         merged["status"] = remote["status"]
     for field in POST_MERGE_TEXT:
-        merged[field] = _join_text(local.get(field), remote.get(field))
+        if field == "meta_json":
+            merged[field] = _join_meta_json(local.get("meta_json"), remote.get("meta_json"))
+        else:
+            merged[field] = _join_text(local.get(field), remote.get(field))
     merged["quality"] = _join_num(local.get("quality"), remote.get("quality"))
     return merged
 

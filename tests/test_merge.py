@@ -82,6 +82,32 @@ class MergeTests(unittest.TestCase):
         self.storage.merge_snapshot({"posts": [post_row("p8", "rejected")]})
         self.assertEqual(self.storage.get_post("p8").status, "rejected")
 
+    def test_meta_json_merge_is_union(self):
+        """Слияние меты — объединение ключей, а не «большая строка»."""
+        self.storage.add_post(make_post("p9"))
+        self.storage.set_post_meta("p9", "threads_video_reply_id", "111")
+        self.storage.merge_snapshot(
+            {"posts": [post_row("p9", "ready", meta_json='{"maturity": {"score": 100}}')]}
+        )
+        post = self.storage.get_post("p9")
+        self.assertEqual(post.meta.get("threads_video_reply_id"), "111")
+        self.assertEqual((post.meta.get("maturity") or {}).get("score"), 100)
+
+    def test_meta_json_merge_is_commutative(self):
+        meta_a = post_row("pa", "ready", meta_json='{"k1": "v1"}')
+        meta_b = post_row("pa", "ready", meta_json='{"k2": "v2"}')
+        left = Storage(self.root / "ml.db")
+        right = Storage(self.root / "mr.db")
+        for store in (left, right):
+            store.add_post(make_post("pa"))
+        left.merge_snapshot({"posts": [meta_a]})
+        left.merge_snapshot({"posts": [meta_b]})
+        right.merge_snapshot({"posts": [meta_b]})
+        right.merge_snapshot({"posts": [meta_a]})
+        self.assertEqual(left.get_post("pa").meta, right.get_post("pa").meta)
+        self.assertEqual(left.get_post("pa").meta.get("k1"), "v1")
+        self.assertEqual(left.get_post("pa").meta.get("k2"), "v2")
+
     def test_publication_ok_beats_error(self):
         self.storage.add_post(make_post("p3"))
         self.storage.record_publication("p3", PublishResult(platform="vk", ok=False, error="boom"))
