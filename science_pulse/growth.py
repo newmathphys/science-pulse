@@ -77,6 +77,8 @@ class ThreadsGrowthEngine:
 
     @staticmethod
     def label(post: Post) -> str:
+        if getattr(post, "tier", "") == "trending":
+            return "НОВОСТЬ НАУКИ"
         return FORMAT_LABELS.get(post.domain, "НАУКА ДНЯ")
 
     @staticmethod
@@ -89,12 +91,10 @@ class ThreadsGrowthEngine:
         hook = clean_latex_for_telegram(post.hook or "")
         body = clean_latex_for_telegram(post.body or "")
         variants = []
-        if hook:
+        if hook and hook.lower() != title.lower():
             variants.append(hook)
-        if title:
-            variants.append(f"Почему это важно: {title}")
         lead = lead_sentence(body, 160)
-        if lead:
+        if lead and lead.lower() != title.lower():
             variants.append(lead)
         variants.append("Одна формула — один проверяемый факт.")
         return list(dict.fromkeys(variants))
@@ -103,11 +103,16 @@ class ThreadsGrowthEngine:
         limit = int(limit or self.max_chars)
         title = clean_latex_for_telegram(post.title)
         hook = self.hook_variants(post)[0]
-        body = re.sub(r"https?://\S+", "", post.body or "")
-        body = smart_sentence_truncate(body, 120, 220)
+        raw_body = re.sub(r"https?://\S+", "", post.body or "")
+        body = smart_sentence_truncate(raw_body, 120, 220)
+        # hook не должен дублировать начало тела
+        if hook and (raw_body.strip().startswith(hook) or hook in raw_body[: len(hook) + 40]):
+            hook = ""
         formula = formula_to_unicode(post.formula_latex or post.formula_plain, 90)
-        parts = [f"{self.label(post)} · {title}", hook]
-        if body:
+        parts = [f"{self.label(post)} · {title}"]
+        if hook:
+            parts.append(hook)
+        if body and body.strip() != hook.strip():
             parts.append(body)
         if formula:
             parts.append(f"Формула: {formula}")
