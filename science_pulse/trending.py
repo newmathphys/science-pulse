@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import math
 import time
 import urllib.request
@@ -324,24 +325,40 @@ class TrendingRadar:
         return [TrendItem.from_dict(item) for item in data if isinstance(item, dict)]
 
     def to_post(self, item: TrendItem) -> Post:
+        # Метрики — типографикой, без эмодзи (стиль mokujiro: в публикациях
+        # смайликов нет). Плюрализация не нужна при форме «лайков: N».
         metrics = (
-            f"Источник: {item.source}. Метрики: 👍 {item.likes} лайков, "
-            f"💬 {item.comments} комментариев, индекс горячести 🔥 {item.heat:.0f}."
+            f"Источник: {item.source} · лайков: {item.likes} · "
+            f"комментариев: {item.comments} · индекс горячести: {item.heat:.0f}. "
+            "Найдено радаром мировых научных новостей."
         )
         summary = (item.summary or "").strip()
-        body = f"{summary}\n\n{metrics}" if summary else f"{item.title}.\n\n{metrics}"
-        if item.url:
-            body += f"\nСсылка: {item.url}"
+        # Тело не повторяет заголовок и не дублируется в `hook` (иначе подпись
+        # печатала один и тот же текст дважды).
+        body = f"{summary}\n\n{metrics}" if summary else metrics
         return Post(
             id=make_id("trend", f"{item.title}:{utc_now()}"),
             domain=item.domain,
-            title=item.title,
-            hook=truncate(body, 160),
+            title=_clean_trend_title(item.title),
+            hook="",
             body=body,
-            source_name=f"trending:{item.source}",
+            # Читаемый источник для подписи («Первоисточник: Hacker News»);
+            # принадлежность радару уже задаёт tier="trending".
+            source_name=item.source or "trending",
             source_url=item.url,
             tier="trending",
         )
+
+
+_TREND_TAG_RE = re.compile(
+    r"\s*[\[(](?:pdf|video|audio|html|arxiv|link|slides|github)[\])]\s*", re.IGNORECASE
+)
+
+
+def _clean_trend_title(title: str) -> str:
+    """Убирает служебные теги источника (`[pdf]`, `(video)`…) и лишние пробелы."""
+    text = _TREND_TAG_RE.sub(" ", str(title or ""))
+    return re.sub(r"\s+", " ", text).strip()
 
 
 def format_trending(items: List[TrendItem], lang: str = "ru") -> str:

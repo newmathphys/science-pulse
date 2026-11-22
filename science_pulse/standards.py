@@ -204,8 +204,12 @@ class StandardsChecker:
 
         checked += 1
         letters = sum(1 for char in plain if char.isalpha())
-        if letters < self.standards.min_letters:
-            violations.append(Violation("length", f"букв {letters} < {self.standards.min_letters}"))
+        min_letters = self.standards.min_letters
+        if getattr(post, "tier", "") == "trending":
+            # Новость из радара короче академического разбора, но не обрубок.
+            min_letters = min(min_letters, 120)
+        if letters < min_letters:
+            violations.append(Violation("length", f"букв {letters} < {min_letters}"))
 
         checked += 1
         for pattern, label in ((r"\\frac", r"\frac"), (r"\\sqrt", r"\sqrt"), (r"\$\$", "$$")):

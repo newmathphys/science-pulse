@@ -33,6 +33,23 @@ def _hn_item(title, score, comments, age_hours):
     }
 
 
+class TrendPostTests(unittest.TestCase):
+    def test_to_post_is_clean(self):
+        """Trend-пост: чистый заголовок, без эмодзи, hook не дублирует тело."""
+        radar = TrendingRadar.__new__(TrendingRadar)
+        item = TrendItem(
+            title="Доказательство гипотезы Римана [pdf]", url="https://x",
+            source="Hacker News", domain="math", likes=2882, comments=2061,
+            heat=31, summary="Новая работа.",
+        )
+        post = radar.to_post(item)
+        self.assertEqual(post.title, "Доказательство гипотезы Римана")
+        self.assertEqual(post.hook, "")
+        self.assertNotIn("👍", post.body)
+        self.assertNotIn("🔥", post.body)
+        self.assertIn("лайков: 2882", post.body)
+
+
 class FakeHTTP:
     """Фейковый HTTP: отдаёт заранее заданные ответы по URL."""
 

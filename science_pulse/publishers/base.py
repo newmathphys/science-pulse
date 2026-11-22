@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import List, Optional
@@ -81,11 +82,15 @@ def _distinct_hook(title: str, hook: str, body: str) -> str:
     hook = (hook or "").strip()
     if not hook:
         return ""
-    lowered = hook.lower()
-    if lowered == (title or "").strip().lower():
+
+    def norm(value: str) -> str:
+        return re.sub(r"\s+", " ", value or "").strip().lower()
+
+    lowered = norm(hook)
+    if lowered == norm(title):
         return ""
-    head = (body or "").strip().lower()
-    if head.startswith(lowered) or lowered in head[: len(hook) + 40]:
+    head = norm(body)
+    if head.startswith(lowered) or lowered in head[: len(lowered) + 40]:
         return ""
     return hook
 
@@ -118,7 +123,8 @@ def build_rich_telegram_caption(post: Post, limit: int = 1024, site_url: str = "
     header_parts = [f"<b>{escape_html(passport)}</b>", f"<b>{escape_html(title)}</b>"]
     if not hook or hook.lower() == title.lower() or raw_body.startswith(hook):
         hook = lead_sentence(raw_body, 200)
-    if hook and hook.lower() != title.lower() and hook not in raw_body[: len(hook) + 40]:
+    hook = _distinct_hook(title, hook, raw_body)
+    if hook:
         header_parts.append(f"<i>{escape_html(smart_sentence_truncate(hook, 80, 220))}</i>")
 
     footer_parts = []
@@ -171,7 +177,7 @@ def build_rich_telegram_caption(post: Post, limit: int = 1024, site_url: str = "
     # Тройная связь времени: конкретное применение из узла канона важнее шаблона.
     if modern:
         footer_parts.append(f"{'Применение:':<{SPEC_PAD}} {escape_html(truncate(modern, 200))}")
-    elif application_note:
+    elif application_note and getattr(post, "tier", "") != "trending":
         footer_parts.append(f"{'Применение:':<{SPEC_PAD}} {escape_html(application_note)}")
 
     # Задача выпуска: только в режиме `interactive_challenge` (дозированно).
@@ -227,7 +233,9 @@ def build_rich_telegram_caption(post: Post, limit: int = 1024, site_url: str = "
             pass
     body = smart_sentence_truncate(raw_body, min_chars=min(480, body_limit), max_chars=body_limit)
 
-    if len(body) < 300:
+    # Новостной trend-пост не забиваем шаблонной фразой про «аналитическое
+    # соотношение» — она не по делу; канон/разборы добиваем контекстом.
+    if len(body) < 300 and getattr(post, "tier", "") != "trending":
         body = f"{body}\n\n{context_note}"
 
     caption = "\n\n".join(part for part in [header, escape_html(body), footer] if part)
