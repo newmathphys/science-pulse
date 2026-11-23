@@ -552,6 +552,14 @@ class Pipeline:
             report, post, baseline = checker.enforce(post, baseline, card, self.storage)
             if not report.ok:
                 reason = "; ".join(f"{item.code}: {item.detail}" for item in report.violations)[:300]
+                if post_id is None:
+                    # Автопубликация: брак уходит в карантин — это качественное
+                    # решение, а не сбой автопилота. Не валим прогон и не шлём
+                    # ложный алерт «сбой» (пост уже помечен rejected и не выйдет).
+                    LOGGER.warning("Пост %s в карантине: %s", post.id, reason)
+                    return {"ok": True, "quarantined": True, "reason": "standards",
+                            "error": f"standards: {reason}", "post": post, "card": card,
+                            "standards": report.as_dict()}
                 return {"ok": False, "error": f"standards: {reason}", "post": post, "card": card,
                         "standards": report.as_dict()}
         if baseline and baseline != build_caption(post, limit=1020, html=True, site_url=self.config.site_base_url):

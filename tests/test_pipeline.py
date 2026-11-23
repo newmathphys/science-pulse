@@ -129,6 +129,19 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(storage.count("published"), 1)
         self.assertEqual(storage.count("rejected"), 0, "контур качества не должен заворачивать пост")
 
+    def test_auto_quarantine_is_soft(self):
+        """Брак на авто-публикации уходит в карантин, не валя прогон (exit 0)."""
+        bad = Post(id="badcode", domain="cs", title="Битый код алгоритма",
+                   body="Разбор алгоритма с кодом, который не парсится. " * 2,
+                   code="def f(:\n    pass", source_name="test")
+        self.sources.posts = [bad]
+        self.assertEqual(self.pipeline.harvest(), 1)
+        result = self.pipeline.publish_next()
+        self.assertTrue(result.get("ok"))
+        self.assertTrue(result.get("quarantined"))
+        self.assertEqual(self.storage.get_post("badcode").status, "rejected")
+        self.assertEqual(self.storage.count("published"), 0)
+
     def test_priority_post_is_chosen_first(self):
         """Пост с meta.priority>=100 (trend/pick) выходит вне общего порядка."""
         self.pipeline.harvest()

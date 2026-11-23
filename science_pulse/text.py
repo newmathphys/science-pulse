@@ -732,7 +732,13 @@ def unmapped_latex_commands(text: str) -> List[str]:
     allowed = known | {"frac", "sqrt", "text", "textrm", "mathrm", "mathbf", "mathit",
                        "left", "right", "quad", "qquad", "binom", "pmod", "mathbb",
                        "mathcal", "hline", "hat", "dot", "ddot", "bar", "vec",
-                       "mathsf", "mathtt", "mathfrak", "mathnormal"}
+                       "mathsf", "mathtt", "mathfrak", "mathnormal",
+                       # стандартные стрелки-надписи, операторы и обёртки: их
+                       # терять нельзя, иначе шлюз ложно бракует валидные формулы
+                       "xrightarrow", "xleftarrow", "xRightarrow", "operatorname",
+                       "overset", "underset", "stackrel", "boxed", "phantom",
+                       "substack", "boldsymbol", "prime", "colon", "ldots",
+                       "cdots", "dots", "hspace", "vspace", "displaystyle"}
     return sorted(command for command in commands if command not in allowed)
 
 

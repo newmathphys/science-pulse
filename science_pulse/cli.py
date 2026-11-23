@@ -170,6 +170,11 @@ def cmd_publish(args: argparse.Namespace) -> int:
         _checkpoint(pipeline)
         print(f"Публикация отложена ({result.get('reason')}): {result.get('error')}")
         return 0
+    if result.get("quarantined"):
+        _checkpoint(pipeline)
+        title = result.get("post").title if result.get("post") else "?"
+        print(f"Пост в карантине ({title}): {result.get('error')}")
+        return 0
     if not result.get("ok"):
         _checkpoint(pipeline)
         print(f"Не опубликовано: {result.get('error')}", file=sys.stderr)
@@ -257,6 +262,11 @@ def cmd_run(args: argparse.Namespace) -> int:
     if result.get("deferred"):
         _checkpoint(pipeline)
         print(f"Публикация отложена ({result.get('reason')}): {result.get('error')}")
+        return 0
+    if result.get("quarantined"):
+        _checkpoint(pipeline)
+        title = result.get("post").title if result.get("post") else "?"
+        print(f"Пост в карантине ({title}): {result.get('error')}")
         return 0
     if not result.get("ok"):
         _checkpoint(pipeline)
