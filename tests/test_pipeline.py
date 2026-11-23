@@ -142,6 +142,22 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(self.storage.get_post("badcode").status, "rejected")
         self.assertEqual(self.storage.count("published"), 0)
 
+    def test_run_retries_after_quarantine(self):
+        """Брак в карантине не теряет слот: run() берёт следующий здоровый пост."""
+        bad = Post(id="bad1", domain="cs", title="Битый код алгоритма",
+                   body="Разбор алгоритма с кодом, который не парсится. " * 2,
+                   code="def f(:\n    pass", source_name="test")
+        bad.meta["priority"] = 100  # чтобы его выбрали первым
+        good = post("good1", "math")
+        self.sources.posts = [bad, good]
+        self.pipeline.harvest()
+        result = self.pipeline.run(build_site=False)
+        self.assertTrue(result.get("ok"))
+        self.assertFalse(result.get("quarantined"))
+        self.assertEqual(result["post"].id, "good1")
+        self.assertEqual(self.storage.get_post("bad1").status, "rejected")
+        self.assertEqual(self.storage.count("published"), 1)
+
     def test_priority_post_is_chosen_first(self):
         """Пост с meta.priority>=100 (trend/pick) выходит вне общего порядка."""
         self.pipeline.harvest()

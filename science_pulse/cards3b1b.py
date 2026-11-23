@@ -442,6 +442,19 @@ def _mathtext_normalize(expr: str) -> str:
     text = re.sub(r"\\pmod\s*\{([^{}]*)\}", r"\\ (\\mathrm{mod}\\ \1)", text)
     text = text.replace(r"\bmod", r"\ \mathrm{mod}\ ")
     text = re.sub(r"\\quad|\\qquad|\\,|\\;|\\:", r"\\ ", text)
+    # Стрелки с надписью, операторы и обёртки, которых нет в mathtext:
+    # сохраняем смысл (стрелка/имя/содержимое), а не сырой LaTeX.
+    text = re.sub(r"\\xrightarrow\s*\{[^{}]*\}", r"\\to", text)
+    text = re.sub(r"\\xleftarrow\s*\{[^{}]*\}", r"\\leftarrow", text)
+    text = re.sub(r"\\xRightarrow\s*\{[^{}]*\}", r"\\Rightarrow", text)
+    text = text.replace(r"\xrightarrow", r"\to").replace(r"\xleftarrow", r"\leftarrow")
+    text = re.sub(r"\\operatorname\s*\{([^{}]*)\}", r"\\mathrm{\1}", text)
+    text = re.sub(r"\\boxed\s*\{([^{}]*)\}", r"\1", text)
+    for wrapper in ("overset", "underset", "stackrel"):
+        text = re.sub(r"\\" + wrapper + r"\s*\{[^{}]*\}\s*\{([^{}]*)\}", r"\1", text)
+    text = re.sub(r"\\boldsymbol\s*\{([^{}]*)\}", r"\\mathbf{\1}", text)
+    text = re.sub(r"\\phantom\s*\{[^{}]*\}", r"\\ ", text)
+    text = text.replace(r"\displaystyle", "").replace(r"\colon", ":")
     return text
 
 

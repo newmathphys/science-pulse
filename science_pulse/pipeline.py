@@ -773,7 +773,15 @@ class Pipeline:
     ) -> Dict[str, Any]:
         if harvest_if_low and self.storage.count("ready") < int(self.config.raw.get("low_water", 9)):
             self.harvest()
-        result = self.publish_next(dry_run=dry_run, domain=domain, rubric=rubric, build_site=False)
+        # Если свежий пост попал в карантин — слот не теряем: пробуем следующий
+        # здоровый пост из очереди (до 5 попыток подряд).
+        result: Dict[str, Any] = {}
+        for attempt in range(1, 6):
+            result = self.publish_next(dry_run=dry_run, domain=domain, rubric=rubric, build_site=False)
+            if not result.get("quarantined"):
+                break
+            LOGGER.warning("Карантин на слоте (%d/5), беру следующий пост: %s",
+                           attempt, result.get("error"))
         if build_site:
             try:
                 self.build_site()
