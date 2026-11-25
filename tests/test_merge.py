@@ -71,6 +71,17 @@ class MergeTests(unittest.TestCase):
         self.assertEqual(post.status, "published")
         self.assertEqual(post.card_file_id, "F2")
 
+    def test_card_file_id_clear_survives_merge(self):
+        """Флаг `card_file_id_cleared` сильнее «непустое побеждает» (INV-3)."""
+        self.storage.add_post(make_post("p11"))
+        self.storage.set_card_file_id("p11", "F11")
+        self.assertIn("p11", self.storage.clear_orphan_card_file_ids())
+        self.assertEqual(self.storage.get_post("p11").card_file_id, "")
+        self.storage.merge_snapshot({"posts": [
+            post_row("p11", "ready", card_file_id="F11",
+                     meta_json='{"card_file_id_cleared": 1}')]})
+        self.assertEqual(self.storage.get_post("p11").card_file_id, "")
+
     def test_rejected_not_rolled_back_to_ready(self):
         """Карантин (`rejected`) не откатывается в `ready` при слиянии снимков."""
         self.storage.add_post(make_post("p8"))

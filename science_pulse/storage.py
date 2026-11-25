@@ -160,6 +160,14 @@ def _join_post(local: Dict[str, Any] | None, remote: Dict[str, Any]) -> Dict[str
         else:
             merged[field] = _join_text(local.get(field), remote.get(field))
     merged["quality"] = _join_num(local.get("quality"), remote.get("quality"))
+    # Явная зачистка card_file_id (INV-3): флаг в мете сильнее «непустое побеждает»,
+    # иначе стереть устаревший file_id через слияние невозможно.
+    try:
+        meta = json.loads(merged.get("meta_json") or "{}")
+    except (TypeError, ValueError):
+        meta = {}
+    if isinstance(meta, dict) and meta.get("card_file_id_cleared"):
+        merged["card_file_id"] = ""
     return merged
 
 
@@ -458,6 +466,28 @@ class Storage:
                 "UPDATE posts SET card_file_id = ? WHERE id = ?",
                 (file_id, post_id),
             )
+
+    def clear_orphan_card_file_ids(self) -> List[str]:
+        """Снять `card_file_id` у постов без успешной telegram-публикации.
+
+        `card_file_id` кэширует file_id фото для правки сообщения; без живой
+        публикации он бесполезен (INV-3) и появляется как след сбоев синхронизации.
+        """
+        with self.cursor() as connection:
+            rows = connection.execute(
+                "SELECT id FROM posts WHERE COALESCE(card_file_id, '') != '' "
+                "AND NOT EXISTS (SELECT 1 FROM publications pub WHERE pub.post_id = posts.id "
+                "AND pub.platform = 'telegram' AND pub.status = 'ok')"
+            ).fetchall()
+            ids = [row["id"] for row in rows]
+            for post_id in ids:
+                connection.execute(
+                    "UPDATE posts SET card_file_id = '', "
+                    "meta_json = json_set(COALESCE(NULLIF(meta_json, ''), '{}'), "
+                    "'$.card_file_id_cleared', 1) WHERE id = ?",
+                    (post_id,),
+                )
+        return ids
 
     def mark_failed(self, post_id: str, error: str = "") -> None:
         with self.cursor() as connection:

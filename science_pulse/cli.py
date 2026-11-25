@@ -609,6 +609,10 @@ def cmd_invariants(args: argparse.Namespace) -> int:
     from .invariants import InvariantChecker
 
     pipeline = _pipeline(args)
+    if getattr(args, "repair", False):
+        cleared = pipeline.storage.clear_orphan_card_file_ids()
+        if cleared:
+            print(f"Починено: снят устаревший card_file_id у {len(cleared)}: {', '.join(cleared)}")
     report = InvariantChecker(pipeline.storage).check()
     if args.json:
         print(json.dumps(report.as_dict(), ensure_ascii=False, indent=2))
@@ -1807,6 +1811,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     invariants = subparsers.add_parser("invariants", help="проверить инварианты состояния")
     invariants.add_argument("--json", action="store_true")
+    invariants.add_argument("--repair", action="store_true",
+                            help="снять устаревшие card_file_id (INV-3) перед проверкой")
     invariants.set_defaults(func=cmd_invariants)
 
     edge = subparsers.add_parser("edge", help="синхронизировать карточки/узлы с Cloudflare R2/D1")
