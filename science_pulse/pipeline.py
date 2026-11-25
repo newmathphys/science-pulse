@@ -402,7 +402,12 @@ class Pipeline:
             return {"ok": False, "error": "публикация на паузе"}
 
         if self.d1_primary_enabled():
-            self.pull_state()
+            pull = self.pull_state()
+            # Сбойный pull нельзя игнорировать: в эфемерном CI пустая БД означала бы
+            # повторный харвест канона и ПЕРЕВЫПУСК уже вышедших постов. Пропускаем слот.
+            if not pull.get("ok") and not force and post_id is None:
+                LOGGER.warning("D1 pull не удался — публикация отложена: %s", pull.get("error"))
+                return self._deferred("state", f"pull из D1 не удался: {pull.get('error')}")
 
         if not force and not dry_run:
             last = self.storage.last_published()

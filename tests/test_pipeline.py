@@ -158,6 +158,26 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(self.storage.get_post("bad1").status, "rejected")
         self.assertEqual(self.storage.count("published"), 1)
 
+    def test_run_defers_when_d1_pull_fails(self):
+        """Сбойный pull D1 не должен публиковать из пустой БД (иначе дубли-перевыпуск)."""
+        from contextlib import contextmanager
+        from unittest import mock
+
+        @contextmanager
+        def ok_guard(self, ttl_s=900):
+            yield {"ok": True}
+
+        self.sources.posts = [post("math1", "math")]
+        with mock.patch.object(Pipeline, "d1_primary_enabled", return_value=True), \
+                mock.patch.object(Pipeline, "state_guard", ok_guard), \
+                mock.patch.object(Pipeline, "pull_state",
+                                  return_value={"ok": False, "error": "boom"}):
+            result = self.pipeline.run(build_site=False)
+        self.assertTrue(result.get("ok"))
+        self.assertTrue(result.get("deferred"))
+        self.assertEqual(result.get("reason"), "state")
+        self.assertEqual(self.storage.count("published"), 0)
+
     def test_priority_post_is_chosen_first(self):
         """Пост с meta.priority>=100 (trend/pick) выходит вне общего порядка."""
         self.pipeline.harvest()
