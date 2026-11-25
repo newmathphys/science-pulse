@@ -82,6 +82,13 @@ class MergeTests(unittest.TestCase):
                      meta_json='{"card_file_id_cleared": 1}')]})
         self.assertEqual(self.storage.get_post("p11").card_file_id, "")
 
+    def test_card_file_id_clear_on_fresh_import(self):
+        """Снапшот с флагом зачистки: даже при импорте в пустую БД file_id снят (CI)."""
+        self.storage.merge_snapshot({"posts": [
+            post_row("p12", "published", card_file_id="F12",
+                     meta_json='{"card_file_id_cleared": 1}')]})
+        self.assertEqual(self.storage.get_post("p12").card_file_id, "")
+
     def test_rejected_not_rolled_back_to_ready(self):
         """Карантин (`rejected`) не откатывается в `ready` при слиянии снимков."""
         self.storage.add_post(make_post("p8"))

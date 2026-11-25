@@ -150,18 +150,19 @@ def _upsert(connection: sqlite3.Connection, table: str, row: Dict[str, Any]) -> 
 
 def _join_post(local: Dict[str, Any] | None, remote: Dict[str, Any]) -> Dict[str, Any]:
     if not local:
-        return dict(remote)
-    merged = dict(local)
-    if STATUS_RANK.get(str(remote.get("status")), 0) > STATUS_RANK.get(str(local.get("status")), 0):
-        merged["status"] = remote["status"]
-    for field in POST_MERGE_TEXT:
-        if field == "meta_json":
-            merged[field] = _join_meta_json(local.get("meta_json"), remote.get("meta_json"))
-        else:
-            merged[field] = _join_text(local.get(field), remote.get(field))
-    merged["quality"] = _join_num(local.get("quality"), remote.get("quality"))
-    # Явная зачистка card_file_id (INV-3): флаг в мете сильнее «непустое побеждает»,
-    # иначе стереть устаревший file_id через слияние невозможно.
+        merged = dict(remote)
+    else:
+        merged = dict(local)
+        if STATUS_RANK.get(str(remote.get("status")), 0) > STATUS_RANK.get(str(local.get("status")), 0):
+            merged["status"] = remote["status"]
+        for field in POST_MERGE_TEXT:
+            if field == "meta_json":
+                merged[field] = _join_meta_json(local.get("meta_json"), remote.get("meta_json"))
+            else:
+                merged[field] = _join_text(local.get(field), remote.get(field))
+        merged["quality"] = _join_num(local.get("quality"), remote.get("quality"))
+    # Явная зачистка card_file_id (INV-3): флаг в мете сильнее «непустое побеждает»
+    # и действует и при импорте в пустую БД (иначе устаревший file_id вернулся бы).
     try:
         meta = json.loads(merged.get("meta_json") or "{}")
     except (TypeError, ValueError):
