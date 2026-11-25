@@ -468,6 +468,51 @@ class Storage:
                 (file_id, post_id),
             )
 
+    def repair_missing_publications(self) -> List[str]:
+        """Восстановить строки публикаций у `published`-постов без успешной.
+
+        Строки публикаций терялись сбоем слияния D1 (откат транзакции), но факт
+        выхода поста зафиксирован в самом посте: `card_file_id` (Telegram вернул
+        file_id только после успешной отправки), `meta.threads_video_id` (Threads)
+        и статус `published` со страницей сайта (manual). Восстанавливаем, чтобы
+        INV-2 держался и пост **не** был перевыпущен.
+        """
+        repaired: List[str] = []
+        with self.cursor() as connection:
+            rows = connection.execute(
+                "SELECT id, card_file_id, meta_json, published_at FROM posts "
+                "WHERE status = 'published' AND NOT EXISTS "
+                "(SELECT 1 FROM publications pub WHERE pub.post_id = posts.id AND pub.status = 'ok')"
+            ).fetchall()
+            for row in rows:
+                post_id = row["id"]
+                try:
+                    meta = json.loads(row["meta_json"] or "{}")
+                except (TypeError, ValueError):
+                    meta = {}
+                evidence: List[tuple] = []
+                if row["card_file_id"]:
+                    evidence.append(("telegram", "", ""))
+                threads_id = str(meta.get("threads_video_id") or "")
+                if threads_id:
+                    evidence.append(
+                        ("threads", threads_id, str(meta.get("threads_video_permalink") or ""))
+                    )
+                if not evidence:
+                    evidence.append(("manual", "", ""))
+                stamp = row["published_at"] or utc_now()
+                for platform, external_id, url in evidence:
+                    connection.execute(
+                        "INSERT INTO publications "
+                        "(post_id, platform, external_id, url, status, error, created_at) "
+                        "VALUES (?, ?, ?, ?, 'ok', 'восстановлено invariants --repair', ?) "
+                        "ON CONFLICT(post_id, platform) DO UPDATE SET "
+                        "status = 'ok', error = 'восстановлено invariants --repair'",
+                        (post_id, platform, external_id, url, stamp),
+                    )
+                repaired.append(post_id)
+        return repaired
+
     def clear_orphan_card_file_ids(self) -> List[str]:
         """Снять `card_file_id` у постов без успешной telegram-публикации.
 

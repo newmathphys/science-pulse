@@ -55,6 +55,35 @@ class InvariantTests(unittest.TestCase):
         report = self.checker.check()
         self.assertIn("INV-3", {item.code for item in report.violations})
 
+    def test_repair_missing_publications_from_evidence(self):
+        # Пост вышел (file_id от Telegram + video_id от Threads), но строки
+        # публикаций потеряны сбоем слияния. Починка восстанавливает их из фактов.
+        post = make_post()
+        self.storage.add_post(post)
+        self.storage.mark_published(post.id, card_file_id="FILE1")
+        self.storage.set_post_meta(post.id, "threads_video_id", "999")
+        self.assertFalse(self.checker.check().ok)
+        repaired = self.storage.repair_missing_publications()
+        self.assertEqual(repaired, [post.id])
+        self.assertTrue(self.checker.check().ok)
+        with self.storage.cursor() as connection:
+            platforms = {
+                row["platform"]
+                for row in connection.execute(
+                    "SELECT platform FROM publications WHERE post_id = ?", (post.id,)
+                )
+            }
+        self.assertEqual(platforms, {"telegram", "threads"})
+
+    def test_repair_missing_publications_manual_fallback(self):
+        # Пост без telegram/threads-следов (вышел только на сайт) — восстанавливаем
+        # как manual, чтобы INV-2 держался и пост не перевыпускался.
+        post = make_post()
+        self.storage.add_post(post)
+        self.storage.mark_published(post.id)
+        self.storage.repair_missing_publications()
+        self.assertTrue(self.checker.check().ok)
+
     def test_telegram_text_fallback_not_violation(self):
         # Telegram может опубликовать текст без фото (fallback) — это не нарушение.
         post = make_post()

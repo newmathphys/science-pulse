@@ -610,6 +610,9 @@ def cmd_invariants(args: argparse.Namespace) -> int:
 
     pipeline = _pipeline(args)
     if getattr(args, "repair", False):
+        restored = pipeline.storage.repair_missing_publications()
+        if restored:
+            print(f"Починено: восстановлены публикации у {len(restored)}: {', '.join(restored)}")
         cleared = pipeline.storage.clear_orphan_card_file_ids()
         if cleared:
             print(f"Починено: снят устаревший card_file_id у {len(cleared)}: {', '.join(cleared)}")
@@ -1812,7 +1815,7 @@ def build_parser() -> argparse.ArgumentParser:
     invariants = subparsers.add_parser("invariants", help="проверить инварианты состояния")
     invariants.add_argument("--json", action="store_true")
     invariants.add_argument("--repair", action="store_true",
-                            help="снять устаревшие card_file_id (INV-3) перед проверкой")
+                            help="восстановить публикации (INV-2), снять устаревшие card_file_id (INV-3)")
     invariants.set_defaults(func=cmd_invariants)
 
     edge = subparsers.add_parser("edge", help="синхронизировать карточки/узлы с Cloudflare R2/D1")

@@ -83,6 +83,24 @@ class D1PrimaryTests(unittest.TestCase):
         self.assertEqual(calls["pull"], 1)
         self.assertEqual(calls["push"], 1)
 
+    def test_harvest_skips_when_pull_fails(self):
+        """Сбойный pull D1 не должен приводить к добыче с пустой БД (иначе харвест
+        канона → ПЕРЕВЫПУСК уже вышедших постов). Симметрично publish_next."""
+        calls = {"push": 0}
+
+        def fake_push(self, batch_size=200):
+            calls["push"] += 1
+            return {"ok": True, "rows": 0}
+
+        with patch.dict("os.environ", ENV, clear=False), patch.object(
+            StateSync, "acquire_lock", return_value={"ok": True, "owner": "test"}
+        ), patch.object(StateSync, "release_lock", return_value={"ok": True}), patch.object(
+            StateSync, "pull", return_value={"ok": False, "error": "network down"}
+        ), patch.object(StateSync, "push", fake_push):
+            added = self.pipeline.harvest()
+        self.assertEqual(added, 0)
+        self.assertEqual(calls["push"], 0)
+
     def test_publish_defers_when_lock_busy(self):
         with patch.dict("os.environ", ENV, clear=False), patch.object(
             StateSync, "acquire_lock", return_value={"ok": False, "locked": True, "error": "busy"}

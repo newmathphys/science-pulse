@@ -137,7 +137,13 @@ class Pipeline:
         include_offline: bool = False,
     ) -> int:
         if self.d1_primary_enabled():
-            self.pull_state()
+            pull = self.pull_state()
+            # Сбойный pull нельзя «пережить» добычей: в эфемерном CI пустая БД
+            # означала бы повторный харвест канона и ПЕРЕВЫПУСК уже вышедших
+            # постов. Симметрично publish_next — пропускаем добычу, слот цел.
+            if not pull.get("ok"):
+                LOGGER.warning("D1 pull не удался — добыча пропущена: %s", pull.get("error"))
+                return 0
         if self.storage.count("ready") >= self.config.max_queue:
             LOGGER.info("Очередь заполнена (%s), добыча пропущена", self.config.max_queue)
             return 0
