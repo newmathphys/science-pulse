@@ -222,6 +222,13 @@ export default {
       const tables = body.tables || {};
       let applied = 0;
       let skipped = 0;
+      // Посты, приходящие в этом же запросе: их публикации/метрики не «сироты» —
+      // пост вставится тем же атомарным батчем.
+      const requestPostIds = new Set();
+      for (const row of tables.posts || []) {
+        if (row && row.id) requestPostIds.add(row.id);
+      }
+      const statements = [];
       for (const [table, rows] of Object.entries(tables)) {
         if (!STATE_TABLES.includes(table) || !Array.isArray(rows)) continue;
         for (const row of rows) {
@@ -229,7 +236,7 @@ export default {
           if (!columns.length) continue;
           // D1 не умеет FOREIGN KEY, поэтому guard на сервере: публикация/метрика
           // без своего поста — «сирота», на которой затем падает клиентский pull.
-          if ((table === "publications" || table === "metrics") && row.post_id) {
+          if ((table === "publications" || table === "metrics") && row.post_id && !requestPostIds.has(row.post_id)) {
             const post = await env.DB.prepare("SELECT 1 AS ok FROM posts WHERE id = ?1")
               .bind(row.post_id)
               .first();
@@ -240,13 +247,23 @@ export default {
           }
           await applyMonotonic(env, table, row);
           const placeholders = columns.map((_, index) => `?${index + 1}`).join(", ");
-          await env.DB.prepare(
-            `INSERT OR REPLACE INTO ${table} (${columns.join(", ")}) VALUES (${placeholders})`
-          )
-            .bind(...columns.map((column) => row[column]))
-            .run();
+          statements.push(
+            env.DB.prepare(
+              `INSERT OR REPLACE INTO ${table} (${columns.join(", ")}) VALUES (${placeholders})`
+            ).bind(...columns.map((column) => row[column]))
+          );
           applied += 1;
         }
+      }
+      // Одна атомарная транзакция на запрос: при сбое откатывается весь набор,
+      // частичной реплики (пост без публикации) не остаётся.
+      try {
+        if (statements.length) await env.DB.batch(statements);
+      } catch (err) {
+        return Response.json(
+          { ok: false, error: String(err).slice(0, 300), applied: 0, skipped },
+          { status: 500, headers: CORS }
+        );
       }
       return Response.json({ ok: true, applied, skipped }, { headers: CORS });
     }

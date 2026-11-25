@@ -148,6 +148,11 @@ class StateSync:
     def export_sql(self) -> str:
         return to_sql(self.storage.snapshot())
 
+    # Зависимые от поста таблицы: их строки уходят в ОДНОМ запросе с постом,
+    # который Worker применяет атомарной транзакцией (`env.DB.batch`). Так в D1 не
+    # возникает ни «published без публикации», ни «публикация без поста».
+    DEPENDENT_TABLES = ("publications", "metrics")
+
     def push(self, batch_size: int = 200) -> Dict[str, Any]:
         if not self.available():
             return {"ok": False, "error": "CF_WORKER_URL/INGEST_SECRET не заданы", "rows": 0, "batches": 0}
@@ -159,31 +164,75 @@ class StateSync:
         failed = 0
         batches = 0
         aborted = ""
-        for table, items in snapshot.items():
-            for chunk in _chunks(items, size):
-                if not chunk:
-                    continue
-                batches += 1
-                try:
-                    response = self._post(endpoint, headers=headers, json={"tables": {table: chunk}}, timeout=60)
-                    ok = getattr(response, "status_code", 0) in (200, 201, 204)
-                except Exception as exc:
-                    LOGGER.warning("State push %s: %s", table, exc)
-                    ok = False
-                if not ok:
-                    # Прерываем push целиком: если пост не дошёл, а его публикация — дошла,
-                    # в D1 появляется «сирота», на которой потом падает любой pull.
-                    failed += len(chunk)
-                    aborted = table
-                    LOGGER.warning("State push прерван на таблице %s: батч не принят", table)
-                    break
-                rows += len(chunk)
-            if aborted:
+        for tables in self._packages(snapshot, size):
+            batches += 1
+            count = sum(len(items) for items in tables.values())
+            try:
+                response = self._post(endpoint, headers=headers, json={"tables": tables}, timeout=60)
+                ok = getattr(response, "status_code", 0) in (200, 201, 204)
+            except Exception as exc:
+                LOGGER.warning("State push %s: %s", ",".join(tables), exc)
+                ok = False
+            if not ok:
+                # Прерываем push целиком: пост и его публикации идут одним атомарным
+                # пакетом, поэтому рассогласование в D1 создать нельзя.
+                failed += count
+                aborted = next(iter(tables), "")
+                LOGGER.warning("State push прерван на пакете %s: батч не принят", aborted)
                 break
+            rows += count
         result = {"ok": failed == 0, "rows": rows, "failed": failed, "batches": batches, "endpoint": endpoint}
         if aborted:
             result["aborted"] = aborted
         return result
+
+    def _packages(self, snapshot: Dict[str, List[Dict[str, Any]]], size: int):
+        """Самосогласованные пакеты: пост + его публикации/метрики в одном запросе.
+
+        Пакет становится одной транзакцией D1 на стороне Worker, поэтому даже сбой
+        между запросами не оставит пост без публикаций или публикацию без поста.
+        """
+        posts = snapshot.get("posts") or []
+        dependents = {table: snapshot.get(table) or [] for table in self.DEPENDENT_TABLES}
+        dep_by_post: Dict[str, Dict[str, List[Dict[str, Any]]]] = {
+            table: {} for table in self.DEPENDENT_TABLES
+        }
+        for table, items in dependents.items():
+            for row in items:
+                dep_by_post[table].setdefault(row.get("post_id"), []).append(row)
+        packages: List[Dict[str, List[Dict[str, Any]]]] = []
+        current: Dict[str, List[Dict[str, Any]]] = {}
+        current_count = 0
+        for post in posts:
+            pid = post.get("id")
+            group: Dict[str, List[Dict[str, Any]]] = {"posts": [post]}
+            for table in self.DEPENDENT_TABLES:
+                dep = dep_by_post[table].get(pid) or []
+                if dep:
+                    group[table] = dep
+            group_count = sum(len(items) for items in group.values())
+            if current_count and current_count + group_count > size:
+                packages.append(current)
+                current, current_count = {}, 0
+            for table, items in group.items():
+                current.setdefault(table, []).extend(items)
+            current_count += group_count
+        if current:
+            packages.append(current)
+        # Зависимые строки без своего поста в снимке — отдельным пакетом (Worker отклонит).
+        sent_posts = {post.get("id") for post in posts}
+        for table in self.DEPENDENT_TABLES:
+            orphans = [row for row in dependents[table] if row.get("post_id") not in sent_posts]
+            for chunk in _chunks(orphans, size):
+                packages.append({table: chunk})
+        # Независимые таблицы (sources/seen/kv) — отдельными пакетами, вне FK-связей.
+        for table, items in snapshot.items():
+            if table == "posts" or table in self.DEPENDENT_TABLES:
+                continue
+            for chunk in _chunks(items, size):
+                if chunk:
+                    packages.append({table: chunk})
+        return packages
 
     def pull(self) -> Dict[str, Any]:
         """Скачивает полный снимок D1 и монотонно сливает его в локальный SQLite."""

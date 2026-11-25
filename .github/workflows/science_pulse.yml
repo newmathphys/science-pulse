@@ -135,6 +135,15 @@ jobs:
       - name: Build site
         run: python -m science_pulse.cli site
 
+      - name: Heal state drift (INV-2/INV-3)
+        continue-on-error: true
+        env:
+          CF_WORKER_URL: ${{ secrets.CF_WORKER_URL }}
+          INGEST_SECRET: ${{ secrets.INGEST_SECRET }}
+        run: |
+          python -m science_pulse.cli invariants --repair
+          python -m science_pulse.cli state --push
+
       - name: Check invariants
         run: python -m science_pulse.cli invariants
 

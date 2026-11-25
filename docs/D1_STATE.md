@@ -72,9 +72,12 @@ Edge-таблицы (`knowledge_nodes`, `saga_transactions`, `bandit_arms`) —
 | `GET /api/state` | счётчики строк по таблицам | нет |
 | `GET /api/state?full=1` | полный снимок `{ok, tables}` для pull | `Bearer INGEST_SECRET` |
 
-`POST` пишет построчно `INSERT OR REPLACE` (белый список `STATE_TABLES`) и
-**монотонно** сливает статусы (`applyMonotonic`): старый `ready` не затирает
-`published`, непустые `card_file_id`/`published_at`/`card_path` сохраняются.
+`POST` применяет запрос **одной атомарной транзакцией** (`env.DB.batch`): пишет
+`INSERT OR REPLACE` (белый список `STATE_TABLES`) и **монотонно** сливает статусы
+(`applyMonotonic`): старый `ready` не затирает `published`, непустые
+`card_file_id`/`published_at`/`card_path` сохраняются. При сбое откатывается весь
+запрос — частичной реплики («пост без публикации») не остаётся. Публикация/метрика
+принимается, только если её пост есть в D1 **или** приходит в том же запросе.
 
 ## Использование
 

@@ -251,6 +251,23 @@ class StateTests(unittest.TestCase):
         self.assertTrue(all(len(batch) <= 2 for batch in post_batches))
         self.assertGreaterEqual(result["batches"], 2)
 
+    def test_push_packages_post_with_its_publications(self):
+        """Пост и его публикации уходят одним пакетом — «published без публикации»/
+        «публикация без поста» в D1 недостижимы даже при сбое между запросами."""
+        calls = []
+
+        def post(url, **kwargs):
+            calls.append(kwargs["json"]["tables"])
+            return FakeResponse(200)
+
+        with patch.dict("os.environ", ENV, clear=False):
+            StateSync(self.config, self.storage, http_post=post).push(batch_size=1)
+        for tables in calls:
+            if "posts" in tables:
+                ids = {row["id"] for row in tables["posts"]}
+                for pub in tables.get("publications", []):
+                    self.assertIn(pub["post_id"], ids)
+
 
 if __name__ == "__main__":
     unittest.main()
