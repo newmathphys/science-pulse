@@ -82,6 +82,17 @@ class MergeTests(unittest.TestCase):
         self.storage.merge_snapshot({"posts": [post_row("p8", "rejected")]})
         self.assertEqual(self.storage.get_post("p8").status, "rejected")
 
+    def test_orphan_publication_is_skipped(self):
+        """Публикация без своего поста не должна ронять FK-слияние (иначе CI
+        теряет состояние D1 целиком и перевыпускает уже вышедшие посты)."""
+        self.storage.add_post(make_post("p10"))
+        self.storage.merge_snapshot({"publications": [
+            {"id": 999, "post_id": "ghost", "platform": "telegram",
+             "external_id": "1", "url": "", "status": "ok", "error": None,
+             "created_at": "x"},
+        ]})
+        self.assertEqual(self.storage.publications_for("ghost"), [])
+
     def test_meta_json_merge_is_union(self):
         """Слияние меты — объединение ключей, а не «большая строка»."""
         self.storage.add_post(make_post("p9"))

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import difflib
 import json
+import logging
 import sqlite3
 import time
 from contextlib import contextmanager
@@ -10,6 +11,8 @@ from typing import Any, Dict, Iterable, List, Optional
 
 from .models import Post, PublishResult, utc_now
 from .text import hamming, simhash64
+
+LOGGER = logging.getLogger(__name__)
 
 def _parse_simhash(value: Any) -> int:
     """Читает SimHash и из hex-строки, и из старого десятичного формата."""
@@ -849,6 +852,11 @@ class Storage:
             key = (remote.get("post_id"), remote.get("platform"))
             if not key[0] or not key[1]:
                 continue
+            # Осиротевшая публикация (поста нет) роняет FOREIGN KEY и откатывает
+            # ВСЁ слияние → CI теряет состояние и перевыпускает посты. Пропускаем.
+            if not connection.execute("SELECT 1 FROM posts WHERE id = ?", (key[0],)).fetchone():
+                LOGGER.warning("Публикация без поста пропущена: %s/%s", key[0], key[1])
+                continue
             current = local.get(key)
             merged = _join_publication(current, remote)
             if current is not None and merged == current:
@@ -903,6 +911,8 @@ class Storage:
             key = (remote.get("post_id"), remote.get("platform"), remote.get("collected_at"))
             if not key[0] or not key[2] or key in existing:
                 continue
+            if not connection.execute("SELECT 1 FROM posts WHERE id = ?", (key[0],)).fetchone():
+                continue  # метрика без поста — тоже нарушила бы FK
             connection.execute(
                 "INSERT INTO metrics (post_id, platform, views, likes, replies, collected_at) VALUES (?, ?, ?, ?, ?, ?)",
                 (
