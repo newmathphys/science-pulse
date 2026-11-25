@@ -221,11 +221,23 @@ export default {
       const body = await request.json();
       const tables = body.tables || {};
       let applied = 0;
+      let skipped = 0;
       for (const [table, rows] of Object.entries(tables)) {
         if (!STATE_TABLES.includes(table) || !Array.isArray(rows)) continue;
         for (const row of rows) {
           const columns = Object.keys(row);
           if (!columns.length) continue;
+          // D1 не умеет FOREIGN KEY, поэтому guard на сервере: публикация/метрика
+          // без своего поста — «сирота», на которой затем падает клиентский pull.
+          if ((table === "publications" || table === "metrics") && row.post_id) {
+            const post = await env.DB.prepare("SELECT 1 AS ok FROM posts WHERE id = ?1")
+              .bind(row.post_id)
+              .first();
+            if (!post) {
+              skipped += 1;
+              continue;
+            }
+          }
           await applyMonotonic(env, table, row);
           const placeholders = columns.map((_, index) => `?${index + 1}`).join(", ");
           await env.DB.prepare(
@@ -236,7 +248,7 @@ export default {
           applied += 1;
         }
       }
-      return Response.json({ ok: true, applied }, { headers: CORS });
+      return Response.json({ ok: true, applied, skipped }, { headers: CORS });
     }
 
     if (url.pathname === "/api/state" && request.method === "GET") {

@@ -110,6 +110,21 @@ class StateTests(unittest.TestCase):
         self.assertIn("tables", kwargs["json"])
         self.assertIn("posts", kwargs["json"]["tables"])
 
+    def test_push_aborts_on_failed_batch(self):
+        """Сбой батча прерывает push — публикации не уйдут без своих постов (сироты в D1)."""
+        sent = []
+
+        def post(url, **kwargs):
+            table = next(iter(kwargs["json"]["tables"]))
+            sent.append(table)
+            return FakeResponse(200 if table != "posts" else 500)
+
+        with patch.dict("os.environ", ENV, clear=False):
+            result = StateSync(self.config, self.storage, http_post=post).push(batch_size=1)
+        self.assertFalse(result["ok"])
+        self.assertEqual(sent, ["posts"])
+        self.assertEqual(result.get("aborted"), "posts")
+
     def test_acquire_and_release_lock(self):
         calls = []
 

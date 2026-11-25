@@ -158,6 +158,7 @@ class StateSync:
         rows = 0
         failed = 0
         batches = 0
+        aborted = ""
         for table, items in snapshot.items():
             for chunk in _chunks(items, size):
                 if not chunk:
@@ -165,14 +166,24 @@ class StateSync:
                 batches += 1
                 try:
                     response = self._post(endpoint, headers=headers, json={"tables": {table: chunk}}, timeout=60)
-                    if getattr(response, "status_code", 0) in (200, 201, 204):
-                        rows += len(chunk)
-                    else:
-                        failed += len(chunk)
+                    ok = getattr(response, "status_code", 0) in (200, 201, 204)
                 except Exception as exc:
                     LOGGER.warning("State push %s: %s", table, exc)
+                    ok = False
+                if not ok:
+                    # Прерываем push целиком: если пост не дошёл, а его публикация — дошла,
+                    # в D1 появляется «сирота», на которой потом падает любой pull.
                     failed += len(chunk)
-        return {"ok": failed == 0, "rows": rows, "failed": failed, "batches": batches, "endpoint": endpoint}
+                    aborted = table
+                    LOGGER.warning("State push прерван на таблице %s: батч не принят", table)
+                    break
+                rows += len(chunk)
+            if aborted:
+                break
+        result = {"ok": failed == 0, "rows": rows, "failed": failed, "batches": batches, "endpoint": endpoint}
+        if aborted:
+            result["aborted"] = aborted
+        return result
 
     def pull(self) -> Dict[str, Any]:
         """Скачивает полный снимок D1 и монотонно сливает его в локальный SQLite."""
