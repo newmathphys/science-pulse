@@ -1,0 +1,91 @@
+# Science Pulse
+
+Детерминированная научная лента: математика, физика, информатика.
+Источники: Stack Exchange, OEIS, Wikipedia, arXiv, Rosetta Code, GitHub raw, SymPy/CODATA.
+
+## Posts
+- [Эталонный алгоритм: Binary search](https://newmathphys.github.io/science-pulse/post/e6fa4a482d906265.html) — cs
+- [OEIS A000045: Числа Фибоначчи: F(n) = F(n-1) + F(n-2) с F(0) = 0 и F(1) = 1](https://newmathphys.github.io/science-pulse/post/16258e404cd96a89.html) — math
+- [A*: кратчайший путь с эвристикой](https://newmathphys.github.io/science-pulse/post/c902c74329f26953.html) — cs
+- [Цилиндрические волны и функция Бесселя J_3(x)](https://newmathphys.github.io/science-pulse/post/12f822f5766278f8.html) — physics
+- [Мультипольный потенциал и полином Лежандра P_7(x)](https://newmathphys.github.io/science-pulse/post/04dadcf1ee3685b8.html) — physics
+- [Машинное обучение: градиент вместо правил](https://newmathphys.github.io/science-pulse/post/7ded43ba5b5a704f.html) — cs
+- [OEIS A000079: Степени двойки: a(n) = 2^n](https://newmathphys.github.io/science-pulse/post/a13c0fcf4c34b6da.html) — math
+- [Дифференциальные уравнения: законы в движении](https://newmathphys.github.io/science-pulse/post/dcc0408dc07368b3.html) — math
+- [Присоединённые полиномы Лагерра L_2(x)](https://newmathphys.github.io/science-pulse/post/dde4255f653f67de.html) — physics
+- [Матрицы Адамара: ортогональность на максимуме](https://newmathphys.github.io/science-pulse/post/b3139a14bc84248a.html) — cs
+- [Теорема Байеса: как обновлять убеждения](https://newmathphys.github.io/science-pulse/post/f487828e954ca29f.html) — math
+- [Малая теорема Ферма: арифметика остатков](https://newmathphys.github.io/science-pulse/post/5dcdb44e25d8ac27.html) — math
+- [Радиальная орбиталь атома и полином Лагерра L_2(x)](https://newmathphys.github.io/science-pulse/post/cc7e4fc72e351897.html) — physics
+- [Квантовый осциллятор и полином Эрмита H_6(x)](https://newmathphys.github.io/science-pulse/post/35ab751cd196a8c3.html) — physics
+- [Гомеостаз: система, которая держит себя](https://newmathphys.github.io/science-pulse/post/63e69919a8bdfdb9.html) — cs
+- [Полиномы Гегенбауэра и многомерные гармоники C_3(x)](https://newmathphys.github.io/science-pulse/post/ccd5919fc028e90d.html) — physics
+- [Мультипольный потенциал и полином Лежандра P_5(x)](https://newmathphys.github.io/science-pulse/post/cea32f09fdcce2f6.html) — physics
+- [Теория информации: сколько стоит неопределённость](https://newmathphys.github.io/science-pulse/post/fd3a077a2f7f1e50.html) — cs
+- [Вероятность: язык неопределённости](https://newmathphys.github.io/science-pulse/post/af56c97b70a4e763.html) — math
+- [Квантовый осциллятор и полином Эрмита H_2(x)](https://newmathphys.github.io/science-pulse/post/e6eb63b9f7bcfba0.html) — physics
+- [Что делает теорию «квантовой»?](https://newmathphys.github.io/science-pulse/post/09c2696cc8ee193d.html) — physics
+- [Эталонный алгоритм: Fast Fourier transform](https://newmathphys.github.io/science-pulse/post/06f8a6cdd9c4dda4.html) — physics
+- [Обратная связь: управление по ошибке](https://newmathphys.github.io/science-pulse/post/de6d6c59f0fbb271.html) — cs
+- [Гаусс: нормальное распределение и метод наименьших квадратов](https://newmathphys.github.io/science-pulse/post/2f07486de10e7b18.html) — math
+- [Левент Альпёге утверждает, что у него есть доказательство обобщенной гипотезы Римана](https://newmathphys.github.io/science-pulse/post/0b41bf67034ce73f.html) — math
+- [В чем суть гамильтоновой механики?](https://newmathphys.github.io/science-pulse/post/2294e97f060fe2e2.html) — physics
+- [Калман: фильтр, который ведёт «Аполлон» и GPS](https://newmathphys.github.io/science-pulse/post/62ca3a66e7f5dc8b.html) — cs
+- [Производная: мгновенная скорость изменения](https://newmathphys.github.io/science-pulse/post/d91068d543096392.html) — math
+- [Пространственные модели выбора транспорта в Нитерое](https://newmathphys.github.io/science-pulse/post/1aca3afb13109baf.html) — physics
+- [Обезразмеривание](https://newmathphys.github.io/science-pulse/post/902c2cdbd6693e92.html) — physics
+- [Физическая величина (физика)](https://newmathphys.github.io/science-pulse/post/dcb68a607280174f.html) — physics
+- [Алгоритмы на графах: кратчайший путь](https://newmathphys.github.io/science-pulse/post/1a4aafbbb89cbc73.html) — cs
+- [Неопределённость: предел одновременного измерения](https://newmathphys.github.io/science-pulse/post/5f03508a3dbc2d9c.html) — physics
+- [Планк: квант энергии и рождение квантовой физики](https://newmathphys.github.io/science-pulse/post/d9e524f3d70cf56b.html) — physics
+- [Хеш-таблица: поиск за постоянное время](https://newmathphys.github.io/science-pulse/post/38c44a7e051ce650.html) — cs
+- [Комплексные числа: поворот на плоскости](https://newmathphys.github.io/science-pulse/post/af9a41c72da56022.html) — math
+- [Туннелирование и альфа-распад: квантовый выход сквозь стену](https://newmathphys.github.io/science-pulse/post/5b2547e132b7f8e7.html) — physics
+- [Шрёдингер: волновое уравнение и рождение квантовой механики](https://newmathphys.github.io/science-pulse/post/da50b9ddca2fc4ef.html) — physics
+- [Гравитационные волны: рябь пространства-времени](https://newmathphys.github.io/science-pulse/post/9cfa5364b3c4b523.html) — physics
+- [Конечные автоматы: память из состояний](https://newmathphys.github.io/science-pulse/post/07d93e7acbdea76d.html) — cs
+- [Матрицы: линейное преобразование как таблица чисел](https://newmathphys.github.io/science-pulse/post/f28ddea97ae5477d.html) — math
+- [Электромагнитная волна: свет как колебание поля](https://newmathphys.github.io/science-pulse/post/2a30dce9a9cc6610.html) — physics
+- [Термодинамика: предел тепловой машины](https://newmathphys.github.io/science-pulse/post/e74734e656497d30.html) — physics
+- [Эйнштейн: относительность времени, массы и гравитации](https://newmathphys.github.io/science-pulse/post/46bb6dd46865ca77.html) — physics
+- [Мак-Каллок и Питтс: логический нейрон и порог](https://newmathphys.github.io/science-pulse/post/05fc48247ef49651.html) — cs
+- [Векторы: направление, длина и скалярное произведение](https://newmathphys.github.io/science-pulse/post/3ccc6a778ce41f9e.html) — math
+- [Максвелл: уравнения электромагнитного поля](https://newmathphys.github.io/science-pulse/post/1c18580c1b784529.html) — physics
+- [Закон сохранения энергии: баланс без потерь](https://newmathphys.github.io/science-pulse/post/9dd269ba455fd187.html) — physics
+- [Фаза волны: почему интерференция складывает и гасит свет](https://newmathphys.github.io/science-pulse/post/35ae62ec3cae0876.html) — physics
+- [Рекурсия: задача, определённая через себя](https://newmathphys.github.io/science-pulse/post/050b515e42d3389f.html) — cs
+- [Логарифм: как превратить умножение в сложение](https://newmathphys.github.io/science-pulse/post/a66f94938b2f9dfb.html) — math
+- [Гармонический осциллятор: главная модель колебаний](https://newmathphys.github.io/science-pulse/post/f8f9769c892ffdfc.html) — physics
+- [Спутниковая интерферометрия: фазовые кольца InSAR и индекс NDVI](https://newmathphys.github.io/science-pulse/post/32873f816d03ddd7.html) — physics
+- [Двоичный код: как число становится битами памяти](https://newmathphys.github.io/science-pulse/post/d69b9eecc2b3b998.html) — cs
+- [Тригонометрия: синус и косинус на единичной окружности](https://newmathphys.github.io/science-pulse/post/ac86d1461ed6fef7.html) — math
+- [Взаимная линейность в нелинейной демографической динамике](https://newmathphys.github.io/science-pulse/post/446742acec31e400.html) — physics
+- [Тьюринг: машина, определившая границы вычислений](https://newmathphys.github.io/science-pulse/post/c78eb87834bbf3e2.html) — cs
+- [Больцман: энтропия как число состояний](https://newmathphys.github.io/science-pulse/post/c4233cddc505068c.html) — physics
+- [Буфер (информатика)](https://newmathphys.github.io/science-pulse/post/744ce28bd0fca4d7.html) — cs
+- [Раскраска онлайн-графов: конкурентные соотношения, разделяющие рандомизированные и детерминированные алгоритмы](https://newmathphys.github.io/science-pulse/post/3c66d4b6169baffd.html) — math
+- [Замыкание невещественных корней многочленов ограниченной высоты связано именно на пронических высотах](https://newmathphys.github.io/science-pulse/post/0872be7c751ad475.html) — math
+- [Числовые неравенства](https://newmathphys.github.io/science-pulse/post/369848dae208c335.html) — math
+- [Запись-ориентированная файловая система](https://newmathphys.github.io/science-pulse/post/e8f653a7010e9f74.html) — cs
+- [Шварцшильд: метрика чёрной дыры и линзирование света](https://newmathphys.github.io/science-pulse/post/65ab528d3d7fd470.html) — physics
+- [Молекулярная динамика и хаос: потенциал Леннард-Джонса и аттрактор Лоренца](https://newmathphys.github.io/science-pulse/post/96e399b46ce3fc69.html) — cs
+- [Дейкстра: кратчайший путь и дисциплина структурного кода](https://newmathphys.github.io/science-pulse/post/77475162fe6cf262.html) — cs
+- [Шеннон: энтропия и рождение теории информации](https://newmathphys.github.io/science-pulse/post/68da699cbb1069e1.html) — cs
+- [Нётер: симметрия и законы сохранения](https://newmathphys.github.io/science-pulse/post/2c754839b43829ea.html) — math
+- [Фурье: разложение сигнала на гармоники](https://newmathphys.github.io/science-pulse/post/55633bc7d11c3a61.html) — math
+- [Размерности: как угадать формулу до вывода](https://newmathphys.github.io/science-pulse/post/ed737abc3d7003a8.html) — physics
+- [Булева логика: алгебра истины](https://newmathphys.github.io/science-pulse/post/1aa7462d707784ec.html) — cs
+- [Хоар: быстрая сортировка и разделяй-и-властвуй](https://newmathphys.github.io/science-pulse/post/93cbd57074766fd6.html) — cs
+- [Бернулли: закон сохранения энергии в потоке](https://newmathphys.github.io/science-pulse/post/bc4e1c5adfb21fc2.html) — physics
+- [Ньютон и Лейбниц: производная как скорость изменения](https://newmathphys.github.io/science-pulse/post/bc6e7878c7e58a85.html) — math
+- [Эйлер: тождество, связывающее пять констант](https://newmathphys.github.io/science-pulse/post/a0adc2b75d9a159c.html) — math
+- [Ада Лавлейс: первый алгоритм и границы машины](https://newmathphys.github.io/science-pulse/post/3b4a815c0a7daf75.html) — cs
+- [Галилей: свободное падение и язык эксперимента](https://newmathphys.github.io/science-pulse/post/c11673db77921fe1.html) — physics
+- [Ньютон: закон всемирного тяготения](https://newmathphys.github.io/science-pulse/post/0212a505f66fee75.html) — physics
+- [Аль-Хорезми: алгебра как наука об уравнениях](https://newmathphys.github.io/science-pulse/post/f3ba0a10118b66cd.html) — math
+- [Лейбниц и Буль: двоичный код и логика на кремнии](https://newmathphys.github.io/science-pulse/post/eb6fd65239d8bf7b.html) — cs
+- [Евклид: алгоритм НОД — древнейший рабочий алгоритм](https://newmathphys.github.io/science-pulse/post/daa96f8f158c6deb.html) — cs
+- [Пифагор: теорема о метрике евклидова пространства](https://newmathphys.github.io/science-pulse/post/b063d20371654588.html) — math
+- [Архимед: закон гидростатики и рождение статики](https://newmathphys.github.io/science-pulse/post/2cc2003206469ece.html) — physics
+- [Гёдель: теоремы о неполноте и границы доказуемого](https://newmathphys.github.io/science-pulse/post/875447daa026b237.html) — math
+- [RSA: односторонняя функция, охраняющая интернет](https://newmathphys.github.io/science-pulse/post/d74d8f49c8df25d4.html) — cs

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hadamard matrices: orthogonality at maximum · Science Pulse</title>
+<meta name="description" content="Deterministic science canon: mathematics, physics, computer science.">
+<meta name="theme-color" content="#FAF8F4">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="alternate" hreflang="ru" href="../../index.html">
+<link rel="alternate" hreflang="en" href="../../en/index.html">
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="brand"><h1><a href="../../en/index.html" style="color:inherit">Science Pulse</a></h1>
+  <span>English edition</span><a class="lang-switch" href="../../index.html">RU</a></div>
+  <nav class="tabs">
+    <a href="../../en/index.html">Canon</a>
+    <a href="../../en/syllabus.html">Syllabus</a>
+    <a href="../../en/radio.html">Radio</a>
+    <a href="../../index.html">Русская версия</a>
+  </nav>
+</header>
+<article><a href="../index.html">← canon</a><p class="meta">§ 5.8 · Computer science</p><h1>Hadamard matrices: orthogonality at maximum</h1><p class="lead">A foundational computer science node in the Science Pulse canon. The formula, code and visual model are shown below. The full lecture is available in the Russian original.</p><div class="formula">\[ H_nH_n^T=nI, \quad H_{2n}=H_2\otimes H_n \]</div><h2>Code</h2><pre><code>def hadamard2():
+    return [[1, 1], [1, -1]]
+
+def kron(a, b):
+    return [[x * y for row in b for y in row] for row_a in a for x in row_a]</code></pre><p><a href="../../post/b3139a14bc84248a.html">Read the full lecture in Russian →</a></p></article>
+<footer>Science Pulse · source-native English edition · no LLM in content. Full lectures in Russian.</footer>
+</div>
+</body>
+</html>

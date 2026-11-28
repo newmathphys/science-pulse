@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lennard-Jones dynamics and the Lorenz attractor · Science Pulse</title>
+<meta name="description" content="Deterministic science canon: mathematics, physics, computer science.">
+<meta name="theme-color" content="#FAF8F4">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="alternate" hreflang="ru" href="../../index.html">
+<link rel="alternate" hreflang="en" href="../../en/index.html">
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="brand"><h1><a href="../../en/index.html" style="color:inherit">Science Pulse</a></h1>
+  <span>English edition</span><a class="lang-switch" href="../../index.html">RU</a></div>
+  <nav class="tabs">
+    <a href="../../en/index.html">Canon</a>
+    <a href="../../en/syllabus.html">Syllabus</a>
+    <a href="../../en/radio.html">Radio</a>
+    <a href="../../index.html">Русская версия</a>
+  </nav>
+</header>
+<article><a href="../index.html">← canon</a><p class="meta">§ 6.2 · Computer science</p><h1>Lennard-Jones dynamics and the Lorenz attractor</h1><p class="lead">A foundational computer science node in the Science Pulse canon. The formula, code and visual model are shown below. The full lecture is available in the Russian original.</p><div class="formula">\[ V(r) = 4\varepsilon\left[\left(\frac{\sigma}{r}\right)^{12} - \left(\frac{\sigma}{r}\right)^{6}\right] \]</div><h2>Code</h2><pre><code>def lennard_jones(r: float, epsilon: float = 1.0, sigma: float = 1.0) -&gt; float:
+    sr6 = (sigma / r) ** 6
+    return 4.0 * epsilon * (sr6 * sr6 - sr6)
+
+def lorenz_step(state, dt, sigma=10.0, rho=28.0, beta=8/3):
+    x, y, z = state
+    return (x + dt * sigma * (y - x),
+            y + dt * (x * (rho - z) - y),
+            z + dt * (x * y - beta * z))</code></pre><p><a href="../../post/96e399b46ce3fc69.html">Read the full lecture in Russian →</a></p></article>
+<footer>Science Pulse · source-native English edition · no LLM in content. Full lectures in Russian.</footer>
+</div>
+</body>
+</html>

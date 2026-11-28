@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A*: shortest path with a heuristic · Science Pulse</title>
+<meta name="description" content="Deterministic science canon: mathematics, physics, computer science.">
+<meta name="theme-color" content="#FAF8F4">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="alternate" hreflang="ru" href="../../index.html">
+<link rel="alternate" hreflang="en" href="../../en/index.html">
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="brand"><h1><a href="../../en/index.html" style="color:inherit">Science Pulse</a></h1>
+  <span>English edition</span><a class="lang-switch" href="../../index.html">RU</a></div>
+  <nav class="tabs">
+    <a href="../../en/index.html">Canon</a>
+    <a href="../../en/syllabus.html">Syllabus</a>
+    <a href="../../en/radio.html">Radio</a>
+    <a href="../../index.html">Русская версия</a>
+  </nav>
+</header>
+<article><a href="../index.html">← canon</a><p class="meta">§ 6.6 · Computer science</p><h1>A*: shortest path with a heuristic</h1><p class="lead">A foundational computer science node in the Science Pulse canon. The formula, code and visual model are shown below. The full lecture is available in the Russian original.</p><div class="formula">\[ f(n) = g(n) + h(n), \quad h(n) \leq h^{*}(n) \]</div><h2>Code</h2><pre><code>import heapq
+
+def astar(start, goal, neighbors, h):
+    open_set = [(h(start), 0, start)]
+    best = {start: 0}
+    while open_set:
+        _, g, node = heapq.heappop(open_set)
+        if node == goal:
+            return g
+        for nxt, cost in neighbors(node):
+            new_g = g + cost
+            if new_g &lt; best.get(nxt, float(&#x27;inf&#x27;)):
+                best[nxt] = new_g
+                heapq.heappush(open_set, (new_g + h(nxt), new_g, nxt))
+    return None</code></pre><p><a href="../../post/c902c74329f26953.html">Read the full lecture in Russian →</a></p></article>
+<footer>Science Pulse · source-native English edition · no LLM in content. Full lectures in Russian.</footer>
+</div>
+</body>
+</html>
